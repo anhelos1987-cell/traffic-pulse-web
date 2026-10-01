@@ -2,7 +2,7 @@
   'use strict';
 
   const BUILD_MODE = 'production';
-  const BUILD_VERSION = 'M195-HF06-VKPLAY-BILLING-DIAG-RC1';
+  const BUILD_VERSION = 'M195-HF07-VKPLAY-JSAPI-BILLING-RC1';
   const IS_DEVELOPMENT = BUILD_MODE === 'development';
   const PLATFORM_TARGET = 'vkplay'; // browser release target: VK Play iframe
   const YANDEX_PUBLIC_LEADERBOARD_NAME = 'TrafficPulseStars';
@@ -219,8 +219,8 @@
 
   Object.assign(TEXT.ru,{medals:'Медали',medalQueue:'Чистая очередь',medalSwitch:'Точный диспетчер',medalFlow:'Идеальный поток',medalPriority:'Приоритет спасения',medalIncident:'Контроль происшествия',medalNew:'Новая медаль',campaignMedals:'Медали района'});
   Object.assign(TEXT.en,{medals:'Medals',medalQueue:'Queue Control',medalSwitch:'Signal Discipline',medalFlow:'Perfect Flow',medalPriority:'Emergency Priority',medalIncident:'Incident Control',medalNew:'New medal',campaignMedals:'District medals'});
-  Object.assign(TEXT.ru,{vkBillingPack:'500 монет',vkBillingPrice:'99 ₽ · VK Play',vkBillingBuy:'Купить',vkBillingOpening:'Открываем…',vkBillingPending:'Оплата открыта · после оплаты вернись в игру',vkBillingUnavailable:'Покупки пока недоступны',vkBillingMissing:'VK Play не передал',vkBillingCurrency:'Валюта VK Play',vkBillingError:'Не удалось открыть оплату',vkBillingPopup:'Разреши открытие платёжного окна',vkBillingReceived:'Покупка подтверждена',vkBillingStore:'Пополнить монеты'});
-  Object.assign(TEXT.en,{vkBillingPack:'500 coins',vkBillingPrice:'99 ₽ · VK Play',vkBillingBuy:'Buy',vkBillingOpening:'Opening…',vkBillingPending:'Payment opened · return to the game after paying',vkBillingUnavailable:'Purchases are not ready yet',vkBillingMissing:'VK Play did not pass',vkBillingCurrency:'VK Play currency',vkBillingError:'Could not open payment',vkBillingPopup:'Allow the payment window to open',vkBillingReceived:'Purchase confirmed',vkBillingStore:'Get more coins'});
+  Object.assign(TEXT.ru,{vkBillingPack:'500 монет',vkBillingPrice:'99 ₽ · VK Play',vkBillingBuy:'Купить',vkBillingOpening:'Открываем…',vkBillingPending:'Оплата открыта · после оплаты вернись в игру',vkBillingUnavailable:'Покупки доступны только внутри VK Play',vkBillingError:'Не удалось открыть оплату',vkBillingPopup:'Разреши открытие платёжного окна',vkBillingReceived:'Покупка подтверждена',vkBillingStore:'Пополнить монеты'});
+  Object.assign(TEXT.en,{vkBillingPack:'500 coins',vkBillingPrice:'99 ₽ · VK Play',vkBillingBuy:'Buy',vkBillingOpening:'Opening…',vkBillingPending:'Payment opened · return to the game after paying',vkBillingUnavailable:'Purchases are available only inside VK Play',vkBillingError:'Could not open payment',vkBillingPopup:'Allow the payment window to open',vkBillingReceived:'Purchase confirmed',vkBillingStore:'Get more coins'});
 
 
   const SAVE_KEY = 'traffic_pulse_save_v4';
@@ -462,29 +462,175 @@
     shouldRequestFullscreen(){return false;}, showFullscreen(){return Promise.resolve(false);}, showRewarded(){return Promise.resolve(false);}
   };
 
-  // M195 Hotfix05: VK Play test billing. The browser never sees VKPLAY_SECRET.
-  // Purchased coin packs are imported from the server ledger by monotonic paid-total watermark,
-  // so repeated callbacks/focus events cannot credit the same purchase twice locally.
+  // M195 Hotfix07: official VK Play browser JS API integration.
+  // Test iFrames expose the platform binding through mailru.core.js / iframeApi.
+  // Do not rely on sign/uid/appid query parameters in the test frame.
   const VKPLAY_BILLING_API='https://traffic-pulse-billing.anhelos1987.workers.dev';
+  const VKPLAY_GMRID=50363;
   const VKPLAY_BILLING_SKU='coins_500';
   const VKPLAY_BILLING_PACK_COINS=500;
+  const VKPLAY_BILLING_PRICE_RUB=99;
+
   const VKBilling={
-    busy:false,pollTimer:0,lastSyncAt:0,
-    launchContext(){const q=new URLSearchParams(location.search);return{sign:q.get('sign')||'',uid:q.get('uid')||'',appid:q.get('appid')||'',currency:(q.get('currency')||'').toUpperCase(),lang:q.get('lang')||''};},
-    hasLaunchContext(){const c=this.launchContext();return Boolean(c.sign&&c.uid&&c.appid&&c.currency&&c.lang);},
-    missingLaunchFields(){const c=this.launchContext();return ['sign','uid','appid','currency','lang'].filter(k=>!c[k]);},
-    canOffer(){const c=this.launchContext();return PLATFORM_TARGET==='vkplay'&&this.hasLaunchContext()&&c.currency==='RUB';},
-    async request(path,payload){const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),8000);try{const response=await fetch(VKPLAY_BILLING_API+path,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload),cache:'no-store',credentials:'omit',signal:controller.signal});let data=null;try{data=await response.json();}catch(_){}if(!response.ok)throw new Error(data?.message||data?.error||`billing_http_${response.status}`);return data||{};}finally{clearTimeout(timer);}},
-    async sync(reason='manual'){
-      if(!this.hasLaunchContext())return false;const now=Date.now();if(reason!=='poll'&&now-this.lastSyncAt<1200)return false;this.lastSyncAt=now;
-      try{const data=await this.request('/api/player/state',{launch:this.launchContext()});const paidTotal=safeInt(data?.coins,0,1_000_000_000_000,0),credited=safeInt(save.vkPaidCoinsCredited,0,1_000_000_000_000,0);if(paidTotal<=credited)return false;const delta=paidTotal-credited;save.coins=safeInt(save.coins+delta,0,1_000_000_000_000,save.coins);save.vkPaidCoinsCredited=paidTotal;persist();updateHud();toast(`${T.vkBillingReceived}: +${delta} ${T.coins}`);if(overlayVisible()&&String($('modal-title')?.textContent||'').includes(T.garage))showGarage('rerender');return true;}catch(err){YandexAudit.mark('vkplay:billing:sync-error',String(err?.message||err));return false;}
+    externalApi:null,connected:false,connecting:false,loginStatus:-1,uid:'',error:'',busy:false,pollTimer:0,lastSyncAt:0,
+    authResolve:null,authReject:null,authTimer:0,
+    t(ru,en){return lang==='ru'?ru:en;},
+    refreshGarage(){
+      if(overlayVisible()&&String($('modal-title')?.textContent||'').includes(T.garage))showGarage('rerender');
     },
-    beginPolling(){if(this.pollTimer)clearInterval(this.pollTimer);const startCredit=safeInt(save.vkPaidCoinsCredited,0,1_000_000_000_000,0),started=Date.now();this.pollTimer=setInterval(async()=>{const changed=await this.sync('poll');if(changed||save.vkPaidCoinsCredited>startCredit||Date.now()-started>120000){clearInterval(this.pollTimer);this.pollTimer=0;}},2200);},
+    statusText(){
+      if(this.error==='iframe_api_missing')return this.t('VK Play API не найден в тестовом iFrame','VK Play API was not found in the test iFrame');
+      if(this.error)return this.t(`Ошибка VK Play API: ${this.error}`,`VK Play API error: ${this.error}`);
+      if(!this.connected)return this.t('Подключение к VK Play…','Connecting to VK Play…');
+      if(this.loginStatus===0)return this.t('Нужно войти в VK Play','Sign in to VK Play');
+      if(this.loginStatus===1)return this.t('Нужно подтвердить регистрацию в игре','Game registration is required');
+      if(this.loginStatus>=2&&!this.uid)return this.t('Получение профиля VK Play…','Loading VK Play profile…');
+      if(this.loginStatus>=2&&this.uid)return `VK Play · UID ${this.uid}`;
+      return this.t('Проверка авторизации VK Play…','Checking VK Play authorization…');
+    },
+    actionLabel(){
+      if(!this.connected)return this.t('Подключение…','Connecting…');
+      if(this.loginStatus===0)return this.t('Войти','Sign in');
+      if(this.loginStatus===1)return this.t('Регистрация','Register');
+      if(this.canOffer())return T.vkBillingBuy;
+      return this.t('Пока недоступно','Unavailable');
+    },
+    canOffer(){return PLATFORM_TARGET==='vkplay'&&this.connected&&this.loginStatus>=2&&Boolean(this.uid)&&Boolean(this.externalApi);},
+    async init(){
+      if(PLATFORM_TARGET!=='vkplay'||this.connecting||this.connected)return false;
+      this.connecting=true;this.error='';
+      try{
+        if(typeof window.iframeApi!=='function'){this.error='iframe_api_missing';return false;}
+        const callbacks={
+          appid:VKPLAY_GMRID,
+          getLoginStatusCallback:(status)=>this.onLoginStatus(status),
+          userInfoCallback:(info)=>this.onUserInfo(info),
+          userProfileCallback:()=>{},
+          registerUserCallback:(info)=>this.onRegistered(info),
+          paymentFrameUrlCallback:()=>{},
+          getAuthTokenCallback:(token)=>this.onAuthToken(token),
+          paymentReceivedCallback:(data)=>this.onPaymentReceived(data),
+          paymentWindowClosedCallback:()=>this.onPaymentWindowClosed(),
+          userConfirmCallback:()=>{},
+          paymentFrameItem:()=>{},
+          getGameInventoryItems:()=>{}
+        };
+        this.externalApi=await withTimeout(window.iframeApi(callbacks),5000,'vkplay iframeApi');
+        this.connected=Boolean(this.externalApi);
+        if(!this.connected)throw new Error('connect_failed');
+        YandexAudit.mark('vkplay:jsapi:connected',String(VKPLAY_GMRID));
+        this.externalApi.getLoginStatus();
+        return true;
+      }catch(err){
+        this.error=String(err?.message||err||'connect_failed');
+        YandexAudit.mark('vkplay:jsapi:error',this.error);
+        return false;
+      }finally{
+        this.connecting=false;this.refreshGarage();
+      }
+    },
+    onLoginStatus(status){
+      if(status?.status!=='ok'){this.error=String(status?.errmsg||status?.errcode||'login_status_error');this.refreshGarage();return;}
+      this.error='';this.loginStatus=safeInt(status.loginStatus,0,3,-1);
+      YandexAudit.mark('vkplay:login-status',String(this.loginStatus));
+      if(this.loginStatus>=2){try{this.externalApi?.userInfo();}catch(err){this.error=String(err?.message||err);}}
+      this.refreshGarage();
+    },
+    onUserInfo(info){
+      if(info?.status==='ok'&&info?.uid!=null){this.uid=String(info.uid);this.error='';YandexAudit.mark('vkplay:user-info','ok');void this.sync('userinfo');}
+      else this.error=String(info?.errmsg||info?.errcode||'user_info_error');
+      this.refreshGarage();
+    },
+    onRegistered(info){
+      if(info?.status==='ok'&&info?.uid!=null){this.uid=String(info.uid);this.loginStatus=2;this.error='';YandexAudit.mark('vkplay:registered','ok');void this.sync('registered');}
+      else this.error=String(info?.errmsg||info?.errcode||'register_error');
+      this.refreshGarage();
+    },
+    onAuthToken(token){
+      clearTimeout(this.authTimer);this.authTimer=0;
+      const resolve=this.authResolve,reject=this.authReject;this.authResolve=null;this.authReject=null;
+      if(token?.status==='ok'&&token?.uid!=null&&token?.hash){resolve?.({uid:String(token.uid),hash:String(token.hash)});}
+      else reject?.(new Error(String(token?.errmsg||token?.errcode||'auth_token_error')));
+    },
+    getAuthToken(){
+      if(!this.canOffer()||!this.externalApi?.getAuthToken)return Promise.reject(new Error('vkplay_not_authorized'));
+      if(this.authResolve)return Promise.reject(new Error('auth_token_busy'));
+      return new Promise((resolve,reject)=>{
+        this.authResolve=resolve;this.authReject=reject;
+        this.authTimer=setTimeout(()=>{this.authTimer=0;this.authResolve=null;this.authReject=null;reject(new Error('auth_token_timeout'));},6000);
+        try{this.externalApi.getAuthToken();}catch(err){clearTimeout(this.authTimer);this.authTimer=0;this.authResolve=null;this.authReject=null;reject(err);}
+      });
+    },
+    async request(path,payload){
+      const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),9000);
+      try{
+        const response=await fetch(VKPLAY_BILLING_API+path,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload),cache:'no-store',credentials:'omit',signal:controller.signal});
+        let data=null;try{data=await response.json();}catch(_){}
+        if(!response.ok)throw new Error(data?.message||data?.error||`billing_http_${response.status}`);
+        return data||{};
+      }finally{clearTimeout(timer);}
+    },
+    async sync(reason='manual'){
+      if(!this.canOffer())return false;
+      const now=Date.now();if(reason!=='poll'&&now-this.lastSyncAt<1200)return false;this.lastSyncAt=now;
+      try{
+        const auth=await this.getAuthToken();
+        const data=await this.request('/api/player/state-auth',auth);
+        const paidTotal=safeInt(data?.coins,0,1_000_000_000_000,0),credited=safeInt(save.vkPaidCoinsCredited,0,1_000_000_000_000,0);
+        if(paidTotal<=credited)return false;
+        const delta=paidTotal-credited;
+        save.coins=safeInt(save.coins+delta,0,1_000_000_000_000,save.coins);
+        save.vkPaidCoinsCredited=paidTotal;
+        persist();updateHud();toast(`${T.vkBillingReceived}: +${delta} ${T.coins}`);
+        this.refreshGarage();return true;
+      }catch(err){
+        YandexAudit.mark('vkplay:billing:sync-error',String(err?.message||err));return false;
+      }
+    },
+    beginPolling(){
+      if(this.pollTimer)clearInterval(this.pollTimer);
+      const startCredit=safeInt(save.vkPaidCoinsCredited,0,1_000_000_000_000,0),started=Date.now();
+      this.pollTimer=setInterval(async()=>{
+        const changed=await this.sync('poll');
+        if(changed||save.vkPaidCoinsCredited>startCredit||Date.now()-started>120000){clearInterval(this.pollTimer);this.pollTimer=0;}
+      },2500);
+    },
+    async handleAction(){
+      if(!this.connected){await this.init();return false;}
+      if(this.loginStatus===0){try{this.externalApi?.authUser();return true;}catch(err){this.error=String(err?.message||err);this.refreshGarage();return false;}}
+      if(this.loginStatus===1){try{this.externalApi?.registerUser();return true;}catch(err){this.error=String(err?.message||err);this.refreshGarage();return false;}}
+      if(this.canOffer())return this.buyCoins500();
+      return false;
+    },
     async buyCoins500(){
-      if(this.busy)return false;if(!this.canOffer()){toast(T.vkBillingUnavailable);return false;}
-      const popup=window.open('about:blank','_blank');if(!popup){toast(T.vkBillingPopup);return false;}try{popup.opener=null;}catch(_){}
-      this.busy=true;try{const data=await this.request('/api/payment/create',{launch:this.launchContext(),item_id:VKPLAY_BILLING_SKU});if(!data?.payment_url)throw new Error('missing_payment_url');popup.location.replace(String(data.payment_url));this.beginPolling();toast(T.vkBillingPending);return true;}catch(err){try{popup.close();}catch(_){}YandexAudit.mark('vkplay:billing:create-error',String(err?.message||err));toast(T.vkBillingError);return false;}finally{this.busy=false;}
-    }
+      if(this.busy)return false;
+      if(!this.canOffer()){toast(T.vkBillingUnavailable);return false;}
+      this.busy=true;this.refreshGarage();
+      try{
+        snapshotLocalBeforeExternalTransition();
+        const orderId=(crypto?.randomUUID?.()||`tp-${Date.now()}-${Math.random().toString(16).slice(2)}`);
+        this.externalApi.paymentFrame({merchant_param:{
+          amount:VKPLAY_BILLING_PRICE_RUB,
+          currency:'RUB',
+          description:'500 монет Traffic Pulse',
+          item_id:VKPLAY_BILLING_SKU,
+          additional_param:orderId
+        }});
+        this.beginPolling();
+        toast(T.vkBillingPending);
+        YandexAudit.mark('vkplay:billing:frame-open',orderId);
+        return true;
+      }catch(err){
+        this.error=String(err?.message||err||'payment_frame_error');
+        YandexAudit.mark('vkplay:billing:create-error',this.error);toast(T.vkBillingError);return false;
+      }finally{this.busy=false;this.refreshGarage();}
+    },
+    onPaymentReceived(data){
+      if(data?.uid!=null)this.uid=String(data.uid);
+      YandexAudit.mark('vkplay:billing:received',this.uid||'unknown');
+      toast(T.vkBillingReceived);this.beginPolling();setTimeout(()=>void this.sync('payment'),800);
+    },
+    onPaymentWindowClosed(){YandexAudit.mark('vkplay:billing:window-closed');setTimeout(()=>void this.sync('payment-close'),900);}
   };
 
   // M115: compact recorded vehicle audio scene; distinct emergency recordings stay embedded/offline-friendly.
@@ -851,8 +997,7 @@
     document.documentElement.lang = lang;
     document.querySelectorAll('[data-i18n]').forEach(el=>el.textContent=T[el.dataset.i18n]);
     $('signal-label').textContent=T.switchLight;
-    $('tap-hint-text').textContent=T.tapSignal;
-    $('coin-btn').setAttribute('aria-label',T.garage);
+    $('tap-hint-text').textContent=T.tapSignal;    $('coin-btn').setAttribute('aria-label',T.garage);
     $('pause-btn').setAttribute('aria-label',T.pauseAction);
     $('daily-btn').setAttribute('aria-label',T.modesHub);$('map-btn')?.setAttribute('aria-label',T.campaignMap);
     $('restart-btn').setAttribute('aria-label',T.restart);
@@ -997,7 +1142,8 @@
   function emergencyApproachingAxis(axis,game=Game,junctionId=null){
     const lanes=Math.max(1,game.config?.lanes||1);
     if(isLinkedJunctionType(game.config?.junctionType))return game.cars.some(c=>{
-      if(!isEmergencyVehicle(c))return false;      const route=linkedRouteSpec(c.linkedRouteId),turningIntoAxis=Boolean(route?.turn&&AXIS[route.turnOutDir||route.exitDir]===axis);
+      if(!isEmergencyVehicle(c))return false;
+      const route=linkedRouteSpec(c.linkedRouteId),turningIntoAxis=Boolean(route?.turn&&AXIS[route.turnOutDir||route.exitDir]===axis);
       if(c.axis!==axis&&!turningIntoAxis)return false;
       const gate=turningIntoAxis?linkedRouteGates(c,lanes).find(g=>g.junctionId===route.turnAt):linkedNextGate(c,lanes);
       return Boolean(gate&&(!junctionId||gate.junctionId===junctionId)&&signalStateForAxis(axis,game,gate.junctionId)==='red'&&c.progress>=linkedStopTargetProgress(c,gate,lanes)-180&&c.progress<gate.lineProgress+44);
@@ -1850,8 +1996,7 @@
   }
 
   const Game = {
-    state:'boot', mode:'campaign', dailyKey:'', weeklyKey:'', scenarioId:'', scenarioDirector:null, incidentDirector:null, greenWaveId:'', greenWaveDirector:null, signalMode:'shared', signalControllers:null, greenWaveStats:null, level:save.level, config:null, cars:[], spawned:0, exited:0, phase:'H', pendingPhase:null, transitionTimer:0, endlessWave:0, endlessScore:0, endlessSessionSeed:0,
-    switches:0, spawnTimer:0, maxObservedQueue:0, elapsed:0, externalPaused:false, userPaused:false, rescueUsed:false, assistActive:false,
+    state:'boot', mode:'campaign', dailyKey:'', weeklyKey:'', scenarioId:'', scenarioDirector:null, incidentDirector:null, greenWaveId:'', greenWaveDirector:null, signalMode:'shared', signalControllers:null, greenWaveStats:null, level:save.level, config:null, cars:[], spawned:0, exited:0, phase:'H', pendingPhase:null, transitionTimer:0, endlessWave:0, endlessScore:0, endlessSessionSeed:0,    switches:0, spawnTimer:0, maxObservedQueue:0, elapsed:0, externalPaused:false, userPaused:false, rescueUsed:false, assistActive:false,
     firstInput:false, tutorialCueTimer:0, noticeTimers:[], failureUiTimer:0, coachFlags:{}, crashPair:null, crashFx:null, cameraKick:0, turnOwnerId:null, rng:Math.random, lastTs:0, lastDrawTs:0, lastHudTs:0, hudDirty:true, hudRefreshCount:0, frameId:0, accumulator:0, renderAlpha:1, particles:[], pedestrians:[], pedestrianSerial:0, pedestrianSpawnTimer:.4, pedestrianHold:false, phaseElapsed:0, emergencyPriorityId:null, flowStreak:0, maxFlowStreak:0, syncStreak:0, maxSyncStreak:0, prioritySaved:0, mission:null, lastMedalResult:null, lastPassAt:-99, failureReplayFrames:[], failureReplayClock:0, replayPlayback:null, replayTimer:0, lastFailType:'',
 
     clearNoticeTimers(){for(const id of this.noticeTimers||[])clearTimeout(id);this.noticeTimers=[];},
@@ -1996,7 +2141,8 @@
     captureFailureReplayFrame(dt=0){
       if(this.state!=='playing'||this.externalPaused||this.userPaused)return;
       this.failureReplayClock=(this.failureReplayClock||0)+Math.max(0,dt||0);if(this.failureReplayClock<.12)return;this.failureReplayClock=0;
-      const cars=this.cars.map(c=>{const p=carXY(c);return{x:Number(p.x.toFixed(1)),y:Number(p.y.toFixed(1)),rot:Number(p.rot.toFixed(3)),color:c.color,kind:c.kind,style:c.style||0,stopped:Boolean(c.stopped),violation:c.violation||'none'};});      const pedestrians=this.pedestrians.map(p=>{const q=pedestrianPose(p,this.config?.lanes||1);return{x:Number(q.x.toFixed(1)),y:Number(q.y.toFixed(1))};});
+      const cars=this.cars.map(c=>{const p=carXY(c);return{x:Number(p.x.toFixed(1)),y:Number(p.y.toFixed(1)),rot:Number(p.rot.toFixed(3)),color:c.color,kind:c.kind,style:c.style||0,stopped:Boolean(c.stopped),violation:c.violation||'none'};});
+      const pedestrians=this.pedestrians.map(p=>{const q=pedestrianPose(p,this.config?.lanes||1);return{x:Number(q.x.toFixed(1)),y:Number(q.y.toFixed(1))};});
       this.failureReplayFrames.push({t:Number(this.elapsed.toFixed(2)),phase:this.phase,transition:this.transitionTimer>0,cars,pedestrians});if(this.failureReplayFrames.length>36)this.failureReplayFrames.shift();
     },
     playFailureReplay(){
@@ -2849,8 +2995,7 @@
     drawDistrictDecor(g,theme.id);
     drawLivingCityShops(g,theme.id);
     drawNeighborhoodEdge(g,theme.id);
-    if(isLinkedJunctionType(junctionType)){
-      drawLinkedRoadSurface(g,lanes);
+    if(isLinkedJunctionType(junctionType)){      drawLinkedRoadSurface(g,lanes);
       for(const cx of [230,670]){g.save();const ring=g.createRadialGradient(cx,450,18,cx,450,104);ring.addColorStop(0,'rgba(255,255,255,.05)');ring.addColorStop(1,'rgba(255,255,255,0)');g.fillStyle=ring;g.beginPath();g.arc(cx,450,104,0,Math.PI*2);g.fill();g.restore();}
     }else{
       drawRoadSurface(g,lanes);drawSidewalkFrame(g,lanes);drawAsphaltSheen(g,lanes);drawApproachMarkings(g,lanes);drawRoadReflectors(g,lanes);drawJunctionClosure(g,junctionType,theme,lanes);
@@ -2995,7 +3140,8 @@
       g.fillStyle='rgba(7,24,38,.94)';g.strokeStyle='rgba(255,209,102,.52)';g.lineWidth=2;roundRect(g,-20,-43,40,27,8,true);roundRect(g,-20,-43,40,27,8,false);
       g.fillStyle='#ffd166';g.font='900 10px system-ui';g.textAlign='center';g.textBaseline='middle';g.fillText('BUS',0,-29);
       g.restore();
-    }    g.restore();
+    }
+    g.restore();
   }
 
   function drawPedestrians(g,game){
@@ -3848,8 +3994,7 @@
       }
       if(s.stage==='serving'){
         const wx=cx+dir*(29+Math.sin(t*1.8+k)*4),wy=cy+7;g.globalAlpha=.52;g.fillStyle='#e8c09f';g.beginPath();g.arc(wx,wy-8,2.6,0,Math.PI*2);g.fill();g.strokeStyle='#526f77';g.lineWidth=3;g.beginPath();g.moveTo(wx,wy-4);g.lineTo(wx,wy+5);g.stroke();g.fillStyle='#c9b48a';roundRect(g,wx+dir*4,wy-2,7,3,1,true);
-      }
-    }
+      }    }
     g.restore();
   }
 
@@ -3994,7 +4139,8 @@
     return {phase:r.phase,district:r.district,weather:r.weather,activity,mode,people,pulse:(t*.028+level*.053)%1};
   }
 
-  function drawRooftopLife(g,game){    if(RenderQuality.level===0||reducedMotion||isLinkedJunctionType(game.config?.junctionType))return;
+  function drawRooftopLife(g,game){
+    if(RenderQuality.level===0||reducedMotion||isLinkedJunctionType(game.config?.junctionType))return;
     const s=rooftopLifeState(game),high=RenderQuality.level>=2;
     const roofs=[[120,63],[748,68],[122,690],[748,692]];
     g.save();g.lineCap='round';
@@ -4847,8 +4993,7 @@
     const flowHot=Game.flowStreak>=6;if(HUD_CACHE.flowHot!==flowHot){HUD_CACHE.flowHot=flowHot;document.querySelector('.game-card')?.classList.toggle('flow-hot',flowHot);}
     const signalKey=independentSignals(Game)?`ind:${Object.entries(Game.signalControllers).map(([k,c])=>`${k}:${c.phase}:${c.transitionTimer>0?'t':'s'}`).join('|')}:${lang}`:`${Game.phase}:${Game.transitionTimer>0?'t':'s'}:${lang}`;if(HUD_CACHE.signalKey!==signalKey){HUD_CACHE.signalKey=signalKey;updateSignalIcon();}
     if(typeof PersonalBestService!=='undefined')PersonalBestService.renderBadge(Game);
-    // Coalescing bookkeeping. Explicit calls are also treated as a completed refresh, so the rAF
-    // loop will not immediately duplicate the same DOM work on the next frame.
+    // Coalescing bookkeeping. Explicit calls are also treated as a completed refresh, so the rAF    // loop will not immediately duplicate the same DOM work on the next frame.
     Game.hudDirty=false;Game.lastHudTs=performance.now();Game.hudRefreshCount=(Game.hudRefreshCount||0)+1;
   }
   function updateSignalIcon(){
@@ -4937,12 +5082,8 @@
     if(PLATFORM_TARGET==='vkplay'){
       const billingRow=document.createElement('div');billingRow.className='garage-row owned';billingRow.setAttribute('data-vk-billing','coins_500');
       const billingIcon=document.createElement('span');billingIcon.className='garage-preview';billingIcon.textContent='🪙';billingIcon.setAttribute('aria-hidden','true');
-      const billingCopy=document.createElement('div');const billingName=document.createElement('strong');billingName.textContent=T.vkBillingPack;const billingMeta=document.createElement('small');
-      const launch=VKBilling.launchContext(),missing=VKBilling.missingLaunchFields(),billingReady=VKBilling.canOffer();
-      billingMeta.textContent=billingReady?T.vkBillingPrice:(missing.length?`${T.vkBillingMissing}: ${missing.join(', ')}`:`${T.vkBillingCurrency}: ${launch.currency||'—'}`);
-      billingCopy.append(billingName,billingMeta);
-      const billingButton=document.createElement('button');billingButton.type='button';billingButton.textContent=billingReady?T.vkBillingBuy:T.vkBillingUnavailable;billingButton.disabled=!billingReady;
-      if(billingReady)billingButton.onclick=async()=>{if(VKBilling.busy)return;billingButton.disabled=true;billingButton.textContent=T.vkBillingOpening;await VKBilling.buyCoins500();if(billingButton.isConnected){billingButton.disabled=false;billingButton.textContent=T.vkBillingBuy;}};
+      const billingCopy=document.createElement('div');const billingName=document.createElement('strong');billingName.textContent=T.vkBillingPack;const billingMeta=document.createElement('small');billingMeta.textContent=VKBilling.canOffer()?T.vkBillingPrice:VKBilling.statusText();billingCopy.append(billingName,billingMeta);
+      const billingButton=document.createElement('button');billingButton.type='button';billingButton.textContent=VKBilling.busy?T.vkBillingOpening:VKBilling.actionLabel();billingButton.disabled=Boolean(VKBilling.busy||(!VKBilling.connected&&VKBilling.connecting));billingButton.onclick=async()=>{if(VKBilling.busy)return;billingButton.disabled=true;billingButton.textContent=T.vkBillingOpening;await VKBilling.handleAction();if(billingButton.isConnected){billingButton.disabled=Boolean(VKBilling.busy);billingButton.textContent=VKBilling.actionLabel();}};
       billingRow.append(billingIcon,billingCopy,billingButton);extra.appendChild(billingRow);
     }
     const collectionTrack=document.createElement('div');collectionTrack.className='garage-collection-track';collectionTrack.setAttribute('role','progressbar');collectionTrack.setAttribute('aria-label',T.garageCollectionProgress);collectionTrack.setAttribute('aria-valuemin','0');collectionTrack.setAttribute('aria-valuemax',String(CAR_NAMES.length));collectionTrack.setAttribute('aria-valuenow',String(ownedCount));const collectionFill=document.createElement('span');collectionFill.style.width=`${Math.round(ownedCount/CAR_NAMES.length*100)}%`;collectionTrack.appendChild(collectionFill);extra.appendChild(collectionTrack);
@@ -4993,7 +5134,8 @@
     $('modal-kicker').textContent=T.endlessDistrict;$('modal-title').textContent=`♾ ${T.endlessMode}`;$('modal-text').textContent=T.endlessDesc;$('modal-stars').textContent='';$('modal-reward').classList.add('hidden');
     const extra=$('modal-extra');extra.classList.remove('hidden');extra.textContent='';const best=document.createElement('div');best.className='daily-streak';best.textContent=`🏆 ${T.endlessBest}: ${save.endlessBestScore||0} · ${T.endlessWave} ${save.endlessBestWave||0}`;extra.appendChild(best);
     actions([{text:T.endlessStart,cls:'primary',fn:()=>beginEndless()},{text:T.close,fn:()=>{closeOverlay();if(resumeAfter){resumePausedGameplay();}else if(origin==='pause')showPause();}}]);openOverlay();
-  }  function showEndlessFail(type,improved=false){
+  }
+  function showEndlessFail(type,improved=false){
     $('modal-kicker').textContent=T.endlessDistrict;$('modal-title').textContent=improved?`🏆 ${T.endlessNewBest}`:(type==='crash'?T.crash:T.trafficJam);$('modal-text').textContent=`${T.endlessWave}: ${Game.endlessWave} · ${T.endlessScore}: ${Game.endlessScore}`;$('modal-stars').textContent='';$('modal-reward').classList.add('hidden');
     const extra=$('modal-extra');extra.classList.remove('hidden');extra.textContent=`${T.endlessBest}: ${save.endlessBestScore||0} · ${T.endlessWave} ${save.endlessBestWave||0}`;
     actions([{text:T.endlessReplay,cls:'primary',fn:()=>beginEndless()},{text:T.endlessReturn,fn:()=>Game.startLevel(save.level,false,'campaign')}]);openOverlay('fail');
@@ -5233,5 +5375,5 @@
 
   // M195 Hotfix04 VK Play browser release: production diagnostics stripped.
 
-  applyLanguage(); platform.init();
+  applyLanguage(); void VKBilling.init(); platform.init();
 })();
