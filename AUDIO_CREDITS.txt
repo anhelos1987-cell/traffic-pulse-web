@@ -1,0 +1,44 @@
+Traffic Pulse M114 — recorded vehicle audio sources
+Date: 2026-09-25
+
+Only source recordings documented as CC0 were retained for this compact audio recovery pass.
+No CC-BY, CC-BY-NC, or proprietary samples are embedded in M114.
+
+1) Emergency siren base recording
+   Original: police.wav
+   Creator: guitarguy1985
+   Original source: Freesound sound 70936
+   License recorded for the original source: CC0 1.0
+   Working reference: ESC-50 source entry 2-70936-A (category: siren), whose license manifest identifies the original as CC0.
+   M114 processing: selected energetic excerpt, mono PCM 16-bit, 8 kHz, 0.82 s, short edge fades.
+   Use in game: police / ambulance / fire each use a distinct playback-rate, gain and repeat profile so services are audibly differentiated while sharing one compact real recorded source.
+
+2) Vehicle horn base recording
+   Original: car sharp horn.wav
+   Creator: cognito perceptu
+   Original source: Freesound sound 17124
+   License recorded for the original source: CC0 1.0
+   Working reference: ESC-50 source entry 1-17124-A (category: car horn), whose license manifest identifies the original as CC0.
+   M114 processing: selected energetic excerpt, mono PCM 16-bit, 8 kHz, 0.36 s, short edge fades.
+   Use in game: civilian horn and lower-pitched heavy bus/truck horn profile.
+
+Integration notes
+- Samples are embedded in app.js as base64 WAV data: no runtime CDN/network dependency.
+- WebAudio decodeAudioData is used once per AudioContext; decoded AudioBuffers are cached.
+- Existing synthesized priority cue remains only as a decode/autoplay fallback.
+- Procedural music and UI feedback remain WebAudio-generated as before.
+
+M115 mix update (2026-09-25)
+- No additional third-party audio file is claimed in this milestone.
+- M115 keeps the two CC0 recordings above and improves how they are presented: service-specific pitch/rhythm profiles, directional stereo panning when supported, horn variation, music ducking, and a bounded six-voice vehicle-audio budget.
+- Police / ambulance / fire remain based on the recorded emergency source from sound 70936 in this checkpoint; they are differentiated by playback/mix behavior rather than by claiming three separate source recordings.
+
+M116 runtime mix note: emergency approach cues now scale by simulated distance to the stop line; horns are suppressed while an emergency cue is active. No new audio asset or license was added in M116.
+
+M122 Audio 2.0 production mix (2026-09-25)
+- No new third-party recording is claimed in this milestone.
+- The retained CC0 recorded siren and horn sources above remain the only embedded third-party recordings.
+- New brake scrub, bus air-brake texture, road-bed and crash layers are generated locally with WebAudio noise/filter/envelope synthesis and contain no external asset.
+- Crash audio is layered (impact noise + low rumble + high transient + tonal body) and road-bed automatically disables on Low render quality.
+- Generated audio is bounded to six concurrent transient voices; recorded vehicle voices remain bounded to six.
+- Road-bed never initiates AudioContext resume; M112-HF03 iOS/WebKit recovery authority remains unchanged.
