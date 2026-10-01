@@ -2,7 +2,7 @@
   'use strict';
 
   const BUILD_MODE = 'production';
-  const BUILD_VERSION = 'M195-HF04-VKPLAY-RC1';
+  const BUILD_VERSION = 'M195-HF05-VKPLAY-BILLING-RC1';
   const IS_DEVELOPMENT = BUILD_MODE === 'development';
   const PLATFORM_TARGET = 'vkplay'; // browser release target: VK Play iframe
   const YANDEX_PUBLIC_LEADERBOARD_NAME = 'TrafficPulseStars';
@@ -219,6 +219,9 @@
 
   Object.assign(TEXT.ru,{medals:'Медали',medalQueue:'Чистая очередь',medalSwitch:'Точный диспетчер',medalFlow:'Идеальный поток',medalPriority:'Приоритет спасения',medalIncident:'Контроль происшествия',medalNew:'Новая медаль',campaignMedals:'Медали района'});
   Object.assign(TEXT.en,{medals:'Medals',medalQueue:'Queue Control',medalSwitch:'Signal Discipline',medalFlow:'Perfect Flow',medalPriority:'Emergency Priority',medalIncident:'Incident Control',medalNew:'New medal',campaignMedals:'District medals'});
+  Object.assign(TEXT.ru,{vkBillingPack:'500 монет',vkBillingPrice:'99 ₽ · VK Play',vkBillingBuy:'Купить',vkBillingOpening:'Открываем…',vkBillingPending:'Оплата открыта · после оплаты вернись в игру',vkBillingUnavailable:'Покупки доступны только внутри VK Play',vkBillingError:'Не удалось открыть оплату',vkBillingPopup:'Разреши открытие платёжного окна',vkBillingReceived:'Покупка подтверждена',vkBillingStore:'Пополнить монеты'});
+  Object.assign(TEXT.en,{vkBillingPack:'500 coins',vkBillingPrice:'99 ₽ · VK Play',vkBillingBuy:'Buy',vkBillingOpening:'Opening…',vkBillingPending:'Payment opened · return to the game after paying',vkBillingUnavailable:'Purchases are available only inside VK Play',vkBillingError:'Could not open payment',vkBillingPopup:'Allow the payment window to open',vkBillingReceived:'Purchase confirmed',vkBillingStore:'Get more coins'});
+
 
   const SAVE_KEY = 'traffic_pulse_save_v4';
   const SAVE_SCHEMA_VERSION = 5;
@@ -354,7 +357,7 @@
     const reportedStars=Math.min(safeInt(data.totalStars,0,3_000_000,0),level*3),totalStars=Math.max(starsSum,reportedStars);
     const maxClaimed=Math.floor(totalStars/15),claimedRaw=Number(data.starMilestonesClaimed),claimed=Number.isFinite(claimedRaw)?Math.min(safeInt(claimedRaw,0,200_000,0),maxClaimed):maxClaimed;
     return {
-      schemaVersion:SAVE_SCHEMA_VERSION, level, coins:safeInt(data.coins,0,1_000_000_000_000,0), totalStars, starsByLevel,
+      schemaVersion:SAVE_SCHEMA_VERSION, level, coins:safeInt(data.coins,0,1_000_000_000_000,0), vkPaidCoinsCredited:safeInt(data.vkPaidCoinsCredited,0,1_000_000_000_000,0), totalStars, starsByLevel,
       sound:data.sound!==false, sfx:data.sfx===undefined?data.sound!==false:data.sfx!==false, musicLevel:data.musicLevel===undefined?(data.sound===false?0:3):safeInt(data.musicLevel,0,3,3), langMode:normalizeLanguageMode(data.langMode), ownedCars, purchasedCars, favoriteCar:ownedCars.includes(safeInt(data.favoriteCar,0,9,0))?safeInt(data.favoriteCar,0,9,0):0, sessions:safeInt(data.sessions,0,1_000_000_000,0),
       dailyBest:normalizeDailyBest(data.dailyBest), dailyBestCompat:normalizeChallengeCompatMap(data.dailyBestCompat), dailyRewards:normalizeDailyRewards(data.dailyRewards),
       starMilestonesClaimed:claimed, bestFlow:safeInt(data.bestFlow,0,9999,0), missionCompleted:normalizeMissionMap(data.missionCompleted,level), medalsByLevel:normalizeMedalMap(data.medalsByLevel,level), achievements:normalizeAchievements(data.achievements), weeklyBest:normalizeDailyBest(data.weeklyBest), weeklyBestCompat:normalizeChallengeCompatMap(data.weeklyBestCompat), weeklyRewards:normalizeDailyRewards(data.weeklyRewards), endlessBestScore:safeInt(data.endlessBestScore,0,1_000_000_000,0), endlessBestWave:safeInt(data.endlessBestWave,0,1_000_000,0), scenarioProgress:normalizeScenarioProgress(data.scenarioProgress), greenWaveProgress:normalizeGreenWaveProgress(data.greenWaveProgress), campaignRewardedThrough:(()=>{const raw=Number(data.campaignRewardedThrough);if(Number.isFinite(raw))return safeInt(raw,0,level,0);const currentPaid=Number(starsByLevel[String(level)]||0)>0?level:Math.max(0,level-1);return currentPaid;})(), revision:safeInt(data.revision,0,9_000_000_000_000_000,0), updatedAt:safeInt(data.updatedAt,0,9_000_000_000_000_000,0)
@@ -412,7 +415,7 @@
     // Use the conservative balance branch, then charge any purchase receipt imported only from the other branch exactly once.
     const newerPurchases=new Set(balanceNewer.purchasedCars||[]);let coins=balanceNewer.coins;
     for(const id of balanceOlder.purchasedCars||[])if(!newerPurchases.has(id))coins=Math.max(0,coins-(CAR_COSTS[id]||0));
-    return normalizeSaveData({ ...a, level:Math.max(a.level,b.level), coins, totalStars, starsByLevel:stars, ownedCars, purchasedCars, favoriteCar, sessions:Math.max(a.sessions,b.sessions), dailyBest, dailyBestCompat, dailyRewards, starMilestonesClaimed:Math.max(a.starMilestonesClaimed||0,b.starMilestonesClaimed||0), bestFlow:Math.max(a.bestFlow||0,b.bestFlow||0), missionCompleted, medalsByLevel, achievements, weeklyBest, weeklyBestCompat, weeklyRewards, endlessBestScore:Math.max(a.endlessBestScore||0,b.endlessBestScore||0), endlessBestWave:Math.max(a.endlessBestWave||0,b.endlessBestWave||0), scenarioProgress, greenWaveProgress, campaignRewardedThrough:Math.max(a.campaignRewardedThrough||0,b.campaignRewardedThrough||0), sound:preferenceNewer.sound, sfx:preferenceNewer.sfx, musicLevel:preferenceNewer.musicLevel, langMode:preferenceNewer.langMode, revision:Math.max(a.revision||0,b.revision||0), updatedAt:Math.max(a.updatedAt||0,b.updatedAt||0) });
+    return normalizeSaveData({ ...a, level:Math.max(a.level,b.level), coins, vkPaidCoinsCredited:Math.max(a.vkPaidCoinsCredited||0,b.vkPaidCoinsCredited||0), totalStars, starsByLevel:stars, ownedCars, purchasedCars, favoriteCar, sessions:Math.max(a.sessions,b.sessions), dailyBest, dailyBestCompat, dailyRewards, starMilestonesClaimed:Math.max(a.starMilestonesClaimed||0,b.starMilestonesClaimed||0), bestFlow:Math.max(a.bestFlow||0,b.bestFlow||0), missionCompleted, medalsByLevel, achievements, weeklyBest, weeklyBestCompat, weeklyRewards, endlessBestScore:Math.max(a.endlessBestScore||0,b.endlessBestScore||0), endlessBestWave:Math.max(a.endlessBestWave||0,b.endlessBestWave||0), scenarioProgress, greenWaveProgress, campaignRewardedThrough:Math.max(a.campaignRewardedThrough||0,b.campaignRewardedThrough||0), sound:preferenceNewer.sound, sfx:preferenceNewer.sfx, musicLevel:preferenceNewer.musicLevel, langMode:preferenceNewer.langMode, revision:Math.max(a.revision||0,b.revision||0), updatedAt:Math.max(a.updatedAt||0,b.updatedAt||0) });
   }
   function persist(){
     save.dailyBest=normalizeDailyBest(save.dailyBest); save.dailyBestCompat=normalizeChallengeCompatMap(save.dailyBestCompat); save.dailyRewards=normalizeDailyRewards(save.dailyRewards); save.missionCompleted=normalizeMissionMap(save.missionCompleted,save.level||1); save.medalsByLevel=normalizeMedalMap(save.medalsByLevel,save.level||1); save.achievements=normalizeAchievements(save.achievements); save.weeklyBest=normalizeDailyBest(save.weeklyBest); save.weeklyBestCompat=normalizeChallengeCompatMap(save.weeklyBestCompat); save.weeklyRewards=normalizeDailyRewards(save.weeklyRewards); save.scenarioProgress=normalizeScenarioProgress(save.scenarioProgress); save.greenWaveProgress=normalizeGreenWaveProgress(save.greenWaveProgress);
@@ -448,7 +451,7 @@
     noteCampaignCompletion(){}, noteRewardedExposure(){},
     localFallback(reason='vkplay'){
       this.ready=true;this.booting=false;YandexAudit.state.sdk=reason;YandexAudit.mark(`sdk:${reason}`,this.target);
-      const q=new URLSearchParams(location.search),raw=q.get('lang')||navigator.language;platformLang=normalizePlatformLanguage(raw);applyResolvedLanguage();YandexAudit.state.lang=lang;startApp();
+      const q=new URLSearchParams(location.search),raw=q.get('lang')||navigator.language;platformLang=normalizePlatformLanguage(raw);applyResolvedLanguage();YandexAudit.state.lang=lang;startApp();void VKBilling.sync('boot');
     },
     async init(){this.localFallback('vkplay');},
     canAcquirePlayer(){return false;}, async acquirePlayer(){return null;}, async initCloudSave(){return false;}, async recoverCloudAfterReconnect(){return false;}, queueCloudSave(){return false;}, async flushCloud(){return false;},
@@ -457,6 +460,30 @@
     gameplayStart(){if(this.gameplayActive)return;this.gameplayActive=true;YandexAudit.state.gameplayStart++;YandexAudit.mark('Gameplay.start');},
     gameplayStop(){if(!this.gameplayActive)return;this.gameplayActive=false;YandexAudit.state.gameplayStop++;YandexAudit.mark('Gameplay.stop');},
     shouldRequestFullscreen(){return false;}, showFullscreen(){return Promise.resolve(false);}, showRewarded(){return Promise.resolve(false);}
+  };
+
+  // M195 Hotfix05: VK Play test billing. The browser never sees VKPLAY_SECRET.
+  // Purchased coin packs are imported from the server ledger by monotonic paid-total watermark,
+  // so repeated callbacks/focus events cannot credit the same purchase twice locally.
+  const VKPLAY_BILLING_API='https://traffic-pulse-billing.anhelos1987.workers.dev';
+  const VKPLAY_BILLING_SKU='coins_500';
+  const VKPLAY_BILLING_PACK_COINS=500;
+  const VKBilling={
+    busy:false,pollTimer:0,lastSyncAt:0,
+    launchContext(){const q=new URLSearchParams(location.search);return{sign:q.get('sign')||'',uid:q.get('uid')||'',appid:q.get('appid')||'',currency:(q.get('currency')||'').toUpperCase(),lang:q.get('lang')||''};},
+    hasLaunchContext(){const c=this.launchContext();return Boolean(c.sign&&c.uid&&c.appid&&c.currency&&c.lang);},
+    canOffer(){const c=this.launchContext();return PLATFORM_TARGET==='vkplay'&&this.hasLaunchContext()&&c.currency==='RUB';},
+    async request(path,payload){const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),8000);try{const response=await fetch(VKPLAY_BILLING_API+path,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload),cache:'no-store',credentials:'omit',signal:controller.signal});let data=null;try{data=await response.json();}catch(_){}if(!response.ok)throw new Error(data?.message||data?.error||`billing_http_${response.status}`);return data||{};}finally{clearTimeout(timer);}},
+    async sync(reason='manual'){
+      if(!this.hasLaunchContext())return false;const now=Date.now();if(reason!=='poll'&&now-this.lastSyncAt<1200)return false;this.lastSyncAt=now;
+      try{const data=await this.request('/api/player/state',{launch:this.launchContext()});const paidTotal=safeInt(data?.coins,0,1_000_000_000_000,0),credited=safeInt(save.vkPaidCoinsCredited,0,1_000_000_000_000,0);if(paidTotal<=credited)return false;const delta=paidTotal-credited;save.coins=safeInt(save.coins+delta,0,1_000_000_000_000,save.coins);save.vkPaidCoinsCredited=paidTotal;persist();updateHud();toast(`${T.vkBillingReceived}: +${delta} ${T.coins}`);if(overlayVisible()&&String($('modal-title')?.textContent||'').includes(T.garage))showGarage('rerender');return true;}catch(err){YandexAudit.mark('vkplay:billing:sync-error',String(err?.message||err));return false;}
+    },
+    beginPolling(){if(this.pollTimer)clearInterval(this.pollTimer);const startCredit=safeInt(save.vkPaidCoinsCredited,0,1_000_000_000_000,0),started=Date.now();this.pollTimer=setInterval(async()=>{const changed=await this.sync('poll');if(changed||save.vkPaidCoinsCredited>startCredit||Date.now()-started>120000){clearInterval(this.pollTimer);this.pollTimer=0;}},2200);},
+    async buyCoins500(){
+      if(this.busy)return false;if(!this.canOffer()){toast(T.vkBillingUnavailable);return false;}
+      const popup=window.open('about:blank','_blank');if(!popup){toast(T.vkBillingPopup);return false;}try{popup.opener=null;}catch(_){}
+      this.busy=true;try{const data=await this.request('/api/payment/create',{launch:this.launchContext(),item_id:VKPLAY_BILLING_SKU});if(!data?.payment_url)throw new Error('missing_payment_url');popup.location.replace(String(data.payment_url));this.beginPolling();toast(T.vkBillingPending);return true;}catch(err){try{popup.close();}catch(_){}YandexAudit.mark('vkplay:billing:create-error',String(err?.message||err));toast(T.vkBillingError);return false;}finally{this.busy=false;}
+    }
   };
 
   // M115: compact recorded vehicle audio scene; distinct emergency recordings stay embedded/offline-friendly.
@@ -4906,6 +4933,13 @@
     const summary=document.createElement('div');summary.className='garage-summary';
     const ownedCount=ownedStyleIds().length,nextPurchase=nextGaragePurchase(),nextText=nextPurchase?(!nextPurchase.unlocked?`${T.nextPurchase}: ${nextPurchase.name} · ${T.level} ${nextPurchase.level}`:nextPurchase.missing>0?`${T.nextPurchase}: ${nextPurchase.name} · ${T.needCoins} ${nextPurchase.missing} 🪙`:`${T.nextPurchase}: ${nextPurchase.name} · ${T.readyToBuy}`):T.allCars;
     summary.textContent=`${T.collection}: ${ownedCount}/${CAR_NAMES.length} · ${T.favoriteCar}: ${T[CAR_NAMES[save.favoriteCar||0]]} · ${nextText}`;extra.appendChild(summary);
+    if(PLATFORM_TARGET==='vkplay'&&VKBilling.canOffer()){
+      const billingRow=document.createElement('div');billingRow.className='garage-row owned';billingRow.setAttribute('data-vk-billing','coins_500');
+      const billingIcon=document.createElement('span');billingIcon.className='garage-preview';billingIcon.textContent='🪙';billingIcon.setAttribute('aria-hidden','true');
+      const billingCopy=document.createElement('div');const billingName=document.createElement('strong');billingName.textContent=T.vkBillingPack;const billingMeta=document.createElement('small');billingMeta.textContent=T.vkBillingPrice;billingCopy.append(billingName,billingMeta);
+      const billingButton=document.createElement('button');billingButton.type='button';billingButton.textContent=T.vkBillingBuy;billingButton.onclick=async()=>{if(VKBilling.busy)return;billingButton.disabled=true;billingButton.textContent=T.vkBillingOpening;await VKBilling.buyCoins500();if(billingButton.isConnected){billingButton.disabled=false;billingButton.textContent=T.vkBillingBuy;}};
+      billingRow.append(billingIcon,billingCopy,billingButton);extra.appendChild(billingRow);
+    }
     const collectionTrack=document.createElement('div');collectionTrack.className='garage-collection-track';collectionTrack.setAttribute('role','progressbar');collectionTrack.setAttribute('aria-label',T.garageCollectionProgress);collectionTrack.setAttribute('aria-valuemin','0');collectionTrack.setAttribute('aria-valuemax',String(CAR_NAMES.length));collectionTrack.setAttribute('aria-valuenow',String(ownedCount));const collectionFill=document.createElement('span');collectionFill.style.width=`${Math.round(ownedCount/CAR_NAMES.length*100)}%`;collectionTrack.appendChild(collectionFill);extra.appendChild(collectionTrack);
     const previewMeta=garagePreviewMeta(garagePreviewId),showcase=document.createElement('section');showcase.className=`garage-showcase${previewMeta.rare?' rare':''}`;showcase.setAttribute('aria-label',`${T.garagePreview}: ${previewMeta.name}`);const car=document.createElement('div');car.className='garage-showcase-car';car.style.setProperty('--car-color',previewMeta.color);car.dataset.style=String(previewMeta.id);const cabin=document.createElement('span');cabin.className='garage-showcase-cabin';const wheelA=document.createElement('i');wheelA.className='wheel-a';const wheelB=document.createElement('i');wheelB.className='wheel-b';car.append(cabin,wheelA,wheelB);const showcaseCopy=document.createElement('div');const label=document.createElement('small');label.textContent=T.garagePreview;const title=document.createElement('strong');title.textContent=previewMeta.name;const state=document.createElement('span');state.textContent=previewMeta.status;showcaseCopy.append(label,title,state);showcase.append(car,showcaseCopy);extra.appendChild(showcase);
     const previewHint=document.createElement('div');previewHint.className='garage-preview-hint';previewHint.textContent=T.garageTapPreview;extra.appendChild(previewHint);
@@ -5129,7 +5163,7 @@
   }
   function startApp(){save.sessions=(save.sessions||0)+1;persist();Game.startLevel(save.level,false,'campaign');syncExternalPauseState();Game.draw();if(!Game.frameId)Game.frameId=requestAnimationFrame(t=>Game.loop(t));}
 
-  $('coin-btn').addEventListener('click',()=>showGarage('game'));$('map-btn').addEventListener('click',()=>showCampaignMap('game',save.level));
+  $('coin-btn').addEventListener('click',()=>{void VKBilling.sync('garage');showGarage('game');});$('map-btn').addEventListener('click',()=>showCampaignMap('game',save.level));
   $('daily-btn').addEventListener('click',()=>showModeHub('game'));$('record-badge')?.addEventListener('click',()=>PersonalBestService.toggle());
   // M112 Hotfix03: keep a cheap gesture fallback alive for iOS/WebKit. After an ad or app
   // switch the AudioContext may remain `interrupted`/`suspended` even though gameplay resumed.
@@ -5171,7 +5205,7 @@
   // Genuine app/tab departure requires an explicit manual resume after return. Ads are excluded:
   // Yandex ad callbacks own their lifecycle and should not strand the player on an extra pause screen.
   window.addEventListener('blur',()=>{YandexAudit.state.lifecycle.blurs++;YandexAudit.mark('lifecycle:blur');scheduleBlurPause();});
-  window.addEventListener('focus',()=>{YandexAudit.state.lifecycle.focuses++;YandexAudit.mark('lifecycle:focus');restoreBrowserFocus();if(!platform.cloudReady&&navigator.onLine!==false)void platform.recoverCloudAfterReconnect();});
+  window.addEventListener('focus',()=>{YandexAudit.state.lifecycle.focuses++;YandexAudit.mark('lifecycle:focus');restoreBrowserFocus();if(!platform.cloudReady&&navigator.onLine!==false)void platform.recoverCloudAfterReconnect();void VKBilling.sync('focus');});
   window.addEventListener('pagehide',()=>{YandexAudit.state.lifecycle.pagehides++;YandexAudit.mark('lifecycle:pagehide');cancelBlurPause();pauseForFocusLoss(true);AudioFx.stopTransientAudio();clearWorldCache();snapshotLocalBeforeExternalTransition();void platform.flushCloud(true);});
   // M136: network-aware cloud recovery also heals an offline boot where initial getPlayer/getData timed out.
   window.addEventListener('offline',()=>{clearTimeout(platform.cloudTimer);platform.cloudTimer=0;platform.cloudDirty=platform.cloudDirty||Boolean(platform.cloudFlushRequested);});
@@ -5183,7 +5217,7 @@
   // a few frames after orientation/pageshow. Re-sample only the stable layout viewport at bounded
   // settling points; never bind board geometry to visualViewport chrome animations.
   let layoutSettleTimers=[];function scheduleSettledLayoutRefresh(){for(const id of layoutSettleTimers)clearTimeout(id);layoutSettleTimers=[];scheduleLayoutRefresh();for(const delay of [120,360])layoutSettleTimers.push(setTimeout(scheduleLayoutRefresh,delay));}
-  window.addEventListener('pageshow',()=>{YandexAudit.state.lifecycle.pageshows++;YandexAudit.mark('lifecycle:pageshow');Game.lastTs=performance.now();restoreBrowserFocus();if(!platform.cloudReady&&navigator.onLine!==false)void platform.recoverCloudAfterReconnect();scheduleSettledLayoutRefresh();});
+  window.addEventListener('pageshow',()=>{YandexAudit.state.lifecycle.pageshows++;YandexAudit.mark('lifecycle:pageshow');Game.lastTs=performance.now();restoreBrowserFocus();if(!platform.cloudReady&&navigator.onLine!==false)void platform.recoverCloudAfterReconnect();void VKBilling.sync('pageshow');scheduleSettledLayoutRefresh();});
   window.addEventListener('resize',scheduleLayoutRefresh,{passive:true});window.addEventListener('orientationchange',scheduleSettledLayoutRefresh,{passive:true});
   // visualViewport scroll/resize is deliberately not a layout trigger: the layout viewport is the
   // stable authority for the game board. Real window/orientation changes still refresh immediately.
