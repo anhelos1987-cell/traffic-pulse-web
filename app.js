@@ -2,7 +2,7 @@
   'use strict';
 
   const BUILD_MODE = 'production';
-  const BUILD_VERSION = 'M195-HF05-VKPLAY-BILLING-RC1';
+  const BUILD_VERSION = 'M195-HF06-VKPLAY-BILLING-DIAG-RC1';
   const IS_DEVELOPMENT = BUILD_MODE === 'development';
   const PLATFORM_TARGET = 'vkplay'; // browser release target: VK Play iframe
   const YANDEX_PUBLIC_LEADERBOARD_NAME = 'TrafficPulseStars';
@@ -219,8 +219,8 @@
 
   Object.assign(TEXT.ru,{medals:'Медали',medalQueue:'Чистая очередь',medalSwitch:'Точный диспетчер',medalFlow:'Идеальный поток',medalPriority:'Приоритет спасения',medalIncident:'Контроль происшествия',medalNew:'Новая медаль',campaignMedals:'Медали района'});
   Object.assign(TEXT.en,{medals:'Medals',medalQueue:'Queue Control',medalSwitch:'Signal Discipline',medalFlow:'Perfect Flow',medalPriority:'Emergency Priority',medalIncident:'Incident Control',medalNew:'New medal',campaignMedals:'District medals'});
-  Object.assign(TEXT.ru,{vkBillingPack:'500 монет',vkBillingPrice:'99 ₽ · VK Play',vkBillingBuy:'Купить',vkBillingOpening:'Открываем…',vkBillingPending:'Оплата открыта · после оплаты вернись в игру',vkBillingUnavailable:'Покупки доступны только внутри VK Play',vkBillingError:'Не удалось открыть оплату',vkBillingPopup:'Разреши открытие платёжного окна',vkBillingReceived:'Покупка подтверждена',vkBillingStore:'Пополнить монеты'});
-  Object.assign(TEXT.en,{vkBillingPack:'500 coins',vkBillingPrice:'99 ₽ · VK Play',vkBillingBuy:'Buy',vkBillingOpening:'Opening…',vkBillingPending:'Payment opened · return to the game after paying',vkBillingUnavailable:'Purchases are available only inside VK Play',vkBillingError:'Could not open payment',vkBillingPopup:'Allow the payment window to open',vkBillingReceived:'Purchase confirmed',vkBillingStore:'Get more coins'});
+  Object.assign(TEXT.ru,{vkBillingPack:'500 монет',vkBillingPrice:'99 ₽ · VK Play',vkBillingBuy:'Купить',vkBillingOpening:'Открываем…',vkBillingPending:'Оплата открыта · после оплаты вернись в игру',vkBillingUnavailable:'Покупки пока недоступны',vkBillingMissing:'VK Play не передал',vkBillingCurrency:'Валюта VK Play',vkBillingError:'Не удалось открыть оплату',vkBillingPopup:'Разреши открытие платёжного окна',vkBillingReceived:'Покупка подтверждена',vkBillingStore:'Пополнить монеты'});
+  Object.assign(TEXT.en,{vkBillingPack:'500 coins',vkBillingPrice:'99 ₽ · VK Play',vkBillingBuy:'Buy',vkBillingOpening:'Opening…',vkBillingPending:'Payment opened · return to the game after paying',vkBillingUnavailable:'Purchases are not ready yet',vkBillingMissing:'VK Play did not pass',vkBillingCurrency:'VK Play currency',vkBillingError:'Could not open payment',vkBillingPopup:'Allow the payment window to open',vkBillingReceived:'Purchase confirmed',vkBillingStore:'Get more coins'});
 
 
   const SAVE_KEY = 'traffic_pulse_save_v4';
@@ -472,6 +472,7 @@
     busy:false,pollTimer:0,lastSyncAt:0,
     launchContext(){const q=new URLSearchParams(location.search);return{sign:q.get('sign')||'',uid:q.get('uid')||'',appid:q.get('appid')||'',currency:(q.get('currency')||'').toUpperCase(),lang:q.get('lang')||''};},
     hasLaunchContext(){const c=this.launchContext();return Boolean(c.sign&&c.uid&&c.appid&&c.currency&&c.lang);},
+    missingLaunchFields(){const c=this.launchContext();return ['sign','uid','appid','currency','lang'].filter(k=>!c[k]);},
     canOffer(){const c=this.launchContext();return PLATFORM_TARGET==='vkplay'&&this.hasLaunchContext()&&c.currency==='RUB';},
     async request(path,payload){const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),8000);try{const response=await fetch(VKPLAY_BILLING_API+path,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload),cache:'no-store',credentials:'omit',signal:controller.signal});let data=null;try{data=await response.json();}catch(_){}if(!response.ok)throw new Error(data?.message||data?.error||`billing_http_${response.status}`);return data||{};}finally{clearTimeout(timer);}},
     async sync(reason='manual'){
@@ -996,8 +997,7 @@
   function emergencyApproachingAxis(axis,game=Game,junctionId=null){
     const lanes=Math.max(1,game.config?.lanes||1);
     if(isLinkedJunctionType(game.config?.junctionType))return game.cars.some(c=>{
-      if(!isEmergencyVehicle(c))return false;
-      const route=linkedRouteSpec(c.linkedRouteId),turningIntoAxis=Boolean(route?.turn&&AXIS[route.turnOutDir||route.exitDir]===axis);
+      if(!isEmergencyVehicle(c))return false;      const route=linkedRouteSpec(c.linkedRouteId),turningIntoAxis=Boolean(route?.turn&&AXIS[route.turnOutDir||route.exitDir]===axis);
       if(c.axis!==axis&&!turningIntoAxis)return false;
       const gate=turningIntoAxis?linkedRouteGates(c,lanes).find(g=>g.junctionId===route.turnAt):linkedNextGate(c,lanes);
       return Boolean(gate&&(!junctionId||gate.junctionId===junctionId)&&signalStateForAxis(axis,game,gate.junctionId)==='red'&&c.progress>=linkedStopTargetProgress(c,gate,lanes)-180&&c.progress<gate.lineProgress+44);
@@ -1024,7 +1024,8 @@
   // are represented by the same graph API that later multi-junction layouts use.
   const ROUTE_TURNS=['straight','right','left'];
   const ROUTE_GRAPH_CACHE=new Map();
-  const LINKED_TURN_GEOMETRY_CACHE=new Map();  function buildSingleJunctionRouteGraph(type='cross'){
+  const LINKED_TURN_GEOMETRY_CACHE=new Map();
+  function buildSingleJunctionRouteGraph(type='cross'){
     const closed=junctionClosedArm(type),arms=['N','S','E','W'].filter(a=>a!==closed);
     const ports=Object.fromEntries(arms.map(arm=>[arm,{id:arm,arm,kind:'port'}]));
     const nodes={J0:{id:'J0',kind:'junction',x:450,y:450}};
@@ -1995,8 +1996,7 @@
     captureFailureReplayFrame(dt=0){
       if(this.state!=='playing'||this.externalPaused||this.userPaused)return;
       this.failureReplayClock=(this.failureReplayClock||0)+Math.max(0,dt||0);if(this.failureReplayClock<.12)return;this.failureReplayClock=0;
-      const cars=this.cars.map(c=>{const p=carXY(c);return{x:Number(p.x.toFixed(1)),y:Number(p.y.toFixed(1)),rot:Number(p.rot.toFixed(3)),color:c.color,kind:c.kind,style:c.style||0,stopped:Boolean(c.stopped),violation:c.violation||'none'};});
-      const pedestrians=this.pedestrians.map(p=>{const q=pedestrianPose(p,this.config?.lanes||1);return{x:Number(q.x.toFixed(1)),y:Number(q.y.toFixed(1))};});
+      const cars=this.cars.map(c=>{const p=carXY(c);return{x:Number(p.x.toFixed(1)),y:Number(p.y.toFixed(1)),rot:Number(p.rot.toFixed(3)),color:c.color,kind:c.kind,style:c.style||0,stopped:Boolean(c.stopped),violation:c.violation||'none'};});      const pedestrians=this.pedestrians.map(p=>{const q=pedestrianPose(p,this.config?.lanes||1);return{x:Number(q.x.toFixed(1)),y:Number(q.y.toFixed(1))};});
       this.failureReplayFrames.push({t:Number(this.elapsed.toFixed(2)),phase:this.phase,transition:this.transitionTimer>0,cars,pedestrians});if(this.failureReplayFrames.length>36)this.failureReplayFrames.shift();
     },
     playFailureReplay(){
@@ -2023,7 +2023,8 @@
       this.updateParticles(dt);
       if(this.state!=='playing'||this.externalPaused||this.userPaused) return;
       // HF05: fixed-step simulation never performs routine DOM work directly. Mark the HUD dirty
-      // and let the rAF loop coalesce it to a low-frequency presentation refresh. This prevents a      // slow frame from running updateHud() several times during catch-up and amplifying the hitch.
+      // and let the rAF loop coalesce it to a low-frequency presentation refresh. This prevents a
+      // slow frame from running updateHud() several times during catch-up and amplifying the hitch.
       this.hudDirty=true;
       this.elapsed+=dt;
       if(this.mode==='scenario'&&this.scenarioDirector)this.scenarioDirector.update(dt,this);
@@ -2994,8 +2995,7 @@
       g.fillStyle='rgba(7,24,38,.94)';g.strokeStyle='rgba(255,209,102,.52)';g.lineWidth=2;roundRect(g,-20,-43,40,27,8,true);roundRect(g,-20,-43,40,27,8,false);
       g.fillStyle='#ffd166';g.font='900 10px system-ui';g.textAlign='center';g.textBaseline='middle';g.fillText('BUS',0,-29);
       g.restore();
-    }
-    g.restore();
+    }    g.restore();
   }
 
   function drawPedestrians(g,game){
@@ -3022,7 +3022,8 @@
   }
   function drawPedestrianSignals(g,game){
     const layout=roadLayout(game.config?.lanes||1),a=layout.edgeMin,b=layout.edgeMax,near=CROSSWALK_STOP_A+17,far=CROSSWALK_STOP_B-17;
-    const v=pedestrianSignalState('V',game),h=pedestrianSignalState('H',game),off=72,along=22,type=game.config?.junctionType||'cross';    const open=arm=>junctionArmOpen(type,arm);
+    const v=pedestrianSignalState('V',game),h=pedestrianSignalState('H',game),off=72,along=22,type=game.config?.junctionType||'cross';
+    const open=arm=>junctionArmOpen(type,arm);
     // Keep pedestrian hardware clearly separated from the larger vehicle signal cluster: each box
     // sits diagonally outward on the sidewalk, still adjacent to its zebra but outside car paths.
     if(open('N')){if(open('W'))drawPedestrianSignal(g,a-off,near+along,v,false);if(open('E'))drawPedestrianSignal(g,b+off,near+along,v,true);}
@@ -3993,8 +3994,7 @@
     return {phase:r.phase,district:r.district,weather:r.weather,activity,mode,people,pulse:(t*.028+level*.053)%1};
   }
 
-  function drawRooftopLife(g,game){
-    if(RenderQuality.level===0||reducedMotion||isLinkedJunctionType(game.config?.junctionType))return;
+  function drawRooftopLife(g,game){    if(RenderQuality.level===0||reducedMotion||isLinkedJunctionType(game.config?.junctionType))return;
     const s=rooftopLifeState(game),high=RenderQuality.level>=2;
     const roofs=[[120,63],[748,68],[122,690],[748,692]];
     g.save();g.lineCap='round';
@@ -4021,7 +4021,8 @@
   // add morning/evening neighborhood rhythm without becoming simulation actors.
   function neighborhoodPetWalkState(game){
     const r=cityRhythmState(game),level=Math.max(1,Number(game?.level)||1),t=Math.max(0,Number(game?.elapsed)||0);
-    const phaseBase=r.phase==='morning'?.72:r.phase==='day'?.30:r.phase==='evening'?.82:.12;    const districtBias=['park','coast','oldtown'].includes(r.district)?.14:r.district==='downtown'?.05:0;
+    const phaseBase=r.phase==='morning'?.72:r.phase==='day'?.30:r.phase==='evening'?.82:.12;
+    const districtBias=['park','coast','oldtown'].includes(r.district)?.14:r.district==='downtown'?.05:0;
     const weatherPenalty=r.weather==='rain'?.34:r.weather==='snow'?.42:r.weather==='fog'?.08:0;
     const activity=Math.max(.03,Math.min(1,phaseBase+districtBias-weatherPenalty));
     const mode=(r.weather==='rain'||r.weather==='snow')?'quick':r.phase==='morning'?'walk':r.phase==='evening'?'social':r.phase==='day'?'stroll':'quiet';
@@ -4933,11 +4934,15 @@
     const summary=document.createElement('div');summary.className='garage-summary';
     const ownedCount=ownedStyleIds().length,nextPurchase=nextGaragePurchase(),nextText=nextPurchase?(!nextPurchase.unlocked?`${T.nextPurchase}: ${nextPurchase.name} · ${T.level} ${nextPurchase.level}`:nextPurchase.missing>0?`${T.nextPurchase}: ${nextPurchase.name} · ${T.needCoins} ${nextPurchase.missing} 🪙`:`${T.nextPurchase}: ${nextPurchase.name} · ${T.readyToBuy}`):T.allCars;
     summary.textContent=`${T.collection}: ${ownedCount}/${CAR_NAMES.length} · ${T.favoriteCar}: ${T[CAR_NAMES[save.favoriteCar||0]]} · ${nextText}`;extra.appendChild(summary);
-    if(PLATFORM_TARGET==='vkplay'&&VKBilling.canOffer()){
+    if(PLATFORM_TARGET==='vkplay'){
       const billingRow=document.createElement('div');billingRow.className='garage-row owned';billingRow.setAttribute('data-vk-billing','coins_500');
       const billingIcon=document.createElement('span');billingIcon.className='garage-preview';billingIcon.textContent='🪙';billingIcon.setAttribute('aria-hidden','true');
-      const billingCopy=document.createElement('div');const billingName=document.createElement('strong');billingName.textContent=T.vkBillingPack;const billingMeta=document.createElement('small');billingMeta.textContent=T.vkBillingPrice;billingCopy.append(billingName,billingMeta);
-      const billingButton=document.createElement('button');billingButton.type='button';billingButton.textContent=T.vkBillingBuy;billingButton.onclick=async()=>{if(VKBilling.busy)return;billingButton.disabled=true;billingButton.textContent=T.vkBillingOpening;await VKBilling.buyCoins500();if(billingButton.isConnected){billingButton.disabled=false;billingButton.textContent=T.vkBillingBuy;}};
+      const billingCopy=document.createElement('div');const billingName=document.createElement('strong');billingName.textContent=T.vkBillingPack;const billingMeta=document.createElement('small');
+      const launch=VKBilling.launchContext(),missing=VKBilling.missingLaunchFields(),billingReady=VKBilling.canOffer();
+      billingMeta.textContent=billingReady?T.vkBillingPrice:(missing.length?`${T.vkBillingMissing}: ${missing.join(', ')}`:`${T.vkBillingCurrency}: ${launch.currency||'—'}`);
+      billingCopy.append(billingName,billingMeta);
+      const billingButton=document.createElement('button');billingButton.type='button';billingButton.textContent=billingReady?T.vkBillingBuy:T.vkBillingUnavailable;billingButton.disabled=!billingReady;
+      if(billingReady)billingButton.onclick=async()=>{if(VKBilling.busy)return;billingButton.disabled=true;billingButton.textContent=T.vkBillingOpening;await VKBilling.buyCoins500();if(billingButton.isConnected){billingButton.disabled=false;billingButton.textContent=T.vkBillingBuy;}};
       billingRow.append(billingIcon,billingCopy,billingButton);extra.appendChild(billingRow);
     }
     const collectionTrack=document.createElement('div');collectionTrack.className='garage-collection-track';collectionTrack.setAttribute('role','progressbar');collectionTrack.setAttribute('aria-label',T.garageCollectionProgress);collectionTrack.setAttribute('aria-valuemin','0');collectionTrack.setAttribute('aria-valuemax',String(CAR_NAMES.length));collectionTrack.setAttribute('aria-valuenow',String(ownedCount));const collectionFill=document.createElement('span');collectionFill.style.width=`${Math.round(ownedCount/CAR_NAMES.length*100)}%`;collectionTrack.appendChild(collectionFill);extra.appendChild(collectionTrack);
@@ -4988,8 +4993,7 @@
     $('modal-kicker').textContent=T.endlessDistrict;$('modal-title').textContent=`♾ ${T.endlessMode}`;$('modal-text').textContent=T.endlessDesc;$('modal-stars').textContent='';$('modal-reward').classList.add('hidden');
     const extra=$('modal-extra');extra.classList.remove('hidden');extra.textContent='';const best=document.createElement('div');best.className='daily-streak';best.textContent=`🏆 ${T.endlessBest}: ${save.endlessBestScore||0} · ${T.endlessWave} ${save.endlessBestWave||0}`;extra.appendChild(best);
     actions([{text:T.endlessStart,cls:'primary',fn:()=>beginEndless()},{text:T.close,fn:()=>{closeOverlay();if(resumeAfter){resumePausedGameplay();}else if(origin==='pause')showPause();}}]);openOverlay();
-  }
-  function showEndlessFail(type,improved=false){
+  }  function showEndlessFail(type,improved=false){
     $('modal-kicker').textContent=T.endlessDistrict;$('modal-title').textContent=improved?`🏆 ${T.endlessNewBest}`:(type==='crash'?T.crash:T.trafficJam);$('modal-text').textContent=`${T.endlessWave}: ${Game.endlessWave} · ${T.endlessScore}: ${Game.endlessScore}`;$('modal-stars').textContent='';$('modal-reward').classList.add('hidden');
     const extra=$('modal-extra');extra.classList.remove('hidden');extra.textContent=`${T.endlessBest}: ${save.endlessBestScore||0} · ${T.endlessWave} ${save.endlessBestWave||0}`;
     actions([{text:T.endlessReplay,cls:'primary',fn:()=>beginEndless()},{text:T.endlessReturn,fn:()=>Game.startLevel(save.level,false,'campaign')}]);openOverlay('fail');
@@ -5027,7 +5031,8 @@
   function showModeHub(origin='game'){
     if(origin!=='return'){
       const resumeAfter=origin==='game'&&Game.state==='playing'&&!Game.userPaused;modeHubContext={origin,resumeAfter};if(resumeAfter){Game.userPaused=true;platform.gameplayStop();}
-    }    $('modal-kicker').textContent='TRAFFIC PULSE';$('modal-title').textContent=`🎮 ${T.modesHub}`;$('modal-text').textContent=T.modesHubDesc;$('modal-stars').textContent='';$('modal-reward').classList.add('hidden');
+    }
+    $('modal-kicker').textContent='TRAFFIC PULSE';$('modal-title').textContent=`🎮 ${T.modesHub}`;$('modal-text').textContent=T.modesHubDesc;$('modal-stars').textContent='';$('modal-reward').classList.add('hidden');
     const extra=$('modal-extra');extra.classList.remove('hidden');extra.textContent='';appendRetentionLadder(extra);const grid=document.createElement('div');grid.className='mode-grid';extra.appendChild(grid);
     const card=(icon,title,desc,locked,fn,stars='',scenario=false)=>{const b=document.createElement('button');b.type='button';b.className=`mode-card${locked?' locked':''}${scenario?' scenario':''}`;const strong=document.createElement('strong');strong.textContent=`${icon} ${title}`;const small=document.createElement('small');small.textContent=locked?`${T.modeLocked} · ${desc}`:desc;b.append(strong,small);if(stars){const st=document.createElement('span');st.className='mode-stars';st.textContent=stars;b.appendChild(st);}b.disabled=locked;if(!locked)b.onclick=fn;grid.appendChild(b);return b;};
     card('🏁',T.modeCampaign,T.modeCampaignDesc,false,()=>showCampaignMap('hub',save.level));
