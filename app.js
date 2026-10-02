@@ -2,7 +2,7 @@
   'use strict';
 
   const BUILD_MODE = 'production';
-  const BUILD_VERSION = 'M198-VKPLAY-TWIN-JUNCTION-TRIAL-RC1';
+  const BUILD_VERSION = 'M198-VKPLAY-TWIN-JUNCTION-RC1';
   const IS_DEVELOPMENT = BUILD_MODE === 'development';
   const PLATFORM_TARGET = 'vkplay'; // browser release target: VK Play iframe
   const YANDEX_PUBLIC_LEADERBOARD_NAME = 'TrafficPulseStars';
@@ -244,9 +244,8 @@
   Object.assign(TEXT.ru,{roundaboutTrial:'Кольцевой перекрёсток',roundaboutTrialDesc:'Экспериментальный уровень: машины входят на кольцо и расходятся по разным съездам. Управление остаётся прежним — переключай горизонтальную и вертикальную подачу.',roundaboutTrialGoal:'Пропусти весь поток через кольцо без аварии и критической пробки',roundaboutTrialRule:'Светофоры дозируют въезд. Машина, уже вошедшая на кольцо, имеет приоритет; дождись освобождения кольца перед новой подачей.',roundaboutWarmup:'Разогрев кольца',roundaboutMixed:'Смешанные съезды',roundaboutFinal:'Финальный поток',roundaboutExperimental:'Эксперимент',roundaboutYield:'Кольцо занято',roundaboutMetering:'Дозирование въезда'});
   Object.assign(TEXT.en,{roundaboutTrial:'Roundabout Trial',roundaboutTrialDesc:'Experimental level: cars enter a roundabout and leave through different exits. The core control stays the same — switch horizontal and vertical entry flow.',roundaboutTrialGoal:'Move all traffic through the roundabout without a crash or critical jam',roundaboutTrialRule:'Signals meter entry. A vehicle already on the roundabout has priority; wait until the circle is clear before releasing another approach.',roundaboutWarmup:'Roundabout warm-up',roundaboutMixed:'Mixed exits',roundaboutFinal:'Final flow',roundaboutExperimental:'Experimental',roundaboutYield:'Roundabout occupied',roundaboutMetering:'Entry metering'});
 
-
-  Object.assign(TEXT.ru,{twinJunctionTrial:'Связанные перекрёстки',twinJunctionTrialDesc:'Экспериментальный уровень: два близких перекрёстка работают как единый коридор. Одно привычное переключение меняет фазу сразу на обоих узлах.',twinJunctionTrialGoal:'Проведи поток через оба перекрёстка и не заполни соединительный участок',twinJunctionTrialRule:'Одна фаза управляет обоими перекрёстками. Горизонтальная подача освобождает коридор, вертикальная обслуживает боковые улицы; не выпускай новую группу в занятый соединительный участок.',twinJunctionWarmup:'Синхронный разогрев',twinJunctionSides:'Боковые улицы',twinJunctionTurns:'Поворотный поток',twinJunctionFinal:'Финальный коридор',twinJunctionSync:'Один переключатель · два узла',twinJunctionConnector:'Следи за соединительным участком'});
-  Object.assign(TEXT.en,{twinJunctionTrial:'Linked Junctions',twinJunctionTrialDesc:'Experimental level: two nearby junctions act as one corridor. The familiar single toggle changes the phase at both nodes together.',twinJunctionTrialGoal:'Carry traffic through both junctions without filling the connector',twinJunctionTrialRule:'One shared phase controls both junctions. Horizontal clears the corridor while vertical serves the side streets; do not release another group into an occupied connector.',twinJunctionWarmup:'Synchronized warm-up',twinJunctionSides:'Side streets',twinJunctionTurns:'Turning traffic',twinJunctionFinal:'Final corridor',twinJunctionSync:'One toggle · two nodes',twinJunctionConnector:'Watch the connector segment'});
+  Object.assign(TEXT.ru,{twinJunctionTrial:'Связанные перекрёстки',twinJunctionTrialDesc:'Два близких перекрёстка работают от одного переключателя. Следи за общим коридором: зелёная волна на первом узле может быстро заполнить второй.',twinJunctionTrialGoal:'Пропусти поток через оба перекрёстка без аварии и критической пробки',twinJunctionTrialRule:'Оба узла переключаются синхронно одним нажатием. Учитывай машины между перекрёстками и не выпускай новую волну в заполненный коридор.',twinJunctionWarmup:'Синхронный разогрев',twinJunctionCrossflow:'Боковой поток',twinJunctionTurns:'Повороты в коридоре',twinJunctionFinal:'Финальная волна',twinJunctionBadge:'Связанные перекрёстки',twinJunctionControl:'Синхронное управление'});
+  Object.assign(TEXT.en,{twinJunctionTrial:'Linked Junctions',twinJunctionTrialDesc:'Two nearby intersections share one switch. Watch the connector: a green wave released at the first node can quickly fill the second.',twinJunctionTrialGoal:'Move all traffic through both junctions without a crash or critical jam',twinJunctionTrialRule:'Both nodes switch synchronously with one tap. Account for cars between the junctions and do not release a new wave into a full connector.',twinJunctionWarmup:'Synchronized warm-up',twinJunctionCrossflow:'Side-street pressure',twinJunctionTurns:'Corridor turns',twinJunctionFinal:'Final wave',twinJunctionBadge:'Linked junctions',twinJunctionControl:'Synchronized control'});
 
   let T = TEXT.ru;
 
@@ -1615,7 +1614,7 @@
     if(game.mode!=='campaign')return;const p=cityProfileForLevel(game.level),growth=districtGrowthSummaryForLevel(game.level),stage=growth.stage,t=performance.now()/1000;
     const x=94,y=96;g.save();g.translate(x,y);g.globalAlpha=.72;g.strokeStyle=p.accent;g.fillStyle='rgba(7,22,35,.72)';g.lineWidth=2;roundRect(g,-34,-31,68,62,14,true);roundRect(g,-34,-31,68,62,14,false);
     g.fillStyle=p.accent;g.globalAlpha=.82;
-    if(p.id==='park'){g.beginPath();g.arc(0,5,13,0,Math.PI*2);g.fill();g.fillRect(-3,17,6,11);g.beginPath();g.arc(-13,-3,9,0,Math.PI*2);g.fill();g.beginPath();g.arc(13,-3,9,0,Math.PI*2);g.fill();}
+    if(p.id==='park'){g.fillStyle='#4f8d5f';g.fillRect(-3,9,6,18);g.fillStyle='#6fbd79';g.beginPath();g.arc(0,0,13,0,Math.PI*2);g.fill();g.fillStyle='#82cf8c';g.beginPath();g.arc(-11,-4,8,0,Math.PI*2);g.fill();g.beginPath();g.arc(11,-4,8,0,Math.PI*2);g.fill();g.fillStyle='rgba(255,255,255,.32)';g.beginPath();g.arc(-5,-8,4,0,Math.PI*2);g.fill();}
     else if(p.id==='coast'){g.lineWidth=4;g.beginPath();for(let i=-24;i<=24;i+=8){const yy=Math.sin(i*.22+t*.7)*3;g.lineTo(i,yy);}g.stroke();g.fillRect(-2,-22,4,20);g.beginPath();g.arc(0,-23,7,Math.PI,0);g.fill();}
     else if(p.id==='downtown'){for(let i=0;i<3;i++){const h=20+i*8;g.fillRect(-25+i*18,24-h,13,h);}g.fillStyle='#fff2b8';g.globalAlpha=.55;for(let i=0;i<5;i++)g.fillRect(-21+i*9,5-(i%2)*7,3,3);}
     else if(p.id==='airport'){g.fillRect(-25,8,50,5);g.beginPath();g.moveTo(-4,5);g.lineTo(26,-3);g.lineTo(-2,-9);g.lineTo(-16,-18);g.lineTo(-12,-3);g.lineTo(-27,3);g.closePath();g.fill();}
@@ -1850,24 +1849,17 @@
       roundaboutTurns:['right','straight','left','right','straight','left','straight','right','left','straight','right','left','straight','right','left','straight','right','left','straight','right','left','straight','right','left','straight','right'],
       objectives:{maxQueue:5,maxSwitches:14},starThresholds:{twoStarQueue:5,threeStarSwitches:14}
     }),
-
     twin_junction_trial:Object.freeze({
-      id:'twin_junction_trial',version:1,icon:'↔️',seed:0x5c4081,unlockRule:{minLevel:22},nameKey:'twinJunctionTrial',descriptionKey:'twinJunctionTrialDesc',goalKey:'twinJunctionTrialGoal',ruleKey:'twinJunctionTrialRule',experimental:true,experimentalMetaKey:'twinJunctionSync',
-      board:{level:36,startPhase:'H',lanes:1,maxQueue:7,perfectQueue:4,interval:.72,speed:150,clearance:1.16,junctionType:'double-horizontal',variant:'alternating',busChance:.06,ambulanceChance:.02,truckChance:.05,sportChance:.07,compactChance:.16},
+      id:'twin_junction_trial',version:1,icon:'↔️',seed:0x5c4081,unlockRule:{minLevel:18},nameKey:'twinJunctionTrial',descriptionKey:'twinJunctionTrialDesc',goalKey:'twinJunctionTrialGoal',ruleKey:'twinJunctionTrialRule',experimental:true,
+      board:{level:47,startPhase:'H',lanes:1,maxQueue:7,perfectQueue:4,interval:.82,speed:150,clearance:1.18,junctionType:'double-horizontal',variant:'standard',busChance:.04,ambulanceChance:0,truckChance:.03,sportChance:.06,compactChance:.14},
       stages:[
         {id:'warmup',start:0,labelKey:'twinJunctionWarmup',events:[{id:'opening',at:0,type:'traffic',wave:'opening'}]},
-        {id:'sides',start:11,labelKey:'twinJunctionSides',events:[{id:'sides_a',at:11,type:'traffic',wave:'sides_a'},{id:'sides_b',at:20,type:'traffic',wave:'sides_b'}]},
-        {id:'turns',start:30,labelKey:'twinJunctionTurns',events:[{id:'turns',at:30,type:'traffic',wave:'turns'}]},
-        {id:'final',start:42,labelKey:'twinJunctionFinal',events:[{id:'final',at:42,type:'traffic',wave:'final'}]}
+        {id:'crossflow',start:12,labelKey:'twinJunctionCrossflow',events:[{id:'side_a',at:12,type:'traffic',wave:'side_a'},{id:'side_b',at:23,type:'traffic',wave:'side_b'}]},
+        {id:'turns',start:34,labelKey:'twinJunctionTurns',events:[{id:'turn_a',at:34,type:'traffic',wave:'turn_a'}]},
+        {id:'final',start:47,labelKey:'twinJunctionFinal',events:[{id:'final',at:47,type:'traffic',wave:'final'}]}
       ],
-      trafficPlan:{
-        opening:['W>E','E>W','W>E','E>W','N0>S0','S1>N1'],
-        sides_a:['N0>S0','S0>N0','W>E','E>W','N1>S1','S1>N1','W>E'],
-        sides_b:['W>E','E>W','N1>S1','N0>S0','S0>N0','S1>N1','E>W'],
-        turns:['W>S0','E>N1','W>N0','E>S1','W>E','E>W','N0>S0','S1>N1'],
-        final:['W>E','E>W','W>S0','E>N1','N0>S0','N1>S1','S0>N0','S1>N1','W>N0','E>S1']
-      },
-      objectives:{maxQueue:6,maxSwitches:17},starThresholds:{twoStarQueue:6,threeStarSwitches:17}
+      trafficPlan:{opening:['W>E','W>E','E>W','E>W','W>E','E>W'],side_a:['N0>S0','W>E','S1>N1','E>W','N1>S1','W>E','S0>N0'],side_b:['E>W','N0>S0','W>E','N1>S1','E>W','S0>N0','S1>N1'],turn_a:['W>S0','E>N1','W>N1','E>S0','W>E','E>W'],final:['W>E','E>W','N0>S0','N1>S1','W>E','S0>N0','E>W','S1>N1','W>E','E>W']},
+      objectives:{maxQueue:6,maxSwitches:15},starThresholds:{twoStarQueue:6,threeStarSwitches:15}
     }),
     freight_port:Object.freeze({
       id:'freight_port',version:1,icon:'🚛',seed:0x5c4051,unlockRule:{minLevel:60},nameKey:'scenarioFreightPort',descriptionKey:'scenarioFreightPortDesc',goalKey:'scenarioFreightPortGoal',ruleKey:'scenarioFreightPortRule',
@@ -1996,15 +1988,15 @@
       else ok=(Game.maxFlowStreak||0)>=objective.target;
       if(ok)mask|=objective.bit;
     }
-    return mask&7;  }
+    return mask&7;
+  }
   function medalLabels(mask,level=Game.level,config=Game.config){return medalObjectivesForLevel(level,config).filter(x=>(Number(mask)||0)&x.bit).map(x=>x.label);}
   function medalResultForRun(level=Game.level,config=Game.config){
     const key=String(level),previous=(Number(save.medalsByLevel?.[key])||0)&7,runMask=medalMaskForRun(level,config),savedMask=(previous|runMask)&7,newMask=savedMask&~previous;
     return {level,previous,runMask,savedMask,newMask,count:medalCount(savedMask),newCount:medalCount(newMask),labels:medalLabels(savedMask,level,config),newLabels:medalLabels(newMask,level,config),objectives:medalObjectivesForLevel(level,config)};
   }
   function unlockAchievements(stars){
-    save.achievements=save.achievements||{};const unlocked=[];
-    const tryUnlock=(key,label,condition)=>{if(condition&&!save.achievements[key]){save.achievements[key]=true;unlocked.push({key,label});}};
+    save.achievements=save.achievements||{};const unlocked=[];    const tryUnlock=(key,label,condition)=>{if(condition&&!save.achievements[key]){save.achievements[key]=true;unlocked.push({key,label});}};
     tryUnlock('perfect',T.achPerfect,stars===3&&!Game.rescueUsed&&!Game.assistActive);
     tryUnlock('flow',T.achFlow,(Game.maxFlowStreak||0)>=8);
     tryUnlock('priority',T.achPriority,(Game.prioritySaved||0)>=2);
@@ -2995,15 +2987,15 @@
     const laneGoal=c.laneTarget==null?(c.lane||0):c.laneTarget;
     const visualLane=lt<1?(c.laneFrom+(laneGoal-c.laneFrom)*ease):(c.lane||0);
     let pose;
-    const curveBounds=turnCurveBounds(Game.config?.lanes||1);    if(isRoundaboutJunction(Game.config?.junctionType)){pose=roundaboutPoseAt(c,p,Game.config?.lanes||1);}
+    const curveBounds=turnCurveBounds(Game.config?.lanes||1);
+    if(isRoundaboutJunction(Game.config?.junctionType)){pose=roundaboutPoseAt(c,p,Game.config?.lanes||1);}
     else if(c.turn&&c.turn!=='straight'&&p>=curveBounds.start){
       const outDir=c.turnOutDir||turnExitDir(c.dir,c.turn),outLane=c.turnOutLane||0;
       if(p>=curveBounds.end){
         pose=straightCarPose(outDir,p,outLane);
       }else{
         const p0=straightCarPose(c.dir,curveBounds.start,visualLane),p3=straightCarPose(outDir,curveBounds.end,outLane);
-        const a0=directionAngle(c.dir),a1=directionAngle(outDir);
-        // Quarter-circle-equivalent cubic handle (~0.5523r) gives a natural tangent-continuous turn.
+        const a0=directionAngle(c.dir),a1=directionAngle(outDir);        // Quarter-circle-equivalent cubic handle (~0.5523r) gives a natural tangent-continuous turn.
         // Radius follows the actual entry/exit lane centres, so wide left turns remain broad while
         // right turns hug the near corner without cutting across sidewalks.
         const radius=Math.max(34,Math.max(Math.abs(p3.x-p0.x),Math.abs(p3.y-p0.y)));
@@ -3994,13 +3986,13 @@
       for(let i=0;i<n;i++){
         const spread=(i-(n-1)/2)*7,progress=Math.min(1,(s.cycle%0.5)*2),motion=s.stage==='leaving'?progress:s.stage==='arriving'?1-progress:.45;
         const x=ex+spread+dir*motion*16,y=ey+13+(i%2)*2,bob=Math.sin(t*2.1+i*.8+k)*.45;
-        g.globalAlpha=.30+.48*s.activity;g.fillStyle=['#edc6a6','#d8a985','#f0cdb1'][i%3];g.beginPath();g.arc(x,y-8+bob,2.7,0,Math.PI*2);g.fill();        g.strokeStyle=['#5b7884','#7a687b','#607269'][i%3];g.lineWidth=3;g.beginPath();g.moveTo(x,y-4+bob);g.lineTo(x,y+5+bob);g.stroke();
+        g.globalAlpha=.30+.48*s.activity;g.fillStyle=['#edc6a6','#d8a985','#f0cdb1'][i%3];g.beginPath();g.arc(x,y-8+bob,2.7,0,Math.PI*2);g.fill();
+        g.strokeStyle=['#5b7884','#7a687b','#607269'][i%3];g.lineWidth=3;g.beginPath();g.moveTo(x,y-4+bob);g.lineTo(x,y+5+bob);g.stroke();
       }
       if(s.stage==='social'&&high){g.globalAlpha=.26+.30*s.activity;g.fillStyle='#d6b77c';roundRect(g,ex+dir*20,ey+14,10,5,2,true);}
     }
     g.restore();
   }
-
 
   // M185: public-space leisure lifecycle. Parks, plazas and waterfront corners now gain a
   // deterministic daily cadence of strolling, resting, exercise and quiet periods. Everything
@@ -4497,26 +4489,10 @@
     g.restore();
   }
 
-
-  function drawTwinJunctionScenarioOverlay(g,game,yA,yB,w){
-    if(game.mode!=='scenario'||game.scenarioId!=='twin_junction_trial')return;
-    const active=game.activeAxis(),transition=game.transitionTimer>0,c=transition?'#ffd166':active==='H'?'#55d5ff':'#56e39f';
-    g.save();
-    g.globalAlpha=.16;g.fillStyle=c;roundRect(g,330,yA+12,240,w-24,14,true);
-    g.globalAlpha=.72;g.strokeStyle=c;g.lineWidth=3;g.setLineDash([12,10]);g.beginPath();g.moveTo(278,450);g.lineTo(622,450);g.stroke();g.setLineDash([]);
-    g.fillStyle='rgba(4,18,30,.92)';g.strokeStyle=c;g.lineWidth=2;roundRect(g,376,78,148,32,11,true);roundRect(g,376,78,148,32,11,false);
-    g.fillStyle='#f4fbff';g.font='900 12px system-ui';g.textAlign='center';g.textBaseline='middle';g.fillText('1  ↔  2   SYNC',450,94);
-    // Connector occupancy is readable without adding another control or gameplay state.
-    const connectorBusy=game.cars.some(car=>{const route=linkedRouteSpec(car.linkedRouteId);return (route?.junctions||[]).length>1&&car.progress>390&&car.progress<920;});
-    if(connectorBusy){g.globalAlpha=.18;g.fillStyle='#ff9162';roundRect(g,330,yA+18,240,w-36,12,true);g.globalAlpha=.9;g.fillStyle='#ffe0cf';g.font='900 10px system-ui';g.fillText(T.twinJunctionConnector,450,yB+32);}
-    g.restore();
-  }
-
   function drawLinkedWorld(g,game){
     const theme=districtInfo(game.level),lanes=game.config?.lanes||1,layout=roadLayout(lanes),w=layout.edgeMax-layout.edgeMin,half=w/2,yA=450-half,yB=450+half,centers=[230,670];
     g.drawImage(getWorldCache(theme,lanes,'double-horizontal'),0,0);drawDynamicAmbient(g,theme);drawLivingCityAmbient(g,game);
     const sharedActive=game.activeAxis(),sharedTransition=game.transitionTimer>0;
-    drawTwinJunctionScenarioOverlay(g,game,yA,yB,w);
     if(!independentSignals(game)&&!sharedTransition&&sharedActive){const flowColor=sharedActive==='H'?'#55d5ff':'#56e39f';g.save();g.globalAlpha=.13;g.fillStyle=flowColor;if(sharedActive==='H')g.fillRect(0,yA,900,w);else for(const cx of centers)g.fillRect(cx-half,0,w,900);g.globalAlpha=.55;g.strokeStyle=flowColor;g.lineWidth=6;g.setLineDash([18,18]);g.beginPath();if(sharedActive==='H'){g.moveTo(14,450);g.lineTo(886,450);}else for(const cx of centers){g.moveTo(cx,14);g.lineTo(cx,886);}g.stroke();g.setLineDash([]);g.restore();}
     for(let ji=0;ji<centers.length;ji++){
       const junctionId=`J${ji}`,active=game.activeAxis(junctionId),transition=signalTransitionTimer(game,junctionId)>0,hSignal=signalStateForAxis('H',game,junctionId),vSignal=signalStateForAxis('V',game,junctionId),cx=centers[ji],left=cx-half,right=cx+half,top=yA,bottom=yB;
@@ -4993,7 +4969,8 @@
     g.fillStyle='rgba(7,25,36,.34)';roundRect(g,roofX+3,-bodyH*.33+4,roofW,bodyH*.66,9,true);
     if(RenderQuality.level>=1){const roofGrad=g.createLinearGradient(roofX,-bodyH*.34,roofX+roofW,bodyH*.34);roofGrad.addColorStop(0,'rgba(195,240,255,.58)');roofGrad.addColorStop(.48,'rgba(32,74,94,.88)');roofGrad.addColorStop(1,'rgba(8,32,48,.92)');g.fillStyle=roofGrad;}else g.fillStyle='rgba(32,74,94,.88)';roundRect(g,roofX,-bodyH*.33,roofW,bodyH*.66,9,true);
     g.strokeStyle='rgba(255,255,255,.22)';g.lineWidth=1.5;roundRect(g,roofX+2,-bodyH*.33+2,roofW-4,bodyH*.66-4,7,false);
-    drawEmergencyLightbar(g,c,bodyH);    g.fillStyle='rgba(0,0,0,.13)';roundRect(g,-bodyW/2+4,bodyH/2-11,bodyW-8,9,6,true);g.fillStyle='rgba(10,20,28,.28)';roundRect(g,-bodyW/2+6,-bodyH/2+3,6,bodyH-6,3,true);
+    drawEmergencyLightbar(g,c,bodyH);
+    g.fillStyle='rgba(0,0,0,.13)';roundRect(g,-bodyW/2+4,bodyH/2-11,bodyW-8,9,6,true);g.fillStyle='rgba(10,20,28,.28)';roundRect(g,-bodyW/2+6,-bodyH/2+3,6,bodyH-6,3,true);
     g.fillStyle='rgba(255,255,255,.28)';roundRect(g,-bodyW/2+9,-bodyH/2+6,bodyW-24,6,4,true);g.fillStyle='rgba(255,255,255,.10)';roundRect(g,-bodyW/2+15,-bodyH/2+14,bodyW*.34,4,2,true);
     g.fillStyle='rgba(255,255,255,.12)';roundRect(g,-bodyW/2+14,-bodyH/2+14,bodyW*0.22,bodyH*0.18,4,true);
 
@@ -5016,8 +4993,7 @@
     g.fillStyle='rgba(255,255,255,.34)';g.fillRect(cabW-11,-cabH/2+7,2,10);
 
     // Front/rear lights with a little glow.
-    const night=districtInfo(Game.level).id==='night';
-    if(night){g.save();const beam=g.createLinearGradient(bodyW/2-4,0,bodyW/2+58,0);beam.addColorStop(0,'rgba(255,247,190,.22)');beam.addColorStop(1,'rgba(255,247,190,0)');g.fillStyle=beam;g.beginPath();g.moveTo(bodyW/2-2,-18);g.lineTo(bodyW/2+62,-28);g.lineTo(bodyW/2+62,28);g.lineTo(bodyW/2-2,18);g.closePath();g.fill();g.restore();}
+    const night=districtInfo(Game.level).id==='night';    if(night){g.save();const beam=g.createLinearGradient(bodyW/2-4,0,bodyW/2+58,0);beam.addColorStop(0,'rgba(255,247,190,.22)');beam.addColorStop(1,'rgba(255,247,190,0)');g.fillStyle=beam;g.beginPath();g.moveTo(bodyW/2-2,-18);g.lineTo(bodyW/2+62,-28);g.lineTo(bodyW/2+62,28);g.lineTo(bodyW/2-2,18);g.closePath();g.fill();g.restore();}
     g.fillStyle='#fff3b0';g.shadowColor='#fff3b0';g.shadowBlur=night?12:5;roundRect(g,bodyW/2-11,-17,7,12,2,true);roundRect(g,bodyW/2-11,5,7,12,2,true);g.shadowBlur=0;
     g.globalAlpha=.18; g.fillRect(bodyW/2-4,-18,8,34); g.globalAlpha=1;
     const brakeGlow=.18+.82*brakeVisual;g.fillStyle=brakeVisual>.18?'#ff4757':'#8f3140';g.shadowColor='#ff5964';g.shadowBlur=brakeVisual>0?3+10*brakeVisual:0;g.globalAlpha=.55+.45*brakeGlow;roundRect(g,-bodyW/2+4,-17,7,12,2,true);roundRect(g,-bodyW/2+4,5,7,12,2,true);g.globalAlpha=1;g.shadowBlur=0;
@@ -5103,7 +5079,7 @@
     if(HUD_CACHE.occupied!==occupied){HUD_CACHE.occupied=occupied;$('signal-btn').classList.toggle('occupied',occupied);}
     const violatorNear=Game.cars.some(c=>c.violation&&c.violation!=='none'&&c.progress>135&&c.progress<560);
     if(HUD_CACHE.violatorNear!==violatorNear){HUD_CACHE.violatorNear=violatorNear;document.querySelector('.game-card')?.classList.toggle('violator-warning',violatorNear);}
-    const jt=Game.config?.junctionType||'cross',incidentHud=Game.incidentDirector&&!Game.incidentDirector.completed&&(Game.incidentDirector.warned||Game.incidentDirector.active)?Game.incidentDirector.hudText():'',eventText=Game.mode==='greenwave'?`${greenWaveDefinition(Game.greenWaveId)?.order||1}/${GREEN_WAVE_ORDER.length} · ${T.greenWaveMode}`:Game.mode==='scenario'?(Game.scenarioDirector?.stageLabel()||T.scenarioMode):(incidentHud||(eventLabel(Game.config?.variant||'standard')||(jt==='double-horizontal'?T.junctionDouble:jt!=='cross'?T.junctionT:''))),eventEl=$('event-badge');
+    const jt=Game.config?.junctionType||'cross',incidentHud=Game.incidentDirector&&!Game.incidentDirector.completed&&(Game.incidentDirector.warned||Game.incidentDirector.active)?Game.incidentDirector.hudText():'',eventText=Game.mode==='greenwave'?`${greenWaveDefinition(Game.greenWaveId)?.order||1}/${GREEN_WAVE_ORDER.length} · ${T.greenWaveMode}`:Game.mode==='scenario'?(Game.scenarioId==='twin_junction_trial'?`${T.twinJunctionBadge} · ${Game.scenarioDirector?.stageLabel()||T.scenarioMode}`:(Game.scenarioDirector?.stageLabel()||T.scenarioMode)):(incidentHud||(eventLabel(Game.config?.variant||'standard')||(jt==='double-horizontal'?T.junctionDouble:jt!=='cross'?T.junctionT:''))),eventEl=$('event-badge');
     const eventVariant=incidentHud?'incident':(Game.config?.variant||'standard');if(HUD_CACHE.eventText!==eventText||HUD_CACHE.eventVariant!==eventVariant){HUD_CACHE.eventText=eventText;HUD_CACHE.eventVariant=eventVariant;eventEl.textContent=eventText;eventEl.classList.toggle('ui-hidden',!eventText);eventEl.dataset.variant=eventVariant;}
     const incidentActive=Boolean(Game.incidentDirector?.active);if(HUD_CACHE.incidentActive!==incidentActive){HUD_CACHE.incidentActive=incidentActive;document.querySelector('.game-card')?.classList.toggle('incident-active',incidentActive);}
     const weather=weatherForLevel(Game.level),weatherEl=$('weather-badge'),weatherText=weatherLabel(weather);
@@ -5372,7 +5348,7 @@
     const resumeAfter=origin==='game'&&Game.state==='playing'&&!Game.userPaused;if(resumeAfter){Game.userPaused=true;platform.gameplayStop();}
     const best=save.scenarioProgress?.[scenarioSaveKey(def)]||null;
     $('modal-kicker').textContent=T.scenarioDistrict;$('modal-title').textContent=`🎒 ${T[def.nameKey]}`;$('modal-text').textContent=T[def.descriptionKey];$('modal-stars').textContent=best&&best.stars?'⭐'.repeat(best.stars)+'☆'.repeat(3-best.stars):'';$('modal-reward').classList.add('hidden');
-    const extra=$('modal-extra');extra.classList.remove('hidden');extra.textContent='';if(def.experimental){const exp=document.createElement('div');exp.className='roundabout-experimental';const meta=T[def.experimentalMetaKey]||T.roundaboutMetering;exp.textContent=`🧪 ${T.roundaboutExperimental} · ${meta}`;extra.appendChild(exp);}const goal=document.createElement('div');goal.className='daily-streak';goal.textContent=`🎯 ${T[def.goalKey]}`;extra.appendChild(goal);const rule=document.createElement('div');rule.className='scenario-rule';rule.textContent=`⚙️ ${T.scenarioRule}: ${T[def.ruleKey]||''}`;extra.appendChild(rule);const note=document.createElement('div');note.textContent=T.scenarioNoCoins;extra.appendChild(note);if(best){const line=document.createElement('div');line.textContent=`🏆 ${T.scenarioBest}: ${best.stars}/3★ · ${T.queueShort} ${best.bestQueue} · ${T.switchesShort} ${best.bestSwitches}${best.bestPriority?` · 🚨 ${best.bestPriority}`:''}`;extra.appendChild(line);}
+    const extra=$('modal-extra');extra.classList.remove('hidden');extra.textContent='';if(def.experimental){const exp=document.createElement('div');exp.className='roundabout-experimental';exp.textContent=`🧪 ${T.roundaboutExperimental} · ${def.id==='twin_junction_trial'?T.twinJunctionControl:T.roundaboutMetering}`;extra.appendChild(exp);}const goal=document.createElement('div');goal.className='daily-streak';goal.textContent=`🎯 ${T[def.goalKey]}`;extra.appendChild(goal);const rule=document.createElement('div');rule.className='scenario-rule';rule.textContent=`⚙️ ${T.scenarioRule}: ${T[def.ruleKey]||''}`;extra.appendChild(rule);const note=document.createElement('div');note.textContent=T.scenarioNoCoins;extra.appendChild(note);if(best){const line=document.createElement('div');line.textContent=`🏆 ${T.scenarioBest}: ${best.stars}/3★ · ${T.queueShort} ${best.bestQueue} · ${T.switchesShort} ${best.bestSwitches}${best.bestPriority?` · 🚨 ${best.bestPriority}`:''}`;extra.appendChild(line);}
     actions([{text:T.scenarioStart,cls:'primary',fn:()=>{Game.userPaused=false;Game.startScenario(def.id);}},{text:T.close,fn:()=>{if(origin==='hub'){showModeHub('return');return;}closeOverlay();if(resumeAfter){resumePausedGameplay();}else if(origin==='pause')showPause();}}]);openOverlay();
   }
   function showScenarioWin(def,stars,previous,best){
