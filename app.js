@@ -1,8 +1,19 @@
 (() => {
   'use strict';
 
+  // VK Play compatibility: keep the Canvas renderer alive on older/restricted browser engines.
+  try{
+    const proto=window.CanvasRenderingContext2D&&CanvasRenderingContext2D.prototype;
+    if(proto&&!proto.ellipse){
+      proto.ellipse=function(x,y,rx,ry,rotation,startAngle,endAngle,anticlockwise=false){
+        this.save();this.translate(x,y);this.rotate(rotation||0);this.scale(Math.max(.0001,rx),Math.max(.0001,ry));this.arc(0,0,1,startAngle,endAngle,anticlockwise);this.restore();
+      };
+    }
+    if(proto&&!proto.setLineDash)proto.setLineDash=function(){};
+  }catch(_){}
+
   const BUILD_MODE = 'production';
-  const BUILD_VERSION = 'M197-VKPLAY-ROUNDABOUT-TRIAL-RC1';
+  const BUILD_VERSION = 'M197-VKPLAY-ROUNDABOUT-TRIAL-RC1-HF1';
   const IS_DEVELOPMENT = BUILD_MODE === 'development';
   const PLATFORM_TARGET = 'vkplay'; // browser release target: VK Play iframe
   const YANDEX_PUBLIC_LEADERBOARD_NAME = 'TrafficPulseStars';
@@ -2731,9 +2742,20 @@
       const zoom=reducedMotion?1:(1+hotFlow*.008);
       const kick=(reducedMotion?0:(this.cameraKick||0));
       const shakeX=kick?Math.sin(performance.now()/22)*kick*5.5:0,shakeY=kick?Math.cos(performance.now()/19)*kick*4.5:0;
+      let drawFailed=false;
       ctx.save();ctx.scale(s,s);const visW=w/s,visH=h/s,ox=(visW-900)/2,oy=(visH-900)/2;
       ctx.translate(ox+450+shakeX,oy+450+shakeY);ctx.scale(zoom,zoom);ctx.translate(-450,-450);
-      drawExtendedBackdrop(ctx,this,ox,oy,visW,visH);drawWorld(ctx,this);if(this.replayPlayback)drawFailureReplayOverlay(ctx,this);ctx.restore();
+      if(renderFallbackActive){
+        drawCoreWorldFallback(ctx,this);
+      }else try{
+        drawExtendedBackdrop(ctx,this,ox,oy,visW,visH);drawWorld(ctx,this);if(this.replayPlayback)drawFailureReplayOverlay(ctx,this);
+      }catch(error){
+        drawFailed=true;noteRenderFault(error);
+        const fw=canvas.width,fh=canvas.height;canvas.width=fw;canvas.height=fh;
+        const fs=Math.min(fw,fh)/900,fox=(fw/fs-900)/2,foy=(fh/fs-900)/2;
+        ctx.setTransform(fs,0,0,fs,fox*fs,foy*fs);drawCoreWorldFallback(ctx,this);ctx.setTransform(1,0,0,1,0,0);
+      }
+      if(!drawFailed)ctx.restore();
     },
     loop(ts){
       const rawDt=Math.max(0,Math.min(.25,(ts-(this.lastTs||ts))/1000)); this.lastTs=ts;
@@ -2777,6 +2799,34 @@
     if(requested>maxPixels)dpr*=Math.sqrt(maxPixels/requested);
     const w=Math.max(1,Math.round(cssW*dpr)),h=Math.max(1,Math.round(cssH*dpr));
     if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h;canvas.dataset.renderDpr=(w/cssW).toFixed(2);}
+  }
+
+  let renderFaultCount=0,renderFallbackActive=false;
+  function noteRenderFault(error){
+    renderFaultCount++;renderFallbackActive=true;
+    const message=String(error?.message||error||'unknown render error');
+    window.__trafficPulseRenderFault={count:renderFaultCount,message,build:BUILD_VERSION,at:Date.now()};
+    if(renderFaultCount<=3){try{console.error('[TrafficPulse/RenderFallback]',message,error);}catch(_){}}
+  }
+  function drawCoreWorldFallback(g,game){
+    const lanes=Math.max(1,Math.min(3,Number(game?.config?.lanes)||1)),layout=roadLayout(lanes),a=layout.edgeMin,b=layout.edgeMax,w=b-a;
+    g.save();
+    g.fillStyle='#102535';g.fillRect(0,0,900,900);
+    g.fillStyle='#2d3c47';g.fillRect(0,a,900,w);g.fillRect(a,0,w,900);
+    g.strokeStyle='rgba(255,255,255,.55)';g.lineWidth=3;g.setLineDash([14,16]);
+    g.beginPath();g.moveTo(0,450);g.lineTo(900,450);g.moveTo(450,0);g.lineTo(450,900);g.stroke();g.setLineDash([]);
+    g.strokeStyle='rgba(255,255,255,.9)';g.lineWidth=6;
+    g.beginPath();g.moveTo(a-18,a+12);g.lineTo(a-18,b-12);g.moveTo(b+18,a+12);g.lineTo(b+18,b-12);g.moveTo(a+12,a-18);g.lineTo(b-12,a-18);g.moveTo(a+12,b+18);g.lineTo(b-12,b+18);g.stroke();
+    const active=game?.activeAxis?.()||'H';
+    const signalColor=axis=>axis===active?'#56e39f':'#ff5964';
+    for(const [x,y,axis] of [[a-34,a-34,'H'],[b+34,b+34,'H'],[b+34,a-34,'V'],[a-34,b+34,'V']]){g.fillStyle='#07101e';g.beginPath();g.arc(x,y,13,0,Math.PI*2);g.fill();g.fillStyle=signalColor(axis);g.beginPath();g.arc(x,y,7,0,Math.PI*2);g.fill();}
+    for(const c of (game?.cars||[])){
+      let pose=null;
+      try{pose=renderCarPose(c,game?.renderAlpha??1);}catch(_){try{pose=straightCarPose(c.dir,c.progress,c.lane||0);}catch(__){}}
+      if(!pose)continue;
+      g.save();g.translate(pose.x,pose.y);g.rotate(pose.rot||0);g.fillStyle=c.color||'#55d5ff';g.fillRect(-26,-12,52,24);g.fillStyle='rgba(230,247,255,.72)';g.fillRect(-7,-9,18,18);g.restore();
+    }
+    g.restore();
   }
 
   function roadLayout(lanes=(Game.config?.lanes||1)){
