@@ -2,7 +2,7 @@
   'use strict';
 
   const BUILD_MODE = 'production';
-  const BUILD_VERSION = 'M196-YANDEX-CITY-PROGRESSION-RC1';
+  const BUILD_VERSION = 'M197-YANDEX-ROUNDABOUT-TRIAL-RC1';
   const IS_DEVELOPMENT = BUILD_MODE === 'development';
   const PLATFORM_TARGET = 'yandex'; // build-time target: yandex | vk | standalone
   const YANDEX_PUBLIC_LEADERBOARD_NAME = 'TrafficPulseStars';
@@ -237,6 +237,10 @@
   Object.assign(TEXT.ru,{cityGrowth:'Развитие города',cityGrowthStage:'Стадия района',cityGrowthSeed:'Основа',cityGrowthGrowing:'Рост',cityGrowthActive:'Живой район',cityGrowthLandmark:'Новый силуэт',cityGrowthComplete:'Район сформирован',cityIdentity:'Характер района',cityLife:'Городская жизнь',cityGrowthWin:'Город развивается',cityGrowthNext:'До следующей стадии',cityGrowthLevels:'ур.',cityProfilePark:'Парки и семейные улицы',cityProfileCoast:'Набережная и курортный поток',cityProfileDowntown:'Высотки и деловой центр',cityProfileAirport:'Терминалы и служебные кварталы',cityProfileHarbor:'Порт, склады и грузовая смена',cityProfileNight:'Неон и вечерняя экономика',cityProfileOldtown:'Исторические кварталы и площади',cityProfileTech:'Технопарк и электромобили',cityProfileWinter:'Зимние улицы и тёплые витрины',cityLifePark:'Кафе · фонтаны · прогулки',cityLifeCoast:'Променад · киоски · туристы',cityLifeDowntown:'Такси · офисы · витрины',cityLifeAirport:'Шаттлы · маяки · сервис',cityLifeHarbor:'Контейнеры · краны · фуры',cityLifeNight:'Неон · ночные кафе · такси',cityLifeOldtown:'Часы · рынок · террасы',cityLifeTech:'Зарядки · LED · рободоставка',cityLifeWinter:'Снег · фонари · зимний рынок'});
   Object.assign(TEXT.en,{cityGrowth:'City Growth',cityGrowthStage:'District stage',cityGrowthSeed:'Foundation',cityGrowthGrowing:'Growing',cityGrowthActive:'Living district',cityGrowthLandmark:'New skyline',cityGrowthComplete:'District established',cityIdentity:'District identity',cityLife:'City life',cityGrowthWin:'The city is growing',cityGrowthNext:'Until next stage',cityGrowthLevels:'lv.',cityProfilePark:'Parks and family streets',cityProfileCoast:'Waterfront and resort traffic',cityProfileDowntown:'High-rises and business core',cityProfileAirport:'Terminals and service blocks',cityProfileHarbor:'Port, warehouses and freight shifts',cityProfileNight:'Neon and evening economy',cityProfileOldtown:'Historic blocks and plazas',cityProfileTech:'Tech park and electric mobility',cityProfileWinter:'Winter streets and warm storefronts',cityLifePark:'Cafés · fountains · walks',cityLifeCoast:'Promenade · kiosks · visitors',cityLifeDowntown:'Taxis · offices · storefronts',cityLifeAirport:'Shuttles · beacons · service',cityLifeHarbor:'Containers · cranes · trucks',cityLifeNight:'Neon · late cafés · taxis',cityLifeOldtown:'Clock · market · terraces',cityLifeTech:'Chargers · LED · robo-delivery',cityLifeWinter:'Snow · lamps · winter market'});
 
+
+  Object.assign(TEXT.ru,{roundaboutTrial:'Кольцевой перекрёсток',roundaboutTrialDesc:'Экспериментальный уровень: машины входят на кольцо и расходятся по разным съездам. Управление остаётся прежним — переключай горизонтальную и вертикальную подачу.',roundaboutTrialGoal:'Пропусти весь поток через кольцо без аварии и критической пробки',roundaboutTrialRule:'Светофоры дозируют въезд. Машина, уже вошедшая на кольцо, имеет приоритет; дождись освобождения кольца перед новой подачей.',roundaboutWarmup:'Разогрев кольца',roundaboutMixed:'Смешанные съезды',roundaboutFinal:'Финальный поток',roundaboutExperimental:'Эксперимент',roundaboutYield:'Кольцо занято',roundaboutMetering:'Дозирование въезда'});
+  Object.assign(TEXT.en,{roundaboutTrial:'Roundabout Trial',roundaboutTrialDesc:'Experimental level: cars enter a roundabout and leave through different exits. The core control stays the same — switch horizontal and vertical entry flow.',roundaboutTrialGoal:'Move all traffic through the roundabout without a crash or critical jam',roundaboutTrialRule:'Signals meter entry. A vehicle already on the roundabout has priority; wait until the circle is clear before releasing another approach.',roundaboutWarmup:'Roundabout warm-up',roundaboutMixed:'Mixed exits',roundaboutFinal:'Final flow',roundaboutExperimental:'Experimental',roundaboutYield:'Roundabout occupied',roundaboutMetering:'Entry metering'});
+
   let T = TEXT.ru;
 
   function safeInt(value,min,max,fallback=min){ const n=Number(value); return Number.isFinite(n)?Math.max(min,Math.min(max,Math.floor(n))):fallback; }
@@ -305,7 +309,7 @@
     return out;
   }
   function normalizeDailyRewards(value){ const src=boundedDailyMap(value),out={}; for(const [k,v] of Object.entries(src))if(v===true||v===1)out[k]=true; return out; }
-  const SCENARIO_SAVE_KEYS=new Set(['after_school@1','after_school@2','green_corridor@1','stadium_exit@1','airport_priority@1','roadworks_detour@1','freight_port@1']);
+  const SCENARIO_SAVE_KEYS=new Set(['after_school@1','after_school@2','green_corridor@1','stadium_exit@1','airport_priority@1','roadworks_detour@1','freight_port@1','roundabout_trial@1']);
   function normalizeScenarioProgress(value){
     const src=value&&typeof value==='object'?value:{},out={};
     for(const [k,v] of Object.entries(src)){if(!SCENARIO_SAVE_KEYS.has(k)||!v||typeof v!=='object')continue;out[k]={stars:safeInt(v.stars,0,3,0),bestQueue:safeInt(v.bestQueue,0,999,999),bestSwitches:safeInt(v.bestSwitches,0,9999,9999),bestPriority:safeInt(v.bestPriority,0,999,0),clears:safeInt(v.clears,0,1_000_000,0)};}
@@ -993,11 +997,11 @@
       o.onended=()=>this.musicNodes.delete(o);
       try{o.start(at);o.stop(at+duration+.035);}catch(_){this.musicNodes.delete(o);}
     },
-    musicGainValue(){ return [0,.28,.45,.60][safeInt(save.musicLevel,0,3,3)]||0; },
-    musicLabel(){ return ['0%','45%','75%','100%'][safeInt(save.musicLevel,0,3,3)]; },
+    musicGainValue(){ return [0,.28,.45,.60][safeInt(save.musicLevel,0,3,3)]||0; },    musicLabel(){ return ['0%','45%','75%','100%'][safeInt(save.musicLevel,0,3,3)]; },
     setMusicLevel(level){
       save.musicLevel=safeInt(level,0,3,3);save.sound=Boolean(save.sfx||save.musicLevel>0);this.enabled=save.sound;persist();
-      if(this.musicGain&&this.ctx){try{this.musicGain.gain.setValueAtTime(this.musicGainValue(),this.ctx.currentTime);}catch(_){this.musicGain.gain.value=this.musicGainValue();}}      if(save.musicLevel<=0){this.stopMusic();if(!this.enabled)this.suspend(true);}else this.ensure();
+      if(this.musicGain&&this.ctx){try{this.musicGain.gain.setValueAtTime(this.musicGainValue(),this.ctx.currentTime);}catch(_){this.musicGain.gain.value=this.musicGainValue();}}
+      if(save.musicLevel<=0){this.stopMusic();if(!this.enabled)this.suspend(true);}else this.ensure();
     },
     cycleMusic(){this.setMusicLevel((safeInt(save.musicLevel,0,3,3)+3)%4);},
     setSfxEnabled(v){save.sfx=Boolean(v);save.sound=Boolean(save.sfx||save.musicLevel>0);this.enabled=save.sound;persist();if(save.sfx)this.ensure();else this.stopTransientAudio();if(!this.enabled)this.suspend(true);},
@@ -1373,6 +1377,10 @@
     if(!graph){graph=key==='double-horizontal'?buildDoubleHorizontalRouteGraph():buildSingleJunctionRouteGraph(key);ROUTE_GRAPH_CACHE.set(key,graph);}return graph;
   }
   function isLinkedJunctionType(type=Game.config?.junctionType){return type==='double-horizontal';}
+
+  function isRoundaboutJunction(type=Game.config?.junctionType){return type==='roundabout';}
+  const ROUNDABOUT_GEOMETRY_CACHE=new Map();
+
   function linkedRouteSpec(routeId,type='double-horizontal'){return routeGraphForJunction(type).routes[String(routeId)]||null;}
   function axisForPlanItem(item){const s=String(item||'');if(s.includes('>'))return linkedRouteSpec(s)?.axis||(s[0]==='N'||s[0]==='S'?'V':'H');return AXIS[s]||null;}
   function baseDirForPlanItem(item){const s=String(item||'');return linkedRouteSpec(s)?.entryDir||s;}
@@ -1988,15 +1996,15 @@
     airport_priority:Object.freeze({
       id:'airport_priority',version:1,icon:'✈️',seed:0x5c4031,unlockRule:{minLevel:45},nameKey:'scenarioAirportPriority',descriptionKey:'scenarioAirportPriorityDesc',goalKey:'scenarioAirportPriorityGoal',ruleKey:'scenarioAirportPriorityRule',
       board:{level:42,startPhase:'V',lanes:2,maxQueue:7,perfectQueue:4,interval:.58,speed:168,clearance:1.20,junctionType:'cross',variant:'service',busChance:.24,ambulanceChance:.24,truckChance:.08,sportChance:.10,compactChance:.15},
-      stages:[
-        {id:'rush',start:0,labelKey:'scenarioStageAirportRush',events:[{id:'opening',at:0,type:'traffic',wave:'opening'}]},
+      stages:[        {id:'rush',start:0,labelKey:'scenarioStageAirportRush',events:[{id:'opening',at:0,type:'traffic',wave:'opening'}]},
         {id:'service',start:12,labelKey:'scenarioStageAirportService',events:[{id:'service_a',at:12,type:'traffic',wave:'service_a'},{id:'ped_a',at:19,type:'pedestrian',axis:'H'},{id:'service_b',at:23,type:'traffic',wave:'service_b'}]},
         {id:'final',start:34,labelKey:'scenarioStageAirportFinal',events:[{id:'final',at:34,type:'traffic',wave:'final'}]}
       ],
       trafficPlan:{opening:['N','S','W','E','N','S','W','E','W','E'],service_a:['N','S','N','S','W','E','W','E'],service_b:['W','E','N','S','W','E','N','S','W','E'],final:['N','S','W','E','N','S','W','E','N','S']},
       objectives:{maxQueue:6,maxSwitches:15,priorityRequired:4},starThresholds:{twoStarQueue:6,threeStarSwitches:15}
     }),
-    roadworks_detour:Object.freeze({      id:'roadworks_detour',version:1,icon:'🚧',seed:0x5c4041,unlockRule:{minLevel:50},nameKey:'scenarioRoadworks',descriptionKey:'scenarioRoadworksDesc',goalKey:'scenarioRoadworksGoal',ruleKey:'scenarioRoadworksRule',
+    roadworks_detour:Object.freeze({
+      id:'roadworks_detour',version:1,icon:'🚧',seed:0x5c4041,unlockRule:{minLevel:50},nameKey:'scenarioRoadworks',descriptionKey:'scenarioRoadworksDesc',goalKey:'scenarioRoadworksGoal',ruleKey:'scenarioRoadworksRule',
       board:{level:52,startPhase:'H',lanes:2,closedLane:1,maxQueue:7,perfectQueue:4,interval:.62,speed:160,clearance:1.24,junctionType:'cross',variant:'roadwork',busChance:.12,ambulanceChance:.03,truckChance:.18,sportChance:.05,compactChance:.12},
       stages:[
         {id:'prep',start:0,labelKey:'scenarioStageRoadworksPrep',events:[{id:'opening',at:0,type:'traffic',wave:'opening'}]},
@@ -2005,6 +2013,19 @@
       ],
       trafficPlan:{opening:['W','E','N','S','W','E','N','S'],rush_a:['W','E','W','E','N','S','W','E'],rush_b:['N','S','N','S','W','E','N','S'],final:['W','E','N','S','W','E','N','S','W','E']},
       objectives:{maxQueue:6,maxSwitches:14},starThresholds:{twoStarQueue:6,threeStarSwitches:14}
+    }),
+
+    roundabout_trial:Object.freeze({
+      id:'roundabout_trial',version:1,icon:'🔄',seed:0x5c4071,unlockRule:{minLevel:12},nameKey:'roundaboutTrial',descriptionKey:'roundaboutTrialDesc',goalKey:'roundaboutTrialGoal',ruleKey:'roundaboutTrialRule',experimental:true,
+      board:{level:27,startPhase:'H',lanes:1,maxQueue:6,perfectQueue:3,interval:.78,speed:146,clearance:1.18,junctionType:'roundabout',variant:'standard',busChance:.04,ambulanceChance:0,truckChance:.03,sportChance:.08,compactChance:.18},
+      stages:[
+        {id:'warmup',start:0,labelKey:'roundaboutWarmup',events:[{id:'opening',at:0,type:'traffic',wave:'opening'}]},
+        {id:'mixed',start:10,labelKey:'roundaboutMixed',events:[{id:'mixed_a',at:10,type:'traffic',wave:'mixed_a'},{id:'mixed_b',at:21,type:'traffic',wave:'mixed_b'}]},
+        {id:'final',start:32,labelKey:'roundaboutFinal',events:[{id:'final',at:32,type:'traffic',wave:'final'}]}
+      ],
+      trafficPlan:{opening:['W','E','N','S','W','E'],mixed_a:['N','W','S','E','W','N'],mixed_b:['E','S','W','N','E','S'],final:['W','N','E','S','W','E','N','S']},
+      roundaboutTurns:['right','straight','left','right','straight','left','straight','right','left','straight','right','left','straight','right','left','straight','right','left','straight','right','left','straight','right','left','straight','right'],
+      objectives:{maxQueue:5,maxSwitches:14},starThresholds:{twoStarQueue:5,threeStarSwitches:14}
     }),
     freight_port:Object.freeze({
       id:'freight_port',version:1,icon:'🚛',seed:0x5c4051,unlockRule:{minLevel:60},nameKey:'scenarioFreightPort',descriptionKey:'scenarioFreightPortDesc',goalKey:'scenarioFreightPortGoal',ruleKey:'scenarioFreightPortRule',
@@ -2025,7 +2046,7 @@
   function scenarioTrafficTotal(def){return Object.values(def?.trafficPlan||{}).reduce((n,wave)=>n+(Array.isArray(wave)?wave.length:0),0);}
   function scenarioConfig(def){
     const b=def.board,totalTraffic=scenarioTrafficTotal(def);
-    return {total:0,interval:b.interval,maxQueue:b.maxQueue,perfectQueue:b.perfectQueue,lanes:b.lanes,closedLane:b.closedLane??null,parSwitches:def.objectives?.maxSwitches||0,perfectSwitchBudget:def.starThresholds.threeStarSwitches,dirs:DIRS.slice(),speed:b.speed,seed:def.seed,plan:[],startPhase:b.startPhase,clearance:b.clearance,effectiveLevel:b.level,variant:b.variant,junctionType:b.junctionType,pacing:'scenario',busChance:b.busChance,ambulanceChance:b.ambulanceChance,truckChance:b.truckChance,sportChance:b.sportChance,compactChance:b.compactChance,scenarioTotalTraffic:totalTraffic};
+    return {total:0,interval:b.interval,maxQueue:b.maxQueue,perfectQueue:b.perfectQueue,lanes:b.lanes,closedLane:b.closedLane??null,parSwitches:def.objectives?.maxSwitches||0,perfectSwitchBudget:def.starThresholds.threeStarSwitches,dirs:DIRS.slice(),speed:b.speed,seed:def.seed,plan:[],startPhase:b.startPhase,clearance:b.clearance,effectiveLevel:b.level,variant:b.variant,junctionType:b.junctionType,pacing:'scenario',roundaboutTurns:Array.isArray(def.roundaboutTurns)?def.roundaboutTurns.slice():null,busChance:b.busChance,ambulanceChance:b.ambulanceChance,truckChance:b.truckChance,sportChance:b.sportChance,compactChance:b.compactChance,scenarioTotalTraffic:totalTraffic};
   }
   function canStartScenarioPedestrian(game,roadAxis,junctionId=null){
     if(!roadAxis||signalTransitionTimer(game,junctionId)>0||signalStateForAxis(roadAxis,game,junctionId)!=='red'||game.pedestriansOnAxis(roadAxis,junctionId))return false;
@@ -2189,7 +2210,7 @@
   const Game = {
     state:'boot', mode:'campaign', dailyKey:'', weeklyKey:'', scenarioId:'', scenarioDirector:null, incidentDirector:null, greenWaveId:'', greenWaveDirector:null, signalMode:'shared', signalControllers:null, greenWaveStats:null, level:save.level, config:null, cars:[], spawned:0, exited:0, phase:'H', pendingPhase:null, transitionTimer:0, endlessWave:0, endlessScore:0, endlessSessionSeed:0,
     switches:0, spawnTimer:0, maxObservedQueue:0, elapsed:0, externalPaused:false, userPaused:false, rescueUsed:false, assistActive:false,
-    firstInput:false, tutorialCueTimer:0, noticeTimers:[], failureUiTimer:0, coachFlags:{}, crashPair:null, crashFx:null, cameraKick:0, turnOwnerId:null, rng:Math.random, lastTs:0, lastDrawTs:0, lastHudTs:0, hudDirty:true, hudRefreshCount:0, frameId:0, accumulator:0, renderAlpha:1, particles:[], pedestrians:[], pedestrianSerial:0, pedestrianSpawnTimer:.4, pedestrianHold:false, phaseElapsed:0, emergencyPriorityId:null, flowStreak:0, maxFlowStreak:0, syncStreak:0, maxSyncStreak:0, prioritySaved:0, mission:null, lastMedalResult:null, lastPassAt:-99, failureReplayFrames:[], failureReplayClock:0, replayPlayback:null, replayTimer:0, lastFailType:'',
+    firstInput:false, tutorialCueTimer:0, noticeTimers:[], failureUiTimer:0, coachFlags:{}, crashPair:null, crashFx:null, cameraKick:0, turnOwnerId:null, roundaboutOwnerId:null, rng:Math.random, lastTs:0, lastDrawTs:0, lastHudTs:0, hudDirty:true, hudRefreshCount:0, frameId:0, accumulator:0, renderAlpha:1, particles:[], pedestrians:[], pedestrianSerial:0, pedestrianSpawnTimer:.4, pedestrianHold:false, phaseElapsed:0, emergencyPriorityId:null, flowStreak:0, maxFlowStreak:0, syncStreak:0, maxSyncStreak:0, prioritySaved:0, mission:null, lastMedalResult:null, lastPassAt:-99, failureReplayFrames:[], failureReplayClock:0, replayPlayback:null, replayTimer:0, lastFailType:'',
 
     clearNoticeTimers(){for(const id of this.noticeTimers||[])clearTimeout(id);this.noticeTimers=[];},
     scheduleNotice(fn,delay=0){const id=setTimeout(()=>{const i=this.noticeTimers.indexOf(id);if(i>=0)this.noticeTimers.splice(i,1);fn();},Math.max(0,Number(delay)||0));this.noticeTimers.push(id);return id;},
@@ -2227,7 +2248,7 @@
       this.clearNoticeTimers();this.clearFailureUiTimer();
       const def=scenarioDefinition(id);if(!def){toast(T.scenarioMode);return false;}if(!scenarioUnlocked(def)){toast(T.scenarioLocked);return false;}
       this.mode='scenario';this.scenarioId=def.id;this.incidentDirector=null;this.greenWaveId='';this.greenWaveDirector=null;this.signalMode='shared';this.signalControllers=null;this.greenWaveStats=null;this.dailyKey='';this.weeklyKey='';this.level=def.board.level;this.config=scenarioConfig(def);this.scenarioDirector=createScenarioDirector(def);this.assistActive=false;this.mission=null;
-      this.rng=seeded(def.seed);this.cars=[];this.spawned=0;this.exited=0;this.phase=this.config.startPhase;this.pendingPhase=null;this.transitionTimer=0;this.switches=0;this.spawnTimer=.42;this.phaseElapsed=0;this.pedestrians=[];this.pedestrianSerial=0;this.pedestrianSpawnTimer=99;this.pedestrianHold=false;this.emergencyPriorityId=null;AudioFx.stopTransientAudio();AudioFx.refreshMusicTheme();
+      this.rng=seeded(def.seed);this.cars=[];this.spawned=0;this.exited=0;this.phase=this.config.startPhase;this.pendingPhase=null;this.transitionTimer=0;this.switches=0;this.spawnTimer=.42;this.phaseElapsed=0;this.pedestrians=[];this.pedestrianSerial=0;this.pedestrianSpawnTimer=99;this.pedestrianHold=false;this.emergencyPriorityId=null;this.roundaboutOwnerId=null;AudioFx.stopTransientAudio();AudioFx.refreshMusicTheme();
       this.maxObservedQueue=0;this.elapsed=0;this.accumulator=0;this.renderAlpha=1;this.state='playing';this.externalPaused=Boolean(platform.pausedByPlatform||platform.browserPaused||platform.adPaused);this.userPaused=false;this.rescueUsed=rescued;this.crashPair=null;this.crashFx=null;this.cameraKick=0;this.turnOwnerId=null;this.particles=[];this.flowStreak=0;this.maxFlowStreak=0;this.syncStreak=0;this.maxSyncStreak=0;this.prioritySaved=0;this.lastPassAt=-99;this.failureReplayFrames=[];this.failureReplayClock=0;this.replayPlayback=null;clearTimeout(this.replayTimer);this.lastFailType='';this.firstInput=true;if(typeof PersonalBestService!=='undefined')PersonalBestService.clear();
       clearTimeout(this.tutorialCueTimer);this.tutorialCueTimer=0;$('tap-hint').style.display='none';closeOverlay();applyDistrictTheme();this.scenarioDirector.update(0,this);updateHud();this.primeTraffic();toast(`${def.icon||'🎒'} ${T[def.nameKey]}`);this.scheduleNotice(()=>{if(this.state==='playing'&&this.mode==='scenario'&&this.scenarioId===def.id)toast(`⚙️ ${T[def.ruleKey]||T.scenarioRule}`);},1450);if(!this.externalPaused&&!platform.booting){platform.gameplayStart();AudioFx.recoverAfterExternalResume();}return true;
     },
@@ -2236,7 +2257,7 @@
       const def=greenWaveDefinition(id);if(!def){toast(T.greenWaveMode);return false;}if(!greenWaveUnlocked(def)){toast(T.greenWaveLocked);return false;}
       this.mode='greenwave';this.greenWaveId=def.id;this.greenWaveDirector=createGreenWaveDirector(def);this.scenarioId='';this.scenarioDirector=null;this.incidentDirector=null;this.dailyKey='';this.weeklyKey='';this.level=def.board.level;this.config=greenWaveConfig(def);this.assistActive=false;this.mission=null;
       this.signalMode='independent';this.signalControllers={J0:createSignalController(def.board.startPhases?.J0||'H'),J1:createSignalController(def.board.startPhases?.J1||'V')};this.phase=this.signalControllers.J0.phase;this.pendingPhase=null;this.transitionTimer=0;this.phaseElapsed=0;this.pedestrianHold=false;
-      this.rng=seeded(def.seed);this.cars=[];this.spawned=0;this.exited=0;this.switches=0;this.spawnTimer=.48;this.pedestrians=[];this.pedestrianSerial=0;this.pedestrianSpawnTimer=99;this.emergencyPriorityId=null;AudioFx.stopTransientAudio();AudioFx.refreshMusicTheme();
+      this.rng=seeded(def.seed);this.cars=[];this.spawned=0;this.exited=0;this.switches=0;this.spawnTimer=.48;this.pedestrians=[];this.pedestrianSerial=0;this.pedestrianSpawnTimer=99;this.emergencyPriorityId=null;this.roundaboutOwnerId=null;AudioFx.stopTransientAudio();AudioFx.refreshMusicTheme();
       const throughTotal=def.plan.filter(x=>(linkedRouteSpec(x)?.junctions||[]).length>1).length;this.greenWaveStats={throughTotal,throughCompleted:0,throughNoStop:0,maxSideQueue:0,blockEvents:0,switches:{J0:0,J1:0}};
       this.maxObservedQueue=0;this.elapsed=0;this.accumulator=0;this.renderAlpha=1;this.state='playing';this.externalPaused=Boolean(platform.pausedByPlatform||platform.browserPaused||platform.adPaused);this.userPaused=false;this.rescueUsed=false;this.crashPair=null;this.crashFx=null;this.cameraKick=0;this.turnOwnerId=null;this.particles=[];this.flowStreak=0;this.maxFlowStreak=0;this.syncStreak=0;this.maxSyncStreak=0;this.prioritySaved=0;this.lastPassAt=-99;this.failureReplayFrames=[];this.failureReplayClock=0;this.replayPlayback=null;clearTimeout(this.replayTimer);this.lastFailType='';this.firstInput=true;if(typeof PersonalBestService!=='undefined')PersonalBestService.clear();
       clearTimeout(this.tutorialCueTimer);this.tutorialCueTimer=0;$('tap-hint').style.display='none';closeOverlay();applyDistrictTheme();updateHud();this.primeTraffic();toast(`${def.icon||'🟢'} ${T[def.nameKey]}`);if(!this.externalPaused&&!platform.booting){platform.gameplayStart();AudioFx.recoverAfterExternalResume();}return true;
@@ -2440,6 +2461,7 @@
         if(turnRoll<Math.min(.24,.12+effectiveLevel*.0015))turn='right';
         else if(effectiveLevel>=18&&turnRoll<Math.min(.36,.20+effectiveLevel*.0012))turn='left';
       }
+      if(isRoundaboutJunction(this.config?.junctionType)&&Array.isArray(this.config.roundaboutTurns)&&this.config.roundaboutTurns.length)turn=this.config.roundaboutTurns[spawnIndex%this.config.roundaboutTurns.length]||'straight';
       const junctionType=this.config?.junctionType||'cross',allowedTurns=linked?(route?.turn?[route.turn]:['straight']):allowedTurnsForJunction(dir,junctionType);
       if(!allowedTurns.includes(turn)){
         const legal=allowedTurns.length?allowedTurns:['straight'];
@@ -2600,17 +2622,23 @@
     },
     moveCars(dt){
       if(isLinkedJunctionType(this.config?.junctionType))return this.moveCarsLinked(dt);
-      const laneCount=Math.max(1,this.config.lanes||1),layout=roadLayout(laneCount),turnBounds=turnCurveBounds(laneCount),centerStart=365,centerEnd=535,exitAt=955,gap=90; const active=this.activeAxis();
+      const laneCount=Math.max(1,this.config.lanes||1),layout=roadLayout(laneCount),turnBounds=turnCurveBounds(laneCount),centerStart=365,centerEnd=535,roundabout=isRoundaboutJunction(this.config?.junctionType),exitAt=roundabout?1160:955,gap=90; const active=this.activeAxis();
 
       // M79 render interpolation: snapshot the authoritative fixed-step pose before advancing it.
       // Traffic rules/collisions continue to use current simulation state; only drawing interpolates.
       for(const c of this.cars){c.audioAge=(c.audioAge||0)+dt;c.prevRenderPose=carXY(c);}
 
+      // M197 experimental roundabout: one circulating reservation keeps the trial readable and safe.
+      // The player's existing H/V signal still meters entry; once a car is on the circle it keeps priority.
+      let roundaboutOwner=roundabout&&this.roundaboutOwnerId?this.cars.find(c=>c.id===this.roundaboutOwnerId):null;
+      if(roundaboutOwner&&!roundaboutOccupiesCircle(roundaboutOwner,laneCount)&&roundaboutOwner.progress>roundaboutRouteEndProgress(roundaboutOwner,laneCount)){this.roundaboutOwnerId=null;roundaboutOwner=null;}
+      if(roundabout&&!roundaboutOwner&&active){const candidates=this.cars.filter(c=>c.axis===active&&c.progress>=stopTargetProgress(c,laneCount)-26&&c.progress<turnBounds.start&&!this.pedestriansOnAxis(c.axis)).sort((a,b)=>(b.progress-a.progress)||(a.id-b.id));if(candidates[0]){roundaboutOwner=candidates[0];this.roundaboutOwnerId=roundaboutOwner.id;}}
+
       // One protected turning slot at a time. This keeps left/right turns readable and prevents
       // same-phase trajectories from cutting through each other without adding another control.
-      let turnOwner=this.turnOwnerId?this.cars.find(c=>c.id===this.turnOwnerId):null;
+      let turnOwner=!roundabout&&this.turnOwnerId?this.cars.find(c=>c.id===this.turnOwnerId):null;
       if(turnOwner&&(!active||turnOwner.axis!==active||turnOwner.progress>turnBounds.end+16)){this.turnOwnerId=null;turnOwner=null;}
-      if(!turnOwner&&active&&!this.cars.some(c=>c.inside)){
+      if(!roundabout&&!turnOwner&&active&&!this.cars.some(c=>c.inside)){
         const candidates=this.cars.filter(c=>c.turn&&c.turn!=='straight'&&c.axis===active&&c.progress>=stopTargetProgress(c,laneCount)-22&&c.progress<centerStart&&!this.pedestriansOnAxis(AXIS[c.turnOutDir||turnExitDir(c.dir,c.turn)]))
           .sort((a,b)=>(b.progress-a.progress)||(a.id-b.id));
         if(candidates[0]){turnOwner=candidates[0];this.turnOwnerId=turnOwner.id;}
@@ -2662,7 +2690,7 @@
       this.emergencyPriorityId=emergencyOwner?.id||null;
       for(const c of this.cars)c.emergencyPriorityActive=false;
 
-      const groups={};this.cars.forEach(c=>{const routeDir=(c.turn&&c.turn!=='straight'&&c.progress>turnBounds.end)?c.turnOutDir:c.dir;const routeLane=(c.turn&&c.turn!=='straight'&&c.progress>turnBounds.end)?(c.turnOutLane||0):(c.lane||0);const key=`${routeDir}:${routeLane}`;(groups[key]||(groups[key]=[])).push(c);});
+      const groups={};this.cars.forEach(c=>{const routedOut=roundabout?c.progress>roundaboutRouteEndProgress(c,laneCount):(c.turn&&c.turn!=='straight'&&c.progress>turnBounds.end);const routeDir=routedOut?(c.turnOutDir||c.dir):c.dir;const routeLane=routedOut?(c.turnOutLane||0):(c.lane||0);const key=`${routeDir}:${routeLane}`;(groups[key]||(groups[key]=[])).push(c);});
       for(const arr of Object.values(groups)){
         arr.sort((a,b)=>b.progress-a.progress);
         for(let i=0;i<arr.length;i++){
@@ -2682,7 +2710,7 @@
           const yieldToTurn=ownerActive&&c.id!==turnOwner.id&&c.axis===active&&c.progress<centerStart;
           const turnExitAxis=c.turn&&c.turn!=='straight'?AXIS[c.turnOutDir||turnExitDir(c.dir,c.turn)]:null;
           const waitingForPedestrian=c.progress<centerStart&&Boolean(turnExitAxis&&this.pedestriansOnAxis(turnExitAxis));
-          const waitingForTurnSlot=c.turn&&c.turn!=='straight'&&c.progress<centerStart&&(!turnOwner||c.id!==turnOwner.id);
+          const waitingForTurnSlot=!roundabout&&c.turn&&c.turn!=='straight'&&c.progress<centerStart&&(!turnOwner||c.id!==turnOwner.id);
           const nearLine=c.progress>=stopTarget-142&&c.progress<centerStart;
           if(c.violation&&c.violation!=='none'&&c.progress>=stopTarget-205&&c.progress<centerStart&&!c.violationWarned){c.violationWarned=true;c.violationWarnTimer=c.violation==='red'?.82:.28;toast(`⚠️ ${T.violatorAlert}`);}
           if(c.violationWarned&&!c.violationCommitted&&c.violationWarnTimer>0)c.violationWarnTimer=Math.max(0,c.violationWarnTimer-dt);
@@ -2703,12 +2731,13 @@
           const emergencyRedRun=isEmergencyVehicle(c)&&signalState==='red'&&nearLine&&emergencyPathClear;
           c.emergencyPriorityActive=Boolean(isEmergencyVehicle(c)&&signalState==='red'&&(emergencyRedRun||(c.signalCommitted&&c.progress<centerEnd+34)));
           if(emergencyRedRun&&!c.priorityAnnounced){c.priorityAnnounced=true;AudioFx.priority(c.kind,c.dir);Haptics.priority();toast(`🚨 ${T.priorityAlert}: ${T.priorityYield}`);}
-          const mayCommitSignal=green&&!ownerWaiting&&!yieldToTurn&&!waitingForTurnSlot&&!waitingForPedestrian&&!emergencyYield;
+          const roundaboutYield=Boolean(roundabout&&c.progress<centerStart&&(!roundaboutOwner||c.id!==roundaboutOwner.id));
+          const mayCommitSignal=green&&!ownerWaiting&&!yieldToTurn&&!waitingForTurnSlot&&!waitingForPedestrian&&!emergencyYield&&!roundaboutYield;
           if((mayCommitSignal||emergencyRedRun)&&c.progress>=stopTarget-2)c.signalCommitted=true;
           if(runningViolation)targetSpeed=Math.max(targetSpeed,(c.topSpeed||targetSpeed)*1.05);
           if(emergencyRedRun)targetSpeed=Math.max(targetSpeed,(c.topSpeed||targetSpeed)*.94);
           maybeCueEmergencyApproach(c,stopTarget-c.progress);
-          const redApproach=(!green||ownerWaiting||yieldToTurn||waitingForTurnSlot||waitingForPedestrian||emergencyYield)&&c.progress<centerStart&&!runningViolation&&!emergencyRedRun&&!c.signalCommitted;
+          const redApproach=(!green||ownerWaiting||yieldToTurn||waitingForTurnSlot||waitingForPedestrian||emergencyYield||roundaboutYield)&&c.progress<centerStart&&!runningViolation&&!emergencyRedRun&&!c.signalCommitted;
           if(front){
             const distance=front.progress-c.progress;
             if(distance<safeGap+26) targetSpeed=Math.min(targetSpeed, Math.max(0,(front.currentSpeed||0)-12));
@@ -2738,7 +2767,7 @@
         else remaining.push(c);
       }
       this.cars=remaining;
-      if(this.turnOwnerId&&!this.cars.some(c=>c.id===this.turnOwnerId))this.turnOwnerId=null;
+      if(this.turnOwnerId&&!this.cars.some(c=>c.id===this.turnOwnerId))this.turnOwnerId=null;if(this.roundaboutOwnerId&&!this.cars.some(c=>c.id===this.roundaboutOwnerId))this.roundaboutOwnerId=null;
       if(passed>0){
         this.exited+=passed;
         if(this.mode==='endless')this.endlessScore+=passed*(10+Math.min(40,this.endlessWave*2));
@@ -2752,7 +2781,7 @@
       const cleared=this.endlessWave;this.endlessScore+=cleared*75;this.endlessWave++;
       this.level=Math.min(130,20+this.endlessWave*8);this.config=endlessConfig(this.endlessWave,this.endlessSessionSeed);this.rng=seeded(this.config.seed);
       this.cars=[];this.spawned=0;this.exited=0;this.phase=this.config.startPhase;this.pendingPhase=null;this.transitionTimer=0;this.switches=0;this.spawnTimer=.48;this.phaseElapsed=0;
-      this.pedestrians=[];this.pedestrianSerial=0;this.pedestrianSpawnTimer=.55;this.pedestrianHold=false;this.emergencyPriorityId=null;this.turnOwnerId=null;this.maxObservedQueue=0;this.flowStreak=0;this.syncStreak=0;this.lastPassAt=-99;
+      this.pedestrians=[];this.pedestrianSerial=0;this.pedestrianSpawnTimer=.55;this.pedestrianHold=false;this.emergencyPriorityId=null;this.turnOwnerId=null;this.roundaboutOwnerId=null;this.maxObservedQueue=0;this.flowStreak=0;this.syncStreak=0;this.lastPassAt=-99;
       AudioFx.refreshMusicTheme();applyDistrictTheme();this.primeTraffic();updateHud();toast(`♾ ${T.endlessWave} ${this.endlessWave} · ${this.endlessScore}`);
     },
     emitExitParticles(car){
@@ -2966,8 +2995,7 @@
     const startProgress=gate.lineProgress+half-50;
     const p0=inDir==='W'?{x:center.x-60,y:center.y+laneOffset('W',lane,lanes)}:{x:center.x+60,y:center.y+laneOffset('E',lane,lanes)};
     const outOffset=laneOffset(outDir,outLane,lanes);
-    const p3=outDir==='S'?{x:center.x+outOffset,y:center.y+half+65}:{x:center.x+outOffset,y:center.y-half-65};
-    const a0=directionAngle(inDir),a1=directionAngle(outDir),radius=Math.max(90,Math.hypot(p3.x-p0.x,p3.y-p0.y)*.72),handle=radius*.55228475;
+    const p3=outDir==='S'?{x:center.x+outOffset,y:center.y+half+65}:{x:center.x+outOffset,y:center.y-half-65};    const a0=directionAngle(inDir),a1=directionAngle(outDir),radius=Math.max(90,Math.hypot(p3.x-p0.x,p3.y-p0.y)*.72),handle=radius*.55228475;
     const p1={x:p0.x+Math.cos(a0)*handle,y:p0.y+Math.sin(a0)*handle};
     const p2={x:p3.x-Math.cos(a1)*handle,y:p3.y-Math.sin(a1)*handle};
     const samples=[],steps=36;let distance=0,previous=p0;
@@ -2995,7 +3023,8 @@
   function linkedTurnPedestrianBlocked(c,junctionId,game=Game){
     const route=linkedRouteSpec(c?.linkedRouteId);
     return Boolean(route?.turn&&route.turnAt===junctionId&&game.pedestriansOnAxis(AXIS[route.turnOutDir||route.exitDir],junctionId));
-  }  function linkedTurnExitBlocked(c,junctionId,game=Game,lanes=(game.config?.lanes||1)){
+  }
+  function linkedTurnExitBlocked(c,junctionId,game=Game,lanes=(game.config?.lanes||1)){
     const route=linkedRouteSpec(c?.linkedRouteId);
     if(!route?.turn||route.turnAt!==junctionId)return false;
     const geometry=linkedTurnGeometry(c,lanes);if(!geometry)return true;
@@ -3087,6 +3116,35 @@
     return{x,y,rot:angleFromVector(dx,dy)};
   }
 
+
+  function roundaboutEntryAngle(dir){return dir==='W'?Math.PI:dir==='E'?0:dir==='N'?Math.PI/2:-Math.PI/2;}
+  function roundaboutExitAngle(dir){return dir==='W'?0:dir==='E'?Math.PI:dir==='N'?-Math.PI/2:Math.PI/2;}
+  function roundaboutTravelVector(dir){const a=directionAngle(dir);return{x:Math.cos(a),y:Math.sin(a)};}
+  function roundaboutRouteGeometry(c,lanes=(Game.config?.lanes||1)){
+    if(!isRoundaboutJunction(Game.config?.junctionType))return null;
+    const lane=Math.max(0,Number(c?.lane)||0),turn=(c?.turn&&c.turn!=='none')?c.turn:'straight',outDir=c?.turnOutDir||turnExitDir(c?.dir||'W',turn),outLane=Math.max(0,Number(c?.turnOutLane)||0),key=`${c?.dir||'W'}:${turn}:${lane}:${outLane}:${lanes}`;
+    let cached=ROUNDABOUT_GEOMETRY_CACHE.get(key);if(cached)return cached;
+    const bounds=turnCurveBounds(lanes),center={x:450,y:450},radius=lanes>1?104:92,blend=.38,quarters=turn==='right'?1:turn==='left'?3:2;
+    const entryAngle=roundaboutEntryAngle(c.dir),ringStartAngle=entryAngle-blend,ringEndAngle=entryAngle-quarters*Math.PI/2+blend;
+    const p0=straightCarPose(c.dir,bounds.start,lane),p3=straightCarPose(outDir,bounds.end,outLane);
+    const ringStart={x:center.x+Math.cos(ringStartAngle)*radius,y:center.y+Math.sin(ringStartAngle)*radius};
+    const ringEnd={x:center.x+Math.cos(ringEndAngle)*radius,y:center.y+Math.sin(ringEndAngle)*radius};
+    const inV=roundaboutTravelVector(c.dir),outV=roundaboutTravelVector(outDir),entryTan={x:Math.sin(ringStartAngle),y:-Math.cos(ringStartAngle)},exitTan={x:Math.sin(ringEndAngle),y:-Math.cos(ringEndAngle)};
+    const points=[];const pushPose=(pose)=>{const last=points[points.length-1];const d=last?last.distance+Math.hypot(pose.x-last.x,pose.y-last.y):0;points.push({...pose,distance:d});};
+    const entryHandle=44;for(let i=0;i<=12;i++){const t=i/12;const pose=cubicPose(p0,{x:p0.x+inV.x*entryHandle,y:p0.y+inV.y*entryHandle},{x:ringStart.x-entryTan.x*entryHandle,y:ringStart.y-entryTan.y*entryHandle},ringStart,t);pushPose(pose);}
+    const arcSteps=Math.max(16,Math.round(22*quarters));for(let i=1;i<=arcSteps;i++){const t=i/arcSteps,a=ringStartAngle+(ringEndAngle-ringStartAngle)*t;pushPose({x:center.x+Math.cos(a)*radius,y:center.y+Math.sin(a)*radius,rot:a-Math.PI/2});}
+    const exitHandle=44;for(let i=1;i<=12;i++){const t=i/12;const pose=cubicPose(ringEnd,{x:ringEnd.x+exitTan.x*exitHandle,y:ringEnd.y+exitTan.y*exitHandle},{x:p3.x-outV.x*exitHandle,y:p3.y-outV.y*exitHandle},p3,t);pushPose(pose);}
+    const startProgress=bounds.start,endProgress=startProgress+(points[points.length-1]?.distance||0);cached={key,startProgress,endProgress,outDir,outLane,p0,p3,points,length:endProgress-startProgress};
+    if(ROUNDABOUT_GEOMETRY_CACHE.size>=48)ROUNDABOUT_GEOMETRY_CACHE.clear();ROUNDABOUT_GEOMETRY_CACHE.set(key,cached);return cached;
+  }
+  function roundaboutPoseAt(c,p,lanes=(Game.config?.lanes||1)){
+    const geo=roundaboutRouteGeometry(c,lanes);if(!geo)return straightCarPose(c.dir,p,c.lane||0);if(p<=geo.startProgress)return straightCarPose(c.dir,p,c.lane||0);
+    if(p>=geo.endProgress){const delta=p-geo.endProgress,v=roundaboutTravelVector(geo.outDir);return{x:geo.p3.x+v.x*delta,y:geo.p3.y+v.y*delta,rot:directionAngle(geo.outDir)};}
+    const d=p-geo.startProgress,pts=geo.points;let hi=1;while(hi<pts.length&&pts[hi].distance<d)hi++;const b=pts[Math.min(hi,pts.length-1)],a=pts[Math.max(0,hi-1)],span=Math.max(.001,b.distance-a.distance),t=Math.max(0,Math.min(1,(d-a.distance)/span));return{x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t,rot:lerpAngle(a.rot,b.rot,t)};
+  }
+  function roundaboutRouteEndProgress(c,lanes=(Game.config?.lanes||1)){return roundaboutRouteGeometry(c,lanes)?.endProgress||turnCurveBounds(lanes).end;}
+  function roundaboutOccupiesCircle(c,lanes=(Game.config?.lanes||1)){const g=roundaboutRouteGeometry(c,lanes);return Boolean(g&&c.progress>=g.startProgress-4&&c.progress<=g.endProgress+18);}
+
   function carXY(c){
     const p=c.progress;
     if(c.linkedRouteId)return linkedPoseAt(c,p);
@@ -3095,7 +3153,8 @@
     const visualLane=lt<1?(c.laneFrom+(laneGoal-c.laneFrom)*ease):(c.lane||0);
     let pose;
     const curveBounds=turnCurveBounds(Game.config?.lanes||1);
-    if(c.turn&&c.turn!=='straight'&&p>=curveBounds.start){
+    if(isRoundaboutJunction(Game.config?.junctionType)){pose=roundaboutPoseAt(c,p,Game.config?.lanes||1);}
+    else if(c.turn&&c.turn!=='straight'&&p>=curveBounds.start){
       const outDir=c.turnOutDir||turnExitDir(c.dir,c.turn),outLane=c.turnOutLane||0;
       if(p>=curveBounds.end){
         pose=straightCarPose(outDir,p,outLane);
@@ -3190,7 +3249,7 @@
       drawLinkedRoadSurface(g,lanes);
       for(const cx of [230,670]){g.save();const ring=g.createRadialGradient(cx,450,18,cx,450,104);ring.addColorStop(0,'rgba(255,255,255,.05)');ring.addColorStop(1,'rgba(255,255,255,0)');g.fillStyle=ring;g.beginPath();g.arc(cx,450,104,0,Math.PI*2);g.fill();g.restore();}
     }else{
-      drawRoadSurface(g,lanes);drawSidewalkFrame(g,lanes);drawAsphaltSheen(g,lanes);drawApproachMarkings(g,lanes);drawRoadReflectors(g,lanes);drawJunctionClosure(g,junctionType,theme,lanes);
+      drawRoadSurface(g,lanes);drawSidewalkFrame(g,lanes);drawAsphaltSheen(g,lanes);drawApproachMarkings(g,lanes);drawRoadReflectors(g,lanes);drawJunctionClosure(g,junctionType,theme,lanes);if(isRoundaboutJunction(junctionType))drawRoundaboutOverlay(g,lanes,theme);
       g.save();const ring=g.createRadialGradient(450,450,18,450,450,110);ring.addColorStop(0,'rgba(255,255,255,.05)');ring.addColorStop(1,'rgba(255,255,255,0)');g.fillStyle=ring;g.beginPath();g.arc(450,450,110,0,Math.PI*2);g.fill();g.restore();
     }
     while(worldCache.size>=WORLD_CACHE_LIMIT){const oldestKey=worldCache.keys().next().value,old=worldCache.get(oldestKey);worldCache.delete(oldestKey);if(old){old.width=1;old.height=1;}}
@@ -3935,8 +3994,7 @@
 
   // M181: transit stop lifecycle. Decorative shelters now cycle through approaching, boarding,
   // departing and quiet states based on the existing visual day rhythm and traffic pressure.
-  // This is presentation-only: no decorative passenger or transit marker enters Game.cars,
-  // consumes road capacity, changes signals, spawning, collisions, score, save data or RNG.
+  // This is presentation-only: no decorative passenger or transit marker enters Game.cars,  // consumes road capacity, changes signals, spawning, collisions, score, save data or RNG.
   function transitStopPulseState(game){
     const r=cityRhythmState(game),id=r.district,t=Math.max(0,Number(game?.elapsed)||0);
     const period=18+((Number(game?.level)||1)%4)*2,cycle=((t+(Number(game?.level)||1)*3.7)%period)/period;
@@ -3994,7 +4052,8 @@
   function drawStorefrontDeliveryLifecycle(g,game){
     if(reducedMotion||RenderQuality.level===0||isLinkedJunctionType(game.config?.junctionType))return;
     const s=storefrontDeliveryState(game),t=Math.max(0,game.elapsed||0),high=RenderQuality.level>=2;
-    if(s.activity<.12)return;    const zones=s.district==='harbor'?[[744,168,-1],[748,726,-1]]:s.district==='airport'?[[126,168,1],[742,726,-1]]:[[116,168,1],[748,726,-1]];
+    if(s.activity<.12)return;
+    const zones=s.district==='harbor'?[[744,168,-1],[748,726,-1]]:s.district==='airport'?[[126,168,1],[742,726,-1]]:[[116,168,1],[748,726,-1]];
     g.save();g.lineCap='round';g.lineJoin='round';
     for(let k=0;k<(high?2:1);k++){
       const [sx,sy,dir]=zones[k],active=s.stage!=='closed';
@@ -4789,6 +4848,22 @@
     g.restore();
   }
 
+
+  function drawRoundaboutOverlay(g,lanes=1,theme=districtInfo(Game.level)){
+    const cx=450,cy=450,r=lanes>1?104:92,outer=r+37,inner=r-35;g.save();
+    // Cover the legacy crossing core with a circular carriageway, then add a landscaped island.
+    const road=g.createRadialGradient(cx,cy,inner,cx,cy,outer);road.addColorStop(0,'#344650');road.addColorStop(.72,'#2a3944');road.addColorStop(1,'#1e2b34');g.fillStyle=road;g.beginPath();g.arc(cx,cy,outer,0,Math.PI*2);g.fill();
+    g.strokeStyle='rgba(255,255,255,.30)';g.lineWidth=2.2;g.setLineDash([13,15]);g.beginPath();g.arc(cx,cy,r,0,Math.PI*2);g.stroke();g.setLineDash([]);
+    g.strokeStyle='rgba(255,209,102,.72)';g.lineWidth=3;g.beginPath();g.arc(cx,cy,inner+4,0,Math.PI*2);g.stroke();
+    const island=g.createRadialGradient(cx-18,cy-22,8,cx,cy,inner-3);island.addColorStop(0,theme.id==='winter'?'#e8f2f5':'#6ea66f');island.addColorStop(1,theme.id==='night'?'#294c43':'#497c52');g.fillStyle=island;g.beginPath();g.arc(cx,cy,inner-3,0,Math.PI*2);g.fill();
+    g.strokeStyle='rgba(234,246,238,.55)';g.lineWidth=5;g.beginPath();g.arc(cx,cy,inner-3,0,Math.PI*2);g.stroke();
+    // Direction arrows show right-hand / counter-clockwise circulation without adding new controls.
+    g.fillStyle='rgba(225,243,250,.72)';for(const a of [-.35,Math.PI/2-.35,Math.PI-.35,Math.PI*1.5-.35]){const x=cx+Math.cos(a)*r,y=cy+Math.sin(a)*r,tan=a-Math.PI/2;g.save();g.translate(x,y);g.rotate(tan);g.beginPath();g.moveTo(10,0);g.lineTo(-7,-6);g.lineTo(-3,0);g.lineTo(-7,6);g.closePath();g.fill();g.restore();}
+    // Small central landmark keeps the roundabout visually distinct but cheap to render.
+    g.fillStyle=theme.id==='night'?'rgba(85,213,255,.52)':'rgba(225,244,230,.55)';g.beginPath();g.arc(cx,cy,20,0,Math.PI*2);g.fill();g.fillStyle='rgba(15,48,50,.42)';g.beginPath();g.arc(cx,cy,11,0,Math.PI*2);g.fill();
+    g.restore();
+  }
+
   function drawRoadSurface(g,lanes=1){
     const layout=roadLayout(lanes),a=layout.edgeMin,b=layout.edgeMax,w=b-a;
     const roadGrad=g.createLinearGradient(0,0,900,900);roadGrad.addColorStop(0,'#3c4e5b');roadGrad.addColorStop(.42,'#2d3c47');roadGrad.addColorStop(1,'#1e2932');
@@ -4918,8 +4993,7 @@
       g.fillStyle='#82998e';roundRect(g,28,28,295,295,26,true);g.fillStyle='#414d55';roundRect(g,52,78,240,112,18,true);g.strokeStyle='rgba(255,255,255,.88)';g.lineWidth=7;g.setLineDash([26,18]);g.beginPath();g.moveTo(70,134);g.lineTo(275,134);g.stroke();g.setLineDash([]);for(let i=0;i<6;i++)drawRunwayBeacon(g,76+i*38,101,i%2?'#ffd166':'#55d5ff');
       drawTerminal(g,620,38,240,282);drawPark(g,38,624,280,232);drawTerminal(g,636,642,220,208);drawBillboard(g,650,257,115,42,'#56e39f');drawLamp(g,604,298,.82);return;
     }
-    if(id==='oldtown'){
-      g.fillStyle='#c7a47d';roundRect(g,24,24,300,300,24,true);roundRect(g,612,24,250,300,24,true);roundRect(g,24,612,300,250,24,true);roundRect(g,612,612,250,250,24,true);
+    if(id==='oldtown'){      g.fillStyle='#c7a47d';roundRect(g,24,24,300,300,24,true);roundRect(g,612,24,250,300,24,true);roundRect(g,24,612,300,250,24,true);roundRect(g,612,612,250,250,24,true);
       drawBuildings(g,40,44,268,250);drawBuildings(g,626,46,220,246);drawPlaza(g,42,628,266,218);drawPark(g,632,632,218,218);
       g.strokeStyle='rgba(98,61,47,.22)';g.lineWidth=3;for(let y of [78,116,154,192,230,268]){g.beginPath();g.moveTo(36,y);g.lineTo(312,y);g.stroke();}
       drawBench(g,110,286,.85);drawFlowerBed(g,242,660,.9);drawLamp(g,302,298,.8,'#ffd79a');drawLamp(g,600,598,.8,'#ffd79a');drawBillboard(g,652,258,112,42,'#f0b96a');return;
@@ -4993,7 +5067,8 @@
     for(const [yy,c,on] of [[-28,'#ff5964',redOn],[0,'#ffd166',yellowOn],[28,'#56e39f',greenOn]]){
       g.fillStyle='rgba(3,12,20,.48)';g.beginPath();g.arc(0,yy-6,16,Math.PI,Math.PI*2);g.fill();
       g.fillStyle=on?c:'rgba(255,255,255,.14)';
-      g.shadowColor=on?c:'transparent';g.shadowBlur=on?(RenderQuality.level>=2?22:RenderQuality.level===1?11:0):0;      g.beginPath();g.arc(0,yy,12,0,Math.PI*2);g.fill();
+      g.shadowColor=on?c:'transparent';g.shadowBlur=on?(RenderQuality.level>=2?22:RenderQuality.level===1?11:0):0;
+      g.beginPath();g.arc(0,yy,12,0,Math.PI*2);g.fill();
       if(on){const pulse=(reducedMotion?0:.04*Math.sin(performance.now()/180+yy));g.globalAlpha=.34+pulse;g.beginPath();g.arc(0,yy,19,0,Math.PI*2);g.fill();g.globalAlpha=.10+pulse*.5;g.beginPath();g.arc(0,yy,30,0,Math.PI*2);g.fill();g.globalAlpha=1;}
     }
     // Small directional plaque: shows which stream this head controls (↑ ↓ ← →).
@@ -5403,7 +5478,7 @@
     const resumeAfter=origin==='game'&&Game.state==='playing'&&!Game.userPaused;if(resumeAfter){Game.userPaused=true;platform.gameplayStop();}
     const best=save.scenarioProgress?.[scenarioSaveKey(def)]||null;
     $('modal-kicker').textContent=T.scenarioDistrict;$('modal-title').textContent=`🎒 ${T[def.nameKey]}`;$('modal-text').textContent=T[def.descriptionKey];$('modal-stars').textContent=best&&best.stars?'⭐'.repeat(best.stars)+'☆'.repeat(3-best.stars):'';$('modal-reward').classList.add('hidden');
-    const extra=$('modal-extra');extra.classList.remove('hidden');extra.textContent='';const goal=document.createElement('div');goal.className='daily-streak';goal.textContent=`🎯 ${T[def.goalKey]}`;extra.appendChild(goal);const rule=document.createElement('div');rule.className='scenario-rule';rule.textContent=`⚙️ ${T.scenarioRule}: ${T[def.ruleKey]||''}`;extra.appendChild(rule);const note=document.createElement('div');note.textContent=T.scenarioNoCoins;extra.appendChild(note);if(best){const line=document.createElement('div');line.textContent=`🏆 ${T.scenarioBest}: ${best.stars}/3★ · ${T.queueShort} ${best.bestQueue} · ${T.switchesShort} ${best.bestSwitches}${best.bestPriority?` · 🚨 ${best.bestPriority}`:''}`;extra.appendChild(line);}
+    const extra=$('modal-extra');extra.classList.remove('hidden');extra.textContent='';if(def.experimental){const exp=document.createElement('div');exp.className='roundabout-experimental';exp.textContent=`🧪 ${T.roundaboutExperimental} · ${T.roundaboutMetering}`;extra.appendChild(exp);}const goal=document.createElement('div');goal.className='daily-streak';goal.textContent=`🎯 ${T[def.goalKey]}`;extra.appendChild(goal);const rule=document.createElement('div');rule.className='scenario-rule';rule.textContent=`⚙️ ${T.scenarioRule}: ${T[def.ruleKey]||''}`;extra.appendChild(rule);const note=document.createElement('div');note.textContent=T.scenarioNoCoins;extra.appendChild(note);if(best){const line=document.createElement('div');line.textContent=`🏆 ${T.scenarioBest}: ${best.stars}/3★ · ${T.queueShort} ${best.bestQueue} · ${T.switchesShort} ${best.bestSwitches}${best.bestPriority?` · 🚨 ${best.bestPriority}`:''}`;extra.appendChild(line);}
     actions([{text:T.scenarioStart,cls:'primary',fn:()=>{Game.userPaused=false;Game.startScenario(def.id);}},{text:T.close,fn:()=>{if(origin==='hub'){showModeHub('return');return;}closeOverlay();if(resumeAfter){resumePausedGameplay();}else if(origin==='pause')showPause();}}]);openOverlay();
   }
   function showScenarioWin(def,stars,previous,best){
@@ -5562,4 +5637,4 @@
   // M195 Hotfix03 production build: About panel simplified; static bicycle cleanup retained; local automation/debug API stripped.
 
   applyLanguage(); platform.init();
-})();
+})();})();
