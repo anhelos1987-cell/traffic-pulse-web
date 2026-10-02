@@ -2,9 +2,9 @@
   'use strict';
 
   const BUILD_MODE = 'production';
-  const BUILD_VERSION = 'M195-HF08-VKPLAY-PAYMENT-HARDENING-RC1';
+  const BUILD_VERSION = 'M196-YANDEX-CITY-PROGRESSION-RC1';
   const IS_DEVELOPMENT = BUILD_MODE === 'development';
-  const PLATFORM_TARGET = 'vkplay'; // browser release target: VK Play iframe
+  const PLATFORM_TARGET = 'yandex'; // build-time target: yandex | vk | standalone
   const YANDEX_PUBLIC_LEADERBOARD_NAME = 'TrafficPulseStars';
   const YANDEX_MASTERY_LEADERBOARD_NAME = 'TrafficPulseMastery';
   // M168: public Yandex card uses readable raw stars; the in-game mastery board keeps deterministic tie-breakers.
@@ -189,10 +189,10 @@
       level:'Уровень', goal:'Пропусти весь транспорт', restart:'Заново', hint:'Совет', switchLight:'Сменить свет', pauseAction:'Пауза',
       jam:'Пробка', switches:'Переключения', tapSignal:'Нажми на светофор', paused:'Пауза', pausedText:'Движение остановлено.',
       continue:'Продолжить', complete:'Отличный поток!', completeText:'Перекрёсток свободен.', next:'Следующий уровень', coins:'монет',
-      rewardAdCoins:'Дополнительный бонус', crash:'Столкновение!', crashText:'Не открывай встречный поток, пока перекрёсток занят.',
-      trafficJam:'Город встал!', jamText:'Очередь стала слишком длинной.', tryAgain:'Повторить', rescueCrashAd:'Продолжение недоступно', rescueJamAd:'Продолжение недоступно',
+      rewardAdCoins:'Реклама · получить ещё', crash:'Столкновение!', crashText:'Не открывай встречный поток, пока перекрёсток занят.',
+      trafficJam:'Город встал!', jamText:'Очередь стала слишком длинной.', tryAgain:'Повторить', rescueCrashAd:'Реклама · убрать аварию и продолжить', rescueJamAd:'Реклама · убрать затор и продолжить',
       hintHorizontal:'Открой горизонтальное движение.', hintVertical:'Открой вертикальное движение.', hintWait:'Подожди, пока машины покинут перекрёсток.',
-      adUnavailable:'Функция сейчас недоступна', demoReward:'Тестовый бонус получен', perfect:'Идеально!', good:'Хорошо!', survived:'Пройдено!',
+      adUnavailable:'Реклама сейчас недоступна', demoReward:'Тестовый бонус получен', perfect:'Идеально!', good:'Хорошо!', survived:'Пройдено!',
       phaseH:'Горизонталь', phaseV:'Вертикаль', phaseChanging:'Переключение…', phasePedestrianClearing:'Пешеходы завершают переход…', flow:'ПОТОК', hotFlow:'ГОРЯЧИЙ ПОТОК', perfectSwitch:'ИДЕАЛЬНОЕ ПЕРЕКЛЮЧЕНИЕ', syncBonus:'Бонус синхронизации', boardLabel:'Игровой перекрёсток', controlsLabel:'Управление движением', progressLabel:'Прогресс уровня', starsLabel:'Звёзды', statusLabel:'Статус уровня', progressOverviewLabel:'Обзор прогресса', personalBestLabel:'Сравнение с личным рекордом', independentControlsLabel:'Независимое управление перекрёстками', eventRush:'ЧАС ПИК', eventHeavy:'ТЯЖЁЛЫЙ', eventService:'СЛУЖЕБНЫЙ', eventExpress:'ЭКСПРЕСС', eventFreight:'ГРУЗОВОЙ', eventPulse:'ПУЛЬС', eventAlternating:'СМЕНА ДАВЛЕНИЯ', eventRoadwork:'РЕМОНТ', junctionT:'T-ПЕРЕКРЁСТОК', junctionDouble:'ДВОЙНОЙ УЗЕЛ', priorityAlert:'СПЕЦТРАНСПОРТ', priorityYield:'УСТУПИ ДОРОГУ', priorityIncoming:'ПРИБЛИЖАЕТСЯ', priorityClear:'ОСВОБОДИ УЗЕЛ', pedestrianWalk:'ПЕШЕХОДАМ МОЖНО', pedestrianStop:'ПЕШЕХОДАМ СТОП', eventIntro:'Особый поток',
       soundOn:'🔊 Звук: вкл.', soundOff:'🔇 Звук: выкл.', musicLevel:'🎵 Музыка', effectsOn:'🔊 Эффекты: вкл.', effectsOff:'🔇 Эффекты: выкл.', language:'🌐 Язык', languageAuto:'Авто', languageRussian:'Русский', languageEnglish:'English', leaderboard:'Рейтинг', leaderboardTitle:'Мировой рейтинг', leaderboardDesc:'Звёзды определяют место. При равенстве учитываются миссии, затем медали.', leaderboardScore:'Твой результат', leaderboardYourRank:'Твоё место', leaderboardSignIn:'Войти в Яндекс', leaderboardSignInDesc:'Войди в Яндекс, чтобы опубликовать результат и увидеть своё место в рейтинге.', leaderboardUnavailable:'Рейтинг доступен только в версии Яндекс Игр.', leaderboardLoading:'Загрузка рейтинга…', leaderboardRetry:'Обновить', leaderboardNoEntries:'Пока нет результатов.', leaderboardSetup:'Рейтинг ещё не создан в консоли Яндекс Игр.', leaderboardAnonymous:'Игрок', leaderboardYou:'Ты', developer:'О игре', developerTitle:'О игре', developerDesc:'', developerBuild:'Разработчик', developerPlatform:'Почта', developerSave:'Версия игры', developerPublicBoard:'Основной рейтинг', developerMasteryBoard:'Рейтинг мастерства', developerSimulation:'Симуляция', stats:'Статистика', statsLevel:'Уровень', statsStars:'Звёзды', statsMissions:'Миссии', statsAchievements:'Достижения', statsCars:'Машины', statsFlow:'Рекорд FLOW', statsDaily:'Daily серия', statsWeekly:'Weekly победы', newCar:'Новый автомобиль доступен в гараже!', newDistrict:'Открыт новый район:', garage:'Гараж', garageDesc:'Гараж меняет только внешний вид. Любимая машина чаще появляется в обычном трафике (~55%), но не становится быстрее и не даёт бонусов.', garagePreview:'Предпросмотр', garageCollectionProgress:'Коллекция', garageTapPreview:'Нажми на машинку для предпросмотра', garageCanSelect:'Куплено · можно выбрать', garageUnlockIn:'до открытия', garageCoinsShort:'до покупки', nextPurchase:'Следующая покупка', needCoins:'не хватает', readyToBuy:'можно купить', owned:'Куплено', buy:'Купить', selected:'Выбрано', select:'Выбрать', collection:'Коллекция', favoriteCar:'Любимая машина', locked:'Откроется после уровня', notEnough:'Не хватает монет', close:'Закрыть', violatorAlert:'НАРУШИТЕЛЬ', violatorTip:'Некоторые торопыги могут завершить проезд на жёлтый. На красный гражданские машины всегда останавливаются.', tutorialLanes3:'Три полосы — следи за перестроениями',
       tutorialGoal1:'Открой вертикальный поток', tutorialGoal2:'Меняй свет, когда следующий поток уже ждёт', tutorialGoal3:'Смотри на обе очереди', tutorialGoal4:'Не переключай занятый перекрёсток', tutorialGoal5:'Пропускай группу целиком', tutorialCoachOpenWaiting:'Открой направление, где машины уже ждут', tutorialCoachOccupied:'Перекрёсток занят — сначала дай машине выехать', tutorialCoachQueue:'Очередь растёт — освободи более загруженное направление', tutorialCoachClearance:'Короткая пауза между фазами защищает перекрёсток', tutorialCoachRhythm:'Хороший ритм: пропускай группу целиком, затем переключай', tutorialPedestrians:'Пешеходы идут только когда машинам красный', tutorialTurns:'Появились повороты — следи за траекторией', tutorialYellow:'Некоторые водители завершают проезд на жёлтый', tutorialLeftTurns:'Левые повороты требуют больше свободного места', tutorialLanes:'Две полосы — один светофор', rushGoal:'Час пик: удержи поток', heavyGoal:'Тяжёлый поток: больше автобусов', serviceGoal:'Служебный поток: не создавай пробку', expressGoal:'Экспресс-поток: держи темп', freightGoal:'Грузовой час: оставляй запас', pulseGoal:'Пульс города: лови окна между волнами', alternatingGoal:'Смена давления: реагируй на волны с разных направлений', roadworkGoal:'Ремонт дороги: работай одной полосой', incidentBrokenCar:'СЛОМАННАЯ МАШИНА', incidentRoadworks:'ДОРОЖНЫЕ РАБОТЫ', incidentSlowZone:'ОГРАНИЧЕНИЕ СКОРОСТИ', incidentWarning:'Впереди дорожное происшествие', incidentActive:'Перестрой поток', incidentCleared:'Дорога снова свободна', incidentBrokenGoal:'Сломанная машина: поток перестраивается', incidentRoadworksGoal:'Ремонт: одна полоса временно закрыта', incidentSlowGoal:'Ограничение: поток временно замедлен',
@@ -204,10 +204,10 @@
       level:'Level', goal:'Clear all traffic', restart:'Restart', hint:'Hint', switchLight:'Switch light', pauseAction:'Pause',
       jam:'Jam', switches:'Switches', tapSignal:'Tap the traffic light', paused:'Paused', pausedText:'Traffic is stopped.',
       continue:'Continue', complete:'Perfect flow!', completeText:'The intersection is clear.', next:'Next level', coins:'coins',
-      rewardAdCoins:'Extra bonus', crash:'Collision!', crashText:'Do not open the crossing flow while the intersection is occupied.',
-      trafficJam:'Traffic jam!', jamText:'The queue became too long.', tryAgain:'Try again', rescueCrashAd:'Continue unavailable', rescueJamAd:'Continue unavailable',
+      rewardAdCoins:'Ad · get another', crash:'Collision!', crashText:'Do not open the crossing flow while the intersection is occupied.',
+      trafficJam:'Traffic jam!', jamText:'The queue became too long.', tryAgain:'Try again', rescueCrashAd:'Ad · clear the crash and continue', rescueJamAd:'Ad · clear the jam and continue',
       hintHorizontal:'Open horizontal traffic.', hintVertical:'Open vertical traffic.', hintWait:'Wait until the cars leave the intersection.',
-      adUnavailable:'Feature is unavailable now', demoReward:'Test reward granted', perfect:'Perfect!', good:'Good!', survived:'Cleared!',
+      adUnavailable:'Ad is unavailable now', demoReward:'Test reward granted', perfect:'Perfect!', good:'Good!', survived:'Cleared!',
       phaseH:'Horizontal', phaseV:'Vertical', phaseChanging:'Switching…', phasePedestrianClearing:'Pedestrians are clearing the crossing…', flow:'FLOW', hotFlow:'HOT FLOW', perfectSwitch:'PERFECT SWITCH', syncBonus:'Sync bonus', boardLabel:'Traffic intersection', controlsLabel:'Traffic controls', progressLabel:'Level progress', starsLabel:'Stars', statusLabel:'Level status', progressOverviewLabel:'Progress overview', personalBestLabel:'Personal best comparison', independentControlsLabel:'Independent intersection controls', eventRush:'RUSH HOUR', eventHeavy:'HEAVY', eventService:'SERVICE', eventExpress:'EXPRESS', eventFreight:'FREIGHT', eventPulse:'PULSE', eventAlternating:'PRESSURE SHIFT', eventRoadwork:'ROADWORK', junctionT:'T-JUNCTION', junctionDouble:'DOUBLE JUNCTION', priorityAlert:'EMERGENCY', priorityYield:'YIELD', priorityIncoming:'APPROACHING', priorityClear:'CLEAR JUNCTION', pedestrianWalk:'WALK', pedestrianStop:'WAIT', eventIntro:'Special traffic',
       soundOn:'🔊 Sound: on', soundOff:'🔇 Sound: off', musicLevel:'🎵 Music', effectsOn:'🔊 Effects: on', effectsOff:'🔇 Effects: off', language:'🌐 Language', languageAuto:'Auto', languageRussian:'Russian', languageEnglish:'English', leaderboard:'Leaderboard', leaderboardTitle:'World leaderboard', leaderboardDesc:'Stars determine rank. Missions break ties first, then medals.', leaderboardScore:'Your result', leaderboardYourRank:'Your rank', leaderboardSignIn:'Sign in to Yandex', leaderboardSignInDesc:'Sign in with Yandex to publish your score and see your place in the leaderboard.', leaderboardUnavailable:'The leaderboard is available only in the Yandex Games build.', leaderboardLoading:'Loading leaderboard…', leaderboardRetry:'Refresh', leaderboardNoEntries:'No scores yet.', leaderboardSetup:'The leaderboard has not been created in the Yandex Games Console yet.', leaderboardAnonymous:'Player', leaderboardYou:'You', developer:'About', developerTitle:'About', developerDesc:'', developerBuild:'Developer', developerPlatform:'Email', developerSave:'Game version', developerPublicBoard:'Main leaderboard', developerMasteryBoard:'Mastery leaderboard', developerSimulation:'Simulation', stats:'Stats', statsLevel:'Level', statsStars:'Stars', statsMissions:'Missions', statsAchievements:'Achievements', statsCars:'Cars', statsFlow:'Best FLOW', statsDaily:'Daily streak', statsWeekly:'Weekly clears', newCar:'New car is available in the garage!', newDistrict:'New district unlocked:', garage:'Garage', garageDesc:'The garage is cosmetic only. Your favorite car appears more often in normal traffic (~55%), but gets no speed or gameplay bonus.', garagePreview:'Preview', garageCollectionProgress:'Collection', garageTapPreview:'Tap a car to preview it', garageCanSelect:'Owned · ready to select', garageUnlockIn:'until unlock', garageCoinsShort:'until purchase', nextPurchase:'Next purchase', needCoins:'need', readyToBuy:'ready', owned:'Owned', buy:'Buy', selected:'Selected', select:'Select', collection:'Collection', favoriteCar:'Favorite car', locked:'Unlocks after level', notEnough:'Not enough coins', close:'Close', violatorAlert:'TRAFFIC VIOLATOR', violatorTip:'Some impatient drivers may finish crossing on yellow. Civilian traffic always stops on red.', tutorialLanes3:'Three lanes — watch the lane changes',
       tutorialGoal1:'Open the vertical flow', tutorialGoal2:'Switch when the next stream is already waiting', tutorialGoal3:'Watch both queues', tutorialGoal4:'Do not switch while the junction is occupied', tutorialGoal5:'Let a group clear before switching', tutorialCoachOpenWaiting:'Open the direction where cars are already waiting', tutorialCoachOccupied:'The junction is occupied — let the car clear first', tutorialCoachQueue:'The queue is growing — release the busier direction', tutorialCoachClearance:'The short pause between phases keeps the junction safe', tutorialCoachRhythm:'Good rhythm: clear a group, then switch', tutorialPedestrians:'Pedestrians cross only while cars have red', tutorialTurns:'Turning traffic is here — watch the path', tutorialYellow:'Some drivers may finish through yellow', tutorialLeftTurns:'Left turns need more open space', tutorialLanes:'Two lanes, one traffic light', rushGoal:'Rush hour: keep traffic flowing', heavyGoal:'Heavy traffic: more buses', serviceGoal:'Service wave: avoid a jam', expressGoal:'Express wave: keep the pace', freightGoal:'Freight hour: leave extra room', pulseGoal:'City pulse: catch the gaps between waves', alternatingGoal:'Pressure shift: react as the dominant direction changes', roadworkGoal:'Roadworks: keep one lane moving', incidentBrokenCar:'BROKEN VEHICLE', incidentRoadworks:'ROAD WORKS', incidentSlowZone:'SLOW ZONE', incidentWarning:'Road incident ahead', incidentActive:'Adapt the flow', incidentCleared:'Road is clear again', incidentBrokenGoal:'Broken vehicle: traffic is merging', incidentRoadworksGoal:'Road works: one lane is temporarily closed', incidentSlowGoal:'Slow zone: traffic is temporarily reduced',
@@ -219,9 +219,6 @@
 
   Object.assign(TEXT.ru,{medals:'Медали',medalQueue:'Чистая очередь',medalSwitch:'Точный диспетчер',medalFlow:'Идеальный поток',medalPriority:'Приоритет спасения',medalIncident:'Контроль происшествия',medalNew:'Новая медаль',campaignMedals:'Медали района'});
   Object.assign(TEXT.en,{medals:'Medals',medalQueue:'Queue Control',medalSwitch:'Signal Discipline',medalFlow:'Perfect Flow',medalPriority:'Emergency Priority',medalIncident:'Incident Control',medalNew:'New medal',campaignMedals:'District medals'});
-  Object.assign(TEXT.ru,{vkBillingPack:'500 монет',vkBillingPrice:'99 ₽ · VK Play',vkBillingBuy:'Купить',vkBillingOpening:'Открываем…',vkBillingPending:'Оплата открыта · после оплаты вернись в игру',vkBillingUnavailable:'Покупки доступны только внутри VK Play',vkBillingError:'Не удалось открыть оплату',vkBillingPopup:'Разреши открытие платёжного окна',vkBillingReceived:'Покупка подтверждена',vkBillingStore:'Магазин VK Play',vkBillingHistory:'Последние покупки',vkBillingPaidWallet:'Покупные монеты',vkBillingSpendPending:'Покупка подтверждается сервером…',vkBillingSpendError:'Не удалось подтвердить расход покупных монет',vkBillingRestore:'Покупки восстановлены',vkBillingSupporter:'Supporter Pack',vkBillingSupporterDesc:'Тема Gold Pulse + 800 монет',vkBillingSupporterOwned:'Gold Pulse активна',vkBillingSecure:'Цены и начисления проверяются сервером'});
-  Object.assign(TEXT.en,{vkBillingPack:'500 coins',vkBillingPrice:'99 ₽ · VK Play',vkBillingBuy:'Buy',vkBillingOpening:'Opening…',vkBillingPending:'Payment opened · return to the game after paying',vkBillingUnavailable:'Purchases are available only inside VK Play',vkBillingError:'Could not open payment',vkBillingPopup:'Allow the payment window to open',vkBillingReceived:'Purchase confirmed',vkBillingStore:'VK Play Store',vkBillingHistory:'Recent purchases',vkBillingPaidWallet:'Purchased coins',vkBillingSpendPending:'Confirming purchase with the server…',vkBillingSpendError:'Could not confirm purchased-coin spend',vkBillingRestore:'Purchases restored',vkBillingSupporter:'Supporter Pack',vkBillingSupporterDesc:'Gold Pulse theme + 800 coins',vkBillingSupporterOwned:'Gold Pulse active',vkBillingSecure:'Prices and grants are verified by the server'});
-
 
   const SAVE_KEY = 'traffic_pulse_save_v4';
   const SAVE_SCHEMA_VERSION = 5;
@@ -236,6 +233,10 @@
   let save;
   let platformLang = /^ru(?:[_-]|$)/i.test(String(navigator.language||''))?'ru':'en';
   let lang = 'ru';
+
+  Object.assign(TEXT.ru,{cityGrowth:'Развитие города',cityGrowthStage:'Стадия района',cityGrowthSeed:'Основа',cityGrowthGrowing:'Рост',cityGrowthActive:'Живой район',cityGrowthLandmark:'Новый силуэт',cityGrowthComplete:'Район сформирован',cityIdentity:'Характер района',cityLife:'Городская жизнь',cityGrowthWin:'Город развивается',cityGrowthNext:'До следующей стадии',cityGrowthLevels:'ур.',cityProfilePark:'Парки и семейные улицы',cityProfileCoast:'Набережная и курортный поток',cityProfileDowntown:'Высотки и деловой центр',cityProfileAirport:'Терминалы и служебные кварталы',cityProfileHarbor:'Порт, склады и грузовая смена',cityProfileNight:'Неон и вечерняя экономика',cityProfileOldtown:'Исторические кварталы и площади',cityProfileTech:'Технопарк и электромобили',cityProfileWinter:'Зимние улицы и тёплые витрины',cityLifePark:'Кафе · фонтаны · прогулки',cityLifeCoast:'Променад · киоски · туристы',cityLifeDowntown:'Такси · офисы · витрины',cityLifeAirport:'Шаттлы · маяки · сервис',cityLifeHarbor:'Контейнеры · краны · фуры',cityLifeNight:'Неон · ночные кафе · такси',cityLifeOldtown:'Часы · рынок · террасы',cityLifeTech:'Зарядки · LED · рободоставка',cityLifeWinter:'Снег · фонари · зимний рынок'});
+  Object.assign(TEXT.en,{cityGrowth:'City Growth',cityGrowthStage:'District stage',cityGrowthSeed:'Foundation',cityGrowthGrowing:'Growing',cityGrowthActive:'Living district',cityGrowthLandmark:'New skyline',cityGrowthComplete:'District established',cityIdentity:'District identity',cityLife:'City life',cityGrowthWin:'The city is growing',cityGrowthNext:'Until next stage',cityGrowthLevels:'lv.',cityProfilePark:'Parks and family streets',cityProfileCoast:'Waterfront and resort traffic',cityProfileDowntown:'High-rises and business core',cityProfileAirport:'Terminals and service blocks',cityProfileHarbor:'Port, warehouses and freight shifts',cityProfileNight:'Neon and evening economy',cityProfileOldtown:'Historic blocks and plazas',cityProfileTech:'Tech park and electric mobility',cityProfileWinter:'Winter streets and warm storefronts',cityLifePark:'Cafés · fountains · walks',cityLifeCoast:'Promenade · kiosks · visitors',cityLifeDowntown:'Taxis · offices · storefronts',cityLifeAirport:'Shuttles · beacons · service',cityLifeHarbor:'Containers · cranes · trucks',cityLifeNight:'Neon · late cafés · taxis',cityLifeOldtown:'Clock · market · terraces',cityLifeTech:'Chargers · LED · robo-delivery',cityLifeWinter:'Snow · lamps · winter market'});
+
   let T = TEXT.ru;
 
   function safeInt(value,min,max,fallback=min){ const n=Number(value); return Number.isFinite(n)?Math.max(min,Math.min(max,Math.floor(n))):fallback; }
@@ -347,18 +348,6 @@
     const week=document.createElement('div');week.className='challenge-retention-row weekly';const wcopy=document.createElement('div');const status=summary.weeklyClaimed?T.challengeClaimed:T.challengeReady;wcopy.innerHTML=`<small>${T.challengeWeek}</small><strong>📆 ${T.weeklyStreak}: ${summary.weeklyCurrent} → ${summary.weeklyProspective} · ${status}</strong>`;const bonus=document.createElement('b');bonus.className='challenge-bonus';bonus.textContent=`${T.challengeNextBonus}: +${summary.weeklyBonus} ${T.coins}`;week.append(wcopy,bonus);wrap.appendChild(week);parent.appendChild(wrap);return wrap;
   }
 
-  function normalizeVkEntitlements(value){
-    const src=value&&typeof value==='object'?value:{},out={};
-    for(const [k,v] of Object.entries(src)){if(!/^[A-Za-z0-9._:-]{1,64}$/.test(k))continue;const qty=safeInt(v,0,999,0);if(qty>0)out[k]=qty;}
-    return out;
-  }
-  function normalizeVkPendingSpend(value){
-    if(!value||typeof value!=='object')return null;
-    const requestId=String(value.requestId||''),context=String(value.context||''),carId=safeInt(value.carId,0,9,-1),cost=safeInt(value.cost,0,100000,0),localPart=safeInt(value.localPart,0,100000,0),serverPart=safeInt(value.serverPart,0,100000,0),createdAt=safeInt(value.createdAt,0,9_000_000_000_000_000,0);
-    if(!/^[A-Za-z0-9._:-]{12,128}$/.test(requestId)||!/^garage_car:[0-9]+$/.test(context)||carId<0||cost<=0||localPart+serverPart!==cost)return null;
-    return {requestId,context,carId,cost,localPart,serverPart,createdAt};
-  }
-
   function normalizeSaveData(data={}){
     if(!data||typeof data!=='object')data={};
     const level=safeInt(data.level,1,1_000_000,1),legacyCount=safeInt(data.unlockedCars,1,10,1);
@@ -369,7 +358,7 @@
     const reportedStars=Math.min(safeInt(data.totalStars,0,3_000_000,0),level*3),totalStars=Math.max(starsSum,reportedStars);
     const maxClaimed=Math.floor(totalStars/15),claimedRaw=Number(data.starMilestonesClaimed),claimed=Number.isFinite(claimedRaw)?Math.min(safeInt(claimedRaw,0,200_000,0),maxClaimed):maxClaimed;
     return {
-      schemaVersion:SAVE_SCHEMA_VERSION, level, coins:safeInt(data.coins,0,1_000_000_000_000,0), vkPaidCoinsCredited:safeInt(data.vkPaidCoinsCredited,0,1_000_000_000_000,0), vkEntitlements:normalizeVkEntitlements(data.vkEntitlements), vkPendingSpend:normalizeVkPendingSpend(data.vkPendingSpend), totalStars, starsByLevel,
+      schemaVersion:SAVE_SCHEMA_VERSION, level, coins:safeInt(data.coins,0,1_000_000_000_000,0), totalStars, starsByLevel,
       sound:data.sound!==false, sfx:data.sfx===undefined?data.sound!==false:data.sfx!==false, musicLevel:data.musicLevel===undefined?(data.sound===false?0:3):safeInt(data.musicLevel,0,3,3), langMode:normalizeLanguageMode(data.langMode), ownedCars, purchasedCars, favoriteCar:ownedCars.includes(safeInt(data.favoriteCar,0,9,0))?safeInt(data.favoriteCar,0,9,0):0, sessions:safeInt(data.sessions,0,1_000_000_000,0),
       dailyBest:normalizeDailyBest(data.dailyBest), dailyBestCompat:normalizeChallengeCompatMap(data.dailyBestCompat), dailyRewards:normalizeDailyRewards(data.dailyRewards),
       starMilestonesClaimed:claimed, bestFlow:safeInt(data.bestFlow,0,9999,0), missionCompleted:normalizeMissionMap(data.missionCompleted,level), medalsByLevel:normalizeMedalMap(data.medalsByLevel,level), achievements:normalizeAchievements(data.achievements), weeklyBest:normalizeDailyBest(data.weeklyBest), weeklyBestCompat:normalizeChallengeCompatMap(data.weeklyBestCompat), weeklyRewards:normalizeDailyRewards(data.weeklyRewards), endlessBestScore:safeInt(data.endlessBestScore,0,1_000_000_000,0), endlessBestWave:safeInt(data.endlessBestWave,0,1_000_000,0), scenarioProgress:normalizeScenarioProgress(data.scenarioProgress), greenWaveProgress:normalizeGreenWaveProgress(data.greenWaveProgress), campaignRewardedThrough:(()=>{const raw=Number(data.campaignRewardedThrough);if(Number.isFinite(raw))return safeInt(raw,0,level,0);const currentPaid=Number(starsByLevel[String(level)]||0)>0?level:Math.max(0,level-1);return currentPaid;})(), revision:safeInt(data.revision,0,9_000_000_000_000_000,0), updatedAt:safeInt(data.updatedAt,0,9_000_000_000_000_000,0)
@@ -427,7 +416,7 @@
     // Use the conservative balance branch, then charge any purchase receipt imported only from the other branch exactly once.
     const newerPurchases=new Set(balanceNewer.purchasedCars||[]);let coins=balanceNewer.coins;
     for(const id of balanceOlder.purchasedCars||[])if(!newerPurchases.has(id))coins=Math.max(0,coins-(CAR_COSTS[id]||0));
-    return normalizeSaveData({ ...a, level:Math.max(a.level,b.level), coins, vkPaidCoinsCredited:Math.max(a.vkPaidCoinsCredited||0,b.vkPaidCoinsCredited||0), vkEntitlements:{...a.vkEntitlements,...b.vkEntitlements}, vkPendingSpend:balanceNewer.vkPendingSpend||balanceOlder.vkPendingSpend||null, totalStars, starsByLevel:stars, ownedCars, purchasedCars, favoriteCar, sessions:Math.max(a.sessions,b.sessions), dailyBest, dailyBestCompat, dailyRewards, starMilestonesClaimed:Math.max(a.starMilestonesClaimed||0,b.starMilestonesClaimed||0), bestFlow:Math.max(a.bestFlow||0,b.bestFlow||0), missionCompleted, medalsByLevel, achievements, weeklyBest, weeklyBestCompat, weeklyRewards, endlessBestScore:Math.max(a.endlessBestScore||0,b.endlessBestScore||0), endlessBestWave:Math.max(a.endlessBestWave||0,b.endlessBestWave||0), scenarioProgress, greenWaveProgress, campaignRewardedThrough:Math.max(a.campaignRewardedThrough||0,b.campaignRewardedThrough||0), sound:preferenceNewer.sound, sfx:preferenceNewer.sfx, musicLevel:preferenceNewer.musicLevel, langMode:preferenceNewer.langMode, revision:Math.max(a.revision||0,b.revision||0), updatedAt:Math.max(a.updatedAt||0,b.updatedAt||0) });
+    return normalizeSaveData({ ...a, level:Math.max(a.level,b.level), coins, totalStars, starsByLevel:stars, ownedCars, purchasedCars, favoriteCar, sessions:Math.max(a.sessions,b.sessions), dailyBest, dailyBestCompat, dailyRewards, starMilestonesClaimed:Math.max(a.starMilestonesClaimed||0,b.starMilestonesClaimed||0), bestFlow:Math.max(a.bestFlow||0,b.bestFlow||0), missionCompleted, medalsByLevel, achievements, weeklyBest, weeklyBestCompat, weeklyRewards, endlessBestScore:Math.max(a.endlessBestScore||0,b.endlessBestScore||0), endlessBestWave:Math.max(a.endlessBestWave||0,b.endlessBestWave||0), scenarioProgress, greenWaveProgress, campaignRewardedThrough:Math.max(a.campaignRewardedThrough||0,b.campaignRewardedThrough||0), sound:preferenceNewer.sound, sfx:preferenceNewer.sfx, musicLevel:preferenceNewer.musicLevel, langMode:preferenceNewer.langMode, revision:Math.max(a.revision||0,b.revision||0), updatedAt:Math.max(a.updatedAt||0,b.updatedAt||0) });
   }
   function persist(){
     save.dailyBest=normalizeDailyBest(save.dailyBest); save.dailyBestCompat=normalizeChallengeCompatMap(save.dailyBestCompat); save.dailyRewards=normalizeDailyRewards(save.dailyRewards); save.missionCompleted=normalizeMissionMap(save.missionCompleted,save.level||1); save.medalsByLevel=normalizeMedalMap(save.medalsByLevel,save.level||1); save.achievements=normalizeAchievements(save.achievements); save.weeklyBest=normalizeDailyBest(save.weeklyBest); save.weeklyBestCompat=normalizeChallengeCompatMap(save.weeklyBestCompat); save.weeklyRewards=normalizeDailyRewards(save.weeklyRewards); save.scenarioProgress=normalizeScenarioProgress(save.scenarioProgress); save.greenWaveProgress=normalizeGreenWaveProgress(save.greenWaveProgress);
@@ -454,144 +443,341 @@
     let timer;return Promise.race([Promise.resolve(promise).finally(()=>clearTimeout(timer)),new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error(`${label} timeout`)),ms);})]);
   }
 
-  // VK Play browser release: no embedded advertising, no VK Mini Apps bridge and no external SDK.
+  // M161: one gameplay core, platform-specific adapters selected at build time.
+  // VK Games uses a compact local subset of the official VK Bridge postMessage protocol so the
+  // production package has no runtime CDN dependency. It intentionally exposes only the methods
+  // Traffic Pulse needs: init, launch params, storage and native ads.
+  const VK_BRIDGE_VERSION='2.14.0';
+  const VK_STORAGE_META_KEY='tp5meta',VK_STORAGE_CHUNK_PREFIX='tp5c',VK_STORAGE_BANK_PREFIX='tp5b',VK_STORAGE_CHUNK_BYTES=3000,VK_STORAGE_MAX_CHUNKS=32;
   const normalizePlatformLanguage=(raw)=>/^ru(?:[_-]|$)/i.test(String(raw||''))?'ru':'en';
+  function splitUtf8Chunks(text,maxBytes=VK_STORAGE_CHUNK_BYTES){
+    const input=String(text||''),encoder=typeof TextEncoder==='function'?new TextEncoder():null;if(!encoder){const out=[];for(let i=0;i<input.length;i+=maxBytes)out.push(input.slice(i,i+maxBytes));return out;}
+    const out=[];let part='',bytes=0;for(const ch of input){const n=encoder.encode(ch).length;if(part&&bytes+n>maxBytes){out.push(part);part=ch;bytes=n;}else{part+=ch;bytes+=n;}}if(part||!out.length)out.push(part);return out;
+  }
+  const VkBridgeLite=(()=>{
+    let seq=0,frameId='',instance=Math.random().toString(36).slice(2,8),installed=false;const pending=new Map();
+    const settle=(data)=>{if(!data||typeof data!=='object'||data.request_id==null)return;const id=String(data.request_id),slot=pending.get(id);if(!slot)return;pending.delete(id);clearTimeout(slot.timer);const clean={...data};delete clean.request_id;if('error_type' in clean)slot.reject(clean);else slot.resolve(clean);};
+    const receive=(event)=>{let msg=event?.detail?.data?{type:event.detail.type,data:event.detail.data}:event?.data;if(typeof msg==='string'){try{msg=JSON.parse(msg);}catch(_){return;}}if(!msg||typeof msg!=='object')return;if(msg.type==='VKWebAppSettings'&&msg.frameId){frameId=String(msg.frameId);return;}settle(msg.data);};
+    const install=()=>{if(installed)return;installed=true;window.addEventListener('message',receive);document.addEventListener('VKWebAppEvent',receive);};
+    const rawSend=(method,params)=>{install();const android=window.AndroidBridge,ios=window.webkit?.messageHandlers?.[method];if(android&&typeof android[method]==='function'){android[method](JSON.stringify(params));return true;}if(ios&&typeof ios.postMessage==='function'){ios.postMessage(params);return true;}if(window.ReactNativeWebView&&typeof window.ReactNativeWebView.postMessage==='function'){window.ReactNativeWebView.postMessage(JSON.stringify({handler:method,params}));return true;}const target=window.parent||window;if(target&&typeof target.postMessage==='function'){target.postMessage({handler:method,params,type:'vk-connect',webFrameId:frameId||undefined,connectVersion:VK_BRIDGE_VERSION},'*');return true;}return false;};
+    const send=(method,props={},timeoutMs=2600)=>new Promise((resolve,reject)=>{const request_id=`${++seq}_${instance}`,timer=setTimeout(()=>{pending.delete(request_id);reject(new Error(`${method} timeout`));},Math.max(250,timeoutMs));pending.set(request_id,{resolve,reject,timer});if(!rawSend(method,{...(props||{}),request_id})){clearTimeout(timer);pending.delete(request_id);reject(new Error(`${method} bridge unavailable`));}});
+    return{send,isEmbedded:()=>window.parent!==window||Boolean(window.AndroidBridge)||Boolean(window.webkit?.messageHandlers)};
+  })();
+  function vkStorageValue(response,key){const rows=Array.isArray(response?.keys)?response.keys:[];const item=rows.find(x=>x&&x.key===key);return item?String(item.value||''):'';}
+  function createVkStoragePlayer(){
+    // M164: metadata v3 retains both the active and previous committed banks. If the active
+    // bank later becomes corrupt/unreadable, load falls back to the previous verified Save v5.
+    // v1/v2 metadata remains readable; writes upgrade transactionally to v3.
+    let activeBank='',activeCommit=null,knownChunks={a:0,b:0};
+    const bankPrefix=bank=>bank?`${VK_STORAGE_BANK_PREFIX}${bank}c`:VK_STORAGE_CHUNK_PREFIX;
+    const normalizeCommit=(bank,chunks,hash)=>{const b=bank==='a'||bank==='b'?bank:'';const count=Math.max(0,Math.min(VK_STORAGE_MAX_CHUNKS,Number(chunks)||0));return b&&count?{bank:b,chunks:count,hash:String(hash||'')}:null;};
+    const readCommit=async commit=>{if(!commit)return null;knownChunks[commit.bank]=Math.max(knownChunks[commit.bank]||0,commit.chunks);const prefix=bankPrefix(commit.bank),keys=Array.from({length:commit.chunks},(_,i)=>`${prefix}${i}`),resp=await VkBridgeLite.send('VKWebAppStorageGet',{keys},3200),payload=keys.map(k=>vkStorageValue(resp,k)).join('');if(!payload)throw new Error('VK storage payload missing');const checksum=hashText(payload).toString(16);if(commit.hash&&commit.hash!==checksum)throw new Error('VK storage checksum mismatch');let parsed;try{parsed=JSON.parse(payload);}catch(_){throw new Error('VK storage JSON invalid');}return{parsed,checksum};};
+    return{
+      async getData(){
+        const metaResp=await VkBridgeLite.send('VKWebAppStorageGet',{keys:[VK_STORAGE_META_KEY]});const rawMeta=vkStorageValue(metaResp,VK_STORAGE_META_KEY);if(!rawMeta)return{};
+        let meta;try{meta=JSON.parse(rawMeta);}catch(_){return{};}const count=Math.max(0,Math.min(VK_STORAGE_MAX_CHUNKS,Number(meta?.chunks)||0));if(!count)return{};
+        const bank=meta?.v>=2&&(meta?.bank==='a'||meta?.bank==='b')?meta.bank:'';
+        if(!bank){const prefix=bankPrefix(''),keys=Array.from({length:count},(_,i)=>`${prefix}${i}`),resp=await VkBridgeLite.send('VKWebAppStorageGet',{keys},3200),payload=keys.map(k=>vkStorageValue(resp,k)).join('');if(!payload)return{};const checksum=hashText(payload).toString(16);if(meta?.hash&&String(meta.hash)!==checksum)throw new Error('VK storage checksum mismatch');let parsed;try{parsed=JSON.parse(payload);}catch(_){throw new Error('VK storage JSON invalid');}return{[CLOUD_SAVE_KEY]:parsed};}
+        const primary=normalizeCommit(bank,count,meta?.hash),previous=meta?.v>=3?normalizeCommit(meta?.prevBank,meta?.prevChunks,meta?.prevHash):null;activeBank=primary?.bank||'';activeCommit=primary;if(primary)knownChunks[primary.bank]=primary.chunks;if(previous)knownChunks[previous.bank]=previous.chunks;
+        try{const loaded=await readCommit(primary);return{[CLOUD_SAVE_KEY]:loaded.parsed};}catch(primaryError){if(!previous||previous.bank===primary?.bank)throw primaryError;try{const loaded=await readCommit(previous);activeBank=previous.bank;activeCommit={...previous,hash:loaded.checksum};return{[CLOUD_SAVE_KEY]:loaded.parsed};}catch(_){throw primaryError;}}
+      },
+      async setData(data){
+        const payload=JSON.stringify(data?.[CLOUD_SAVE_KEY]||{}),chunks=splitUtf8Chunks(payload);if(chunks.length>VK_STORAGE_MAX_CHUNKS)throw new Error('VK storage save exceeds chunk budget');
+        const bank=activeBank==='a'?'b':'a',prefix=bankPrefix(bank),previousCount=knownChunks[bank]||0;
+        for(let i=0;i<chunks.length;i++)await VkBridgeLite.send('VKWebAppStorageSet',{key:`${prefix}${i}`,value:chunks[i]},3200);
+        for(let i=chunks.length;i<previousCount;i++)await VkBridgeLite.send('VKWebAppStorageSet',{key:`${prefix}${i}`,value:''},3200);
+        // Commit metadata last. The previous verified commit is retained as a recovery point.
+        const hash=hashText(payload).toString(16),meta={v:3,bank,chunks:chunks.length,hash};if(activeCommit&&activeCommit.bank!==bank)Object.assign(meta,{prevBank:activeCommit.bank,prevChunks:activeCommit.chunks,prevHash:activeCommit.hash});await VkBridgeLite.send('VKWebAppStorageSet',{key:VK_STORAGE_META_KEY,value:JSON.stringify(meta)},3200);
+        knownChunks[bank]=chunks.length;activeBank=bank;activeCommit={bank,chunks:chunks.length,hash};return true;
+      }
+    };
+  }
+
   const platform = {
-    target:PLATFORM_TARGET, ready:false, booting:true, pausedByPlatform:false, browserPaused:Boolean(document.hidden), adPaused:false, adBusy:false, adKind:'', gameplayActive:false, cloudReady:false, cloudTimer:0, cloudWriting:false, cloudWriteAwaitingSettlement:false, cloudDirty:false, cloudFlushRequested:false, cloudFailureStreak:0, cloudNextRetryAt:0, cloudInitInFlight:false, cloudInitNextRetryAt:0, cloudInitFailureStreak:0, leaderboardTimer:0, leaderboardBusy:false, leaderboardLastSubmittedStars:-1, leaderboardLastSubmittedMastery:-1, leaderboardLastError:'', leaderboardLastErrors:{}, player:null,
+    target:PLATFORM_TARGET, ysdk:null, vk:null, vkLaunch:null, vkEpochMs:0, vkPerfAtInit:0, player:null, ready:false, booting:true, pausedByPlatform:false, browserPaused:Boolean(document.hidden), adPaused:false, adBusy:false, adKind:'', gameplayActive:false, cloudReady:false, cloudTimer:0, cloudWriting:false, cloudWriteAwaitingSettlement:false, cloudDirty:false, cloudFlushRequested:false, cloudFailureStreak:0, cloudNextRetryAt:0, cloudInitInFlight:false, cloudInitNextRetryAt:0, cloudInitFailureStreak:0, leaderboardTimer:0, leaderboardBusy:false, leaderboardLastSubmittedStars:-1, leaderboardLastSubmittedMastery:-1, leaderboardLastError:'', leaderboardLastErrors:{},
     sessionStartedAt:performance.now(), activeGameplayMs:0, lastFullscreenAttemptAt:-Infinity, lastRewardedExposureAt:-Infinity, campaignCompletionsSinceRewarded:999,
-    noteActiveGameplay(ms){if(Number.isFinite(ms)&&ms>0)this.activeGameplayMs=Math.min(86_400_000,this.activeGameplayMs+ms);},
-    noteCampaignCompletion(){}, noteRewardedExposure(){},
-    localFallback(reason='vkplay'){
-      this.ready=true;this.booting=false;YandexAudit.state.sdk=reason;YandexAudit.mark(`sdk:${reason}`,this.target);
-      const q=new URLSearchParams(location.search),raw=q.get('lang')||navigator.language;platformLang=normalizePlatformLanguage(raw);applyResolvedLanguage();YandexAudit.state.lang=lang;startApp();void VKBilling.sync('boot');
+    noteActiveGameplay(ms){ if(Number.isFinite(ms)&&ms>0)this.activeGameplayMs=Math.min(86_400_000,this.activeGameplayMs+ms); },
+    noteCampaignCompletion(){ if(this.campaignCompletionsSinceRewarded<999)this.campaignCompletionsSinceRewarded++; },
+    noteRewardedExposure(){ this.lastRewardedExposureAt=performance.now();this.campaignCompletionsSinceRewarded=0; },
+    localFallback(reason='fallback'){
+      this.ready=false;this.booting=false;YandexAudit.state.sdk=reason;YandexAudit.mark(`sdk:${reason}`,this.target);
+      const q=new URLSearchParams(location.search),raw=this.target==='vk'?(q.get('vk_language')||q.get('lang')||navigator.language):navigator.language;platformLang=normalizePlatformLanguage(raw);applyResolvedLanguage();YandexAudit.state.lang=lang;startApp();
     },
-    async init(){this.localFallback('vkplay');},
-    canAcquirePlayer(){return false;}, async acquirePlayer(){return null;}, async initCloudSave(){return false;}, async recoverCloudAfterReconnect(){return false;}, queueCloudSave(){return false;}, async flushCloud(){return false;},
-    leaderboardStarsScore(){return safeInt(save?.totalStars,0,999999,0);}, leaderboardMasteryScore(){return encodeLeaderboardScore(save);}, leaderboardAuthorized(){return false;}, leaderboardSupported(){return false;}, queueLeaderboardSync(){return false;}, async submitLeaderboardScores(){return false;}, async getLeaderboardEntries(){return{supported:false,authorized:false,entries:[],userRank:0,error:'unsupported',mode:'mastery'};}, async authorizeForLeaderboard(){return false;},
-    now(){const e=YandexAudit.state.environment;e.clockSource='local';e.clockSamples++;return Date.now();},
-    gameplayStart(){if(this.gameplayActive)return;this.gameplayActive=true;YandexAudit.state.gameplayStart++;YandexAudit.mark('Gameplay.start');},
-    gameplayStop(){if(!this.gameplayActive)return;this.gameplayActive=false;YandexAudit.state.gameplayStop++;YandexAudit.mark('Gameplay.stop');},
-    shouldRequestFullscreen(){return false;}, showFullscreen(){return Promise.resolve(false);}, showRewarded(){return Promise.resolve(false);}
-  };
-
-  // M195 Hotfix08: VK Play payment hardening.
-  // Paid currency is mirrored from the server wallet, purchases restore by VK Play UID,
-  // paid-wallet spending is idempotent, and transaction history is read back from D1.
-  const VKPLAY_BILLING_API='https://traffic-pulse-billing.anhelos1987.workers.dev';
-  const VKPLAY_GMRID=50363;
-  const VKPLAY_PRODUCTS=Object.freeze({
-    coins_500:{id:'coins_500',coins:500,price:99,titleRu:'500 монет',titleEn:'500 coins',description:'500 монет Traffic Pulse'},
-    coins_1500:{id:'coins_1500',coins:1500,price:249,titleRu:'1 500 монет',titleEn:'1,500 coins',description:'1500 монет Traffic Pulse'},
-    coins_3500:{id:'coins_3500',coins:3500,price:499,titleRu:'3 500 монет',titleEn:'3,500 coins',description:'3500 монет Traffic Pulse'},
-    supporter_pack:{id:'supporter_pack',coins:800,price:199,titleRu:'Supporter Pack',titleEn:'Supporter Pack',description:'Supporter Pack Traffic Pulse: тема Gold Pulse + 800 монет',supporter:true}
-  });
-
-  const VKBilling={
-    externalApi:null,connected:false,connecting:false,loginStatus:-1,uid:'',error:'',busy:false,pollTimer:0,lastSyncAt:0,
-    authResolve:null,authReject:null,authTimer:0,serverState:{coins:0,entitlements:{},transactions:[],spends:[]},lastProductId:'',
-    t(ru,en){return lang==='ru'?ru:en;},
-    productTitle(product){return lang==='ru'?product.titleRu:product.titleEn;},
-    supporterOwned(){return Boolean((this.serverState.entitlements?.supporter_pack||save.vkEntitlements?.supporter_pack||0)>0);},
-    applySupporterTheme(){document.body?.classList.toggle('vk-supporter',this.supporterOwned());},
-    refreshGarage(){if(overlayVisible()&&String($('modal-title')?.textContent||'').includes(T.garage))showGarage('rerender');},
-    statusText(){
-      if(this.error==='iframe_api_missing')return this.t('VK Play API не найден в тестовом iFrame','VK Play API was not found in the test iFrame');
-      if(this.error)return this.t(`Ошибка VK Play API: ${this.error}`,`VK Play API error: ${this.error}`);
-      if(!this.connected)return this.t('Подключение к VK Play…','Connecting to VK Play…');
-      if(this.loginStatus===0)return this.t('Нужно войти в VK Play','Sign in to VK Play');
-      if(this.loginStatus===1)return this.t('Нужно подтвердить регистрацию в игре','Game registration is required');
-      if(this.loginStatus>=2&&!this.uid)return this.t('Получение профиля VK Play…','Loading VK Play profile…');
-      if(this.loginStatus>=2&&this.uid)return `VK Play · UID ${this.uid}`;
-      return this.t('Проверка авторизации VK Play…','Checking VK Play authorization…');
-    },
-    actionLabel(){
-      if(!this.connected)return this.t('Подключение…','Connecting…');
-      if(this.loginStatus===0)return this.t('Войти','Sign in');
-      if(this.loginStatus===1)return this.t('Регистрация','Register');
-      return this.canOffer()?T.vkBillingBuy:this.t('Пока недоступно','Unavailable');
-    },
-    canOffer(){return PLATFORM_TARGET==='vkplay'&&this.connected&&this.loginStatus>=2&&Boolean(this.uid)&&Boolean(this.externalApi);},
     async init(){
-      if(PLATFORM_TARGET!=='vkplay'||this.connecting||this.connected)return false;
-      this.connecting=true;this.error='';this.applySupporterTheme();
+      if(this.target==='vk')return this.initVk();
+      if(this.target==='standalone'){this.localFallback('standalone');return;}
+      return this.initYandex();
+    },
+    async initYandex(){
+      if(window.__YS_SDK_FAILED__ || typeof window.YaGames === 'undefined'){this.localFallback('fallback');return;}
+      try {
+        YandexAudit.mark('sdk:init:request','yandex');
+        this.ysdk=await window.YaGames.init();YandexAudit.state.sdk='ready';YandexAudit.mark('sdk:init:ready','yandex');
+        platformLang=normalizePlatformLanguage(this.ysdk?.environment?.i18n?.lang);applyResolvedLanguage();YandexAudit.state.lang=lang;
+        this.ysdk.on?.('game_api_pause',()=>{YandexAudit.state.pause++;YandexAudit.mark('game_api_pause');this.pausedByPlatform=true;syncExternalPauseState();});
+        this.ysdk.on?.('game_api_resume',()=>{YandexAudit.state.resume++;YandexAudit.mark('game_api_resume');this.pausedByPlatform=false;syncExternalPauseState();});
+        await this.initCloudSave();this.ready=true;startApp();this.queueLeaderboardSync(true);this.ysdk.features?.LoadingAPI?.ready();YandexAudit.state.loadingReady++;YandexAudit.mark('LoadingAPI.ready');this.booting=false;syncExternalPauseState();
+      }catch(err){console.warn('Yandex SDK init failed, running local fallback.',err);YandexAudit.state.sdk='error';YandexAudit.mark('sdk:init:error',err?.message||err);this.localFallback('fallback');}
+    },
+    async initVk(){
       try{
-        if(typeof window.iframeApi!=='function'){this.error='iframe_api_missing';return false;}
-        const callbacks={
-          appid:VKPLAY_GMRID,getLoginStatusCallback:(status)=>this.onLoginStatus(status),userInfoCallback:(info)=>this.onUserInfo(info),userProfileCallback:()=>{},registerUserCallback:(info)=>this.onRegistered(info),paymentFrameUrlCallback:()=>{},getAuthTokenCallback:(token)=>this.onAuthToken(token),paymentReceivedCallback:(data)=>this.onPaymentReceived(data),paymentWindowClosedCallback:()=>this.onPaymentWindowClosed(),userConfirmCallback:()=>{},paymentFrameItem:()=>{},getGameInventoryItems:()=>{}
+        YandexAudit.mark('sdk:init:request','vk');this.vk=VkBridgeLite;await VkBridgeLite.send('VKWebAppInit',{},2200);let launch=null;
+        try{launch=await VkBridgeLite.send('VKWebAppGetLaunchParams',{},2200);}catch(_){launch=null;}this.vkLaunch=launch||{};
+        const q=new URLSearchParams(location.search),rawLang=this.vkLaunch?.vk_language||q.get('vk_language')||q.get('lang')||navigator.language;platformLang=normalizePlatformLanguage(rawLang);applyResolvedLanguage();YandexAudit.state.lang=lang;
+        const launchTs=Number(this.vkLaunch?.vk_ts);if(Number.isFinite(launchTs)&&launchTs>1_000_000_000){this.vkEpochMs=launchTs*1000;this.vkPerfAtInit=performance.now();}
+        this.player=createVkStoragePlayer();await this.initCloudSave();this.ready=true;this.booting=false;YandexAudit.state.sdk='ready';YandexAudit.mark('sdk:init:ready','vk');startApp();syncExternalPauseState();
+      }catch(err){console.warn('VK platform init failed, running local fallback.',err);YandexAudit.state.sdk='error';YandexAudit.mark('sdk:init:error',err?.message||err);this.vk=null;this.vkLaunch=null;this.player=null;this.cloudReady=false;this.localFallback('fallback');}
+    },
+    canAcquirePlayer(){return this.target==='vk'?Boolean(this.vk):Boolean(this.ysdk?.getPlayer);},
+    async acquirePlayer(){if(this.target==='vk'){if(!this.player)this.player=createVkStoragePlayer();return this.player;}return this.ysdk?.getPlayer?this.ysdk.getPlayer():null;},
+    async initCloudSave(){
+      if(!this.canAcquirePlayer())return false;
+      if(this.cloudInitInFlight)return false;
+      this.cloudInitInFlight=true;
+      try {
+        YandexAudit.mark('player:get:request');this.player=await withTimeout(this.acquirePlayer(),this.target==='vk'?4200:1200,'getPlayer');
+        if(!this.player){YandexAudit.state.player='missing';YandexAudit.mark('player:get:missing');return false;}
+        YandexAudit.state.player='ready';YandexAudit.mark('player:get:ready');
+        const cloud=await withTimeout(this.player.getData?.([CLOUD_SAVE_KEY])||{},this.target==='vk'?5200:1200,'getData');YandexAudit.state.cloudRead++;YandexAudit.mark('cloud:getData');
+        const cloudSave=cloud?.[CLOUD_SAVE_KEY];
+        if(cloudSave&&typeof cloudSave==='object'){save=mergeProgress(save,cloudSave);try{localStorage.setItem(SAVE_KEY,JSON.stringify(save));}catch(_){}applyResolvedLanguage();YandexAudit.state.lang=lang;}
+        this.cloudReady=typeof this.player.setData==='function';
+        if(this.cloudReady)cloudSaveHook=()=>this.queueCloudSave();
+        return this.cloudReady;
+      } catch (err) {
+        console.warn('Cloud save unavailable; local progress remains active.',err);YandexAudit.state.player='error';YandexAudit.mark('cloud:error',err?.message||err);
+        this.player=null;this.cloudReady=false;return false;
+      } finally { this.cloudInitInFlight=false; }
+    },
+    async recoverCloudAfterReconnect(){
+      if(this.cloudReady||this.cloudInitInFlight||!this.canAcquirePlayer()||navigator.onLine===false||Date.now()<this.cloudInitNextRetryAt)return false;
+      YandexAudit.state.cloudInitRetries++;YandexAudit.mark('cloud:reconnect:init:request');
+      const ok=await this.initCloudSave();
+      if(!ok){
+        // M139: losing connectivity while a recovery request is already in flight is a deferral,
+        // not a cloud-service failure. Do not poison the retry backoff; the next online event
+        // should be able to recover immediately.
+        if(navigator.onLine===false){
+          this.cloudInitNextRetryAt=0;
+          YandexAudit.state.cloudInitOfflineDeferrals++;
+          YandexAudit.mark('cloud:reconnect:init:offline-deferred');
+          return false;
+        }
+        this.cloudInitFailureStreak=Math.min(6,this.cloudInitFailureStreak+1);
+        const retryDelay=Math.min(60000,10000*Math.pow(3,Math.max(0,this.cloudInitFailureStreak-1)));
+        this.cloudInitNextRetryAt=Date.now()+retryDelay;
+        YandexAudit.mark('cloud:reconnect:init:cooldown',`${retryDelay}ms`);
+        return false;
+      }
+      this.cloudInitFailureStreak=0;this.cloudInitNextRetryAt=0;
+      YandexAudit.state.cloudInitRecoveries++;YandexAudit.mark('cloud:reconnect:init:ready');
+      // Upload the merged local/cloud snapshot once. This also preserves progress earned during an offline boot.
+      this.cloudDirty=true;this.queueCloudSave(true);
+      return true;
+    },
+    queueCloudSave(immediate=false){
+      if(!this.cloudReady||!this.player?.setData)return;this.cloudDirty=true;clearTimeout(this.cloudTimer);this.cloudTimer=0;
+      if(this.cloudWriting||navigator.onLine===false)return;
+      const retryDelay=immediate?0:(this.cloudFailureStreak>0?Math.max(0,this.cloudNextRetryAt-Date.now()):1200);
+      this.cloudTimer=setTimeout(()=>this.flushCloud(false),retryDelay);
+    },
+    async flushCloud(flush=false){
+      if(!this.cloudReady||!this.player?.setData)return false;
+      clearTimeout(this.cloudTimer);this.cloudTimer=0;
+      if(flush)this.cloudFlushRequested=true;
+      if(this.cloudWriting)return false;
+      // M135: navigator offline is authoritative enough to avoid a guaranteed cloud request.
+      // Keep progress dirty and resume immediately when connectivity returns; do not inflate failure backoff.
+      if(navigator.onLine===false){this.cloudDirty=true;YandexAudit.state.cloudOfflineDeferrals++;YandexAudit.mark('cloud:setData:offline-deferred',flush?'flush':'normal');return false;}
+      if(!this.cloudDirty&&!this.cloudFlushRequested)return true;
+      const sendFlush=this.cloudFlushRequested;this.cloudFlushRequested=false;
+      this.cloudWriting=true;this.cloudDirty=false;
+      const snapshot=JSON.parse(JSON.stringify(save));snapshot.updatedAt=this.now();
+      const rawWrite=Promise.resolve().then(()=>this.player.setData({[CLOUD_SAVE_KEY]:snapshot},Boolean(sendFlush)));
+      let awaitingLateSettlement=false;
+      const releaseWriteLane=(lateOutcome='')=>{
+        this.cloudWriteAwaitingSettlement=false;this.cloudWriting=false;
+        if(lateOutcome){
+          const a=YandexAudit.state;a.cloudWriteLateSettlements++;if(lateOutcome==='resolved')a.cloudWriteLateResolves++;else a.cloudWriteLateRejects++;
+          YandexAudit.mark(`cloud:setData:late-${lateOutcome}`,sendFlush?'flush':'normal');
+        }
+        // Preserve a later explicit durability request and any save that happened while this SDK
+        // request was in flight. Only one actual Player.setData request may occupy the write lane.
+        if(this.cloudFlushRequested){if(navigator.onLine!==false)void this.flushCloud(true);}
+        else if(this.cloudDirty)this.queueCloudSave(lateOutcome==='resolved');
+      };
+      try {await withTimeout(rawWrite,this.target==='vk'?10000:1800,'setData');this.cloudFailureStreak=0;this.cloudNextRetryAt=0;YandexAudit.state.cloudWrite++;if(sendFlush)YandexAudit.state.cloudFlush++;YandexAudit.mark(sendFlush?'cloud:setData:flush':'cloud:setData');return true;}
+      catch(err){
+        const isTimeout=String(err?.message||'').includes('setData timeout');
+        // M140: if connectivity disappears after setData already started, treat the rejected write
+        // as an offline deferral rather than poisoning the cloud-service failure backoff. Preserve
+        // an explicit flush request so the first reconnect write keeps the durability intent.
+        if(navigator.onLine===false){
+          this.cloudNextRetryAt=0;this.cloudDirty=true;if(sendFlush)this.cloudFlushRequested=true;
+          YandexAudit.state.cloudOfflineDeferrals++;YandexAudit.mark('cloud:setData:offline-deferred',`${sendFlush?'flush':'normal'}; midflight${isTimeout?'; timeout-pending':''}`);
+          // A timeout still leaves the SDK request unresolved. Even while offline, keep the write
+          // lane occupied until that underlying Promise really settles; reconnect must not overlap it.
+          if(isTimeout){
+            awaitingLateSettlement=true;this.cloudWriteAwaitingSettlement=true;
+            rawWrite.then(()=>{this.cloudFailureStreak=0;this.cloudNextRetryAt=0;releaseWriteLane('resolved');},()=>releaseWriteLane('rejected'));
+          }
+          return false;
+        }
+        const a=YandexAudit.state;a.cloudWriteErrors++;if(isTimeout)a.cloudWriteTimeouts++;this.cloudFailureStreak=Math.min(8,this.cloudFailureStreak+1);const retryDelay=Math.min(60000,5000*Math.pow(3,Math.max(0,this.cloudFailureStreak-1)));this.cloudNextRetryAt=Date.now()+retryDelay;console.warn('Cloud save write failed or timed out; local progress is preserved.',err);YandexAudit.mark('cloud:setData:error',`${err?.message||err}; retry ${retryDelay}ms`);this.cloudDirty=true;
+        // M141: timeout does not cancel the underlying SDK request. Keep the write lane occupied
+        // until that real request settles so an older timed-out snapshot can never overlap a newer
+        // retry and finish after it. Local progress remains durable; a fresh write follows settlement.
+        if(isTimeout){
+          awaitingLateSettlement=true;this.cloudWriteAwaitingSettlement=true;
+          rawWrite.then(()=>{this.cloudFailureStreak=0;this.cloudNextRetryAt=0;releaseWriteLane('resolved');},()=>releaseWriteLane('rejected'));
+        }
+        return false;
+      }
+      finally {
+        if(!awaitingLateSettlement)releaseWriteLane();
+      }
+    },
+    leaderboardStarsScore(){return safeInt(save?.totalStars,0,999999,0);},
+    leaderboardMasteryScore(){return encodeLeaderboardScore(save);},
+    leaderboardAuthorized(){try{return Boolean(this.target==='yandex'&&this.player?.isAuthorized?.());}catch(_){return false;}},
+    leaderboardSupported(){return Boolean(this.target==='yandex'&&this.ysdk?.leaderboards?.getEntries);},
+    queueLeaderboardSync(immediate=false){
+      if(!this.leaderboardSupported()||!this.leaderboardAuthorized()||navigator.onLine===false)return false;
+      const stars=this.leaderboardStarsScore(),mastery=this.leaderboardMasteryScore();
+      if(stars<=this.leaderboardLastSubmittedStars&&mastery<=this.leaderboardLastSubmittedMastery)return true;
+      clearTimeout(this.leaderboardTimer);this.leaderboardTimer=setTimeout(()=>{this.leaderboardTimer=0;void this.submitLeaderboardScores();},immediate?0:1500);return true;
+    },
+    async submitLeaderboardScores(force=false){
+      if(!this.leaderboardSupported()||!this.leaderboardAuthorized()||navigator.onLine===false||this.leaderboardBusy)return false;
+      const stars=this.leaderboardStarsScore(),mastery=this.leaderboardMasteryScore(),b=leaderboardBreakdown(save);
+      const needStars=force||stars>this.leaderboardLastSubmittedStars,needMastery=force||mastery>this.leaderboardLastSubmittedMastery;
+      if(!needStars&&!needMastery)return true;
+      this.leaderboardBusy=true;this.leaderboardLastError='';this.leaderboardLastErrors={};let ok=true;
+      const submitOne=async(name,score,extra,kind)=>{
+        try{
+          await withTimeout(this.ysdk.leaderboards.setScore(name,score,extra),3000,`leaderboard.setScore.${kind}`);
+          if(kind==='stars')this.leaderboardLastSubmittedStars=score;else this.leaderboardLastSubmittedMastery=score;
+          YandexAudit.mark(`leaderboard:setScore:${kind}`,String(score));return true;
+        }catch(err){const msg=String(err?.code||err?.message||err);this.leaderboardLastErrors[kind]=msg;this.leaderboardLastError=msg;YandexAudit.mark(`leaderboard:setScore:${kind}:error`,msg);return false;}
+      };
+      try{
+        if(typeof this.ysdk?.isAvailableMethod==='function'){const available=await this.ysdk.isAvailableMethod('leaderboards.setScore');if(!available)throw new Error('leaderboards.setScore unavailable');}
+        if(needStars)ok=(await submitOne(YANDEX_PUBLIC_LEADERBOARD_NAME,stars,`v3;kind:stars;s:${b.stars};l:${safeInt(save?.level,1,999999,1)}`,'stars'))&&ok;
+        // Yandex permits at most one setScore request per second. Keep the two boards safely separated.
+        if(needStars&&needMastery)await new Promise(resolve=>setTimeout(resolve,1100));
+        if(needMastery)ok=(await submitOne(YANDEX_MASTERY_LEADERBOARD_NAME,mastery,`v3;kind:mastery;s:${b.stars};m:${b.missions};d:${b.medals};l:${safeInt(save?.level,1,999999,1)}`,'mastery'))&&ok;
+        return ok;
+      }catch(err){this.leaderboardLastError=String(err?.code||err?.message||err);YandexAudit.mark('leaderboard:setScore:error',this.leaderboardLastError);return false;}
+      finally{this.leaderboardBusy=false;}
+    },
+    async getLeaderboardEntries(){
+      if(!this.leaderboardSupported())return{supported:false,authorized:false,entries:[],userRank:0,error:'unsupported',mode:'mastery'};
+      const authorized=this.leaderboardAuthorized();this.leaderboardLastError='';
+      const options=authorized?{quantityTop:10,includeUser:true,quantityAround:2}:{quantityTop:10,includeUser:false};
+      const fetch=async(name,mode)=>{const data=await withTimeout(this.ysdk.leaderboards.getEntries(name,options),4000,`leaderboard.getEntries.${mode}`);return{supported:true,authorized,entries:Array.isArray(data?.entries)?data.entries:[],userRank:Number(data?.userRank||0),error:'',mode};};
+      try{return await fetch(YANDEX_MASTERY_LEADERBOARD_NAME,'mastery');}
+      catch(err){
+        const first=String(err?.code||err?.message||err);this.leaderboardLastErrors.mastery=first;YandexAudit.mark('leaderboard:getEntries:mastery:error',first);
+        // During rollout, fall back to the readable stars board if the optional mastery table is not created yet.
+        if(/404|not.?found|leaderboard.*missing/i.test(first)){
+          try{return await fetch(YANDEX_PUBLIC_LEADERBOARD_NAME,'stars');}
+          catch(err2){const second=String(err2?.code||err2?.message||err2);this.leaderboardLastErrors.stars=second;this.leaderboardLastError=second;YandexAudit.mark('leaderboard:getEntries:stars:error',second);return{supported:true,authorized,entries:[],userRank:0,error:second,mode:'stars'};}
+        }
+        this.leaderboardLastError=first;return{supported:true,authorized,entries:[],userRank:0,error:first,mode:'mastery'};
+      }
+    },
+    async authorizeForLeaderboard(){
+      if(this.target!=='yandex'||!this.ysdk?.auth?.openAuthDialog)return false;
+      if(this.leaderboardAuthorized())return true;
+      try{
+        snapshotLocalBeforeExternalTransition();await this.flushCloud(true);await this.ysdk.auth.openAuthDialog();
+        this.player=null;this.cloudReady=false;this.cloudInitNextRetryAt=0;await this.initCloudSave();
+        const ok=this.leaderboardAuthorized();if(ok){this.leaderboardLastSubmittedStars=-1;this.leaderboardLastSubmittedMastery=-1;await this.submitLeaderboardScores(true);}return ok;
+      }catch(err){this.leaderboardLastError=String(err?.code||err?.message||err);YandexAudit.mark('leaderboard:auth:error',this.leaderboardLastError);return false;}
+    },
+    now(){
+      const e=YandexAudit.state.environment;
+      if(this.target==='vk'&&this.vkEpochMs>0){const v=this.vkEpochMs+Math.max(0,performance.now()-this.vkPerfAtInit);e.clockSource='vk';e.clockSkewMs=v-Date.now();e.clockSamples++;return v;}
+      try { const v=this.ysdk?.serverTime?.(); if(Number.isFinite(v)){e.clockSource='yandex';e.clockSkewMs=v-Date.now();e.clockSamples++;return v;} } catch (_) {e.clockErrors++;}
+      e.clockSource='local';e.clockSamples++;return Date.now();
+    },
+    gameplayStart(){
+      if(this.gameplayActive) return;
+      this.gameplayActive = true;YandexAudit.state.gameplayStart++;YandexAudit.mark('GameplayAPI.start');
+      if(this.target==='yandex')try { this.ysdk?.features?.GameplayAPI?.start(); } catch (err) {YandexAudit.mark('GameplayAPI.start:error',err?.message||err);}
+    },
+    gameplayStop(){
+      if(!this.gameplayActive) return;
+      this.gameplayActive = false;YandexAudit.state.gameplayStop++;YandexAudit.mark('GameplayAPI.stop');
+      if(this.target==='yandex')try { this.ysdk?.features?.GameplayAPI?.stop(); } catch (err) {YandexAudit.mark('GameplayAPI.stop:error',err?.message||err);}
+    },
+    shouldRequestFullscreen(completedLevel){
+      const now=performance.now();
+      // M112: protect onboarding and keep automatic interstitials sparse and predictable.
+      if(completedLevel<10 || ((completedLevel-10)%5)!==0) return false;
+      if(this.activeGameplayMs<300000) return false;
+      if(now-this.lastFullscreenAttemptAt<180000) return false;
+      // Never follow a voluntary rewarded ad with an automatic fullscreen. Require both
+      // a time buffer and two subsequently completed campaign levels.
+      if(now-this.lastRewardedExposureAt<180000 || this.campaignCompletionsSinceRewarded<2) return false;
+      this.lastFullscreenAttemptAt=now;
+      return true;
+    },
+    async showVkFullscreen(){
+      if(this.adBusy||!this.vk)return false;this.adBusy=true;this.adKind='fullscreen';YandexAudit.state.fullscreen.request++;YandexAudit.mark('fullscreen:request','vk');
+      try{const available=await VkBridgeLite.send('VKWebAppCheckNativeAds',{ad_format:'interstitial'},2200);if(!available?.result)return false;this.adPaused=true;syncExternalPauseState();snapshotLocalBeforeExternalTransition();void this.flushCloud(true);this.gameplayStop();YandexAudit.state.fullscreen.open++;YandexAudit.mark('fullscreen:open','vk');const result=await VkBridgeLite.send('VKWebAppShowNativeAds',{ad_format:'interstitial'},120000);YandexAudit.state.fullscreen.close++;YandexAudit.mark('fullscreen:close',String(Boolean(result?.result)));return Boolean(result?.result);}catch(err){YandexAudit.state.fullscreen.error++;YandexAudit.mark('fullscreen:error',err?.message||err);return false;}finally{this.adPaused=false;this.adBusy=false;this.adKind='';syncExternalPauseState();}
+    },
+    async showVkRewarded(onReward){
+      if(this.adBusy||!this.vk)return false;this.adBusy=true;this.adKind='rewarded';YandexAudit.state.rewarded.request++;YandexAudit.mark('rewarded:request','vk');
+      try{const available=await VkBridgeLite.send('VKWebAppCheckNativeAds',{ad_format:'reward'},2200);if(!available?.result){toast(T.adUnavailable);return false;}this.adPaused=true;syncExternalPauseState();snapshotLocalBeforeExternalTransition();void this.flushCloud(true);this.gameplayStop();this.noteRewardedExposure();YandexAudit.state.rewarded.open++;YandexAudit.mark('rewarded:open','vk');const result=await VkBridgeLite.send('VKWebAppShowNativeAds',{ad_format:'reward'},120000);if(result?.result){YandexAudit.state.rewarded.reward++;YandexAudit.mark('rewarded:reward','vk');onReward?.();YandexAudit.state.rewarded.close++;YandexAudit.mark('rewarded:close','true');return true;}YandexAudit.state.rewarded.close++;YandexAudit.mark('rewarded:close','false');return false;}catch(err){YandexAudit.state.rewarded.error++;YandexAudit.mark('rewarded:error',err?.message||err);toast(T.adUnavailable);return false;}finally{this.adPaused=false;this.adBusy=false;this.adKind='';syncExternalPauseState();}
+    },
+    showFullscreen(){
+      if(this.target==='vk')return this.showVkFullscreen();
+      if(this.target==='standalone')return Promise.resolve(false);
+      return new Promise((resolve) => {
+        if(!this.ysdk?.adv?.showFullscreenAdv || this.adBusy) return resolve(false);
+        YandexAudit.state.fullscreen.request++;YandexAudit.mark('fullscreen:request');this.adBusy=true;this.adKind='fullscreen';this.adPaused=true;syncExternalPauseState();snapshotLocalBeforeExternalTransition();void this.flushCloud(true);
+        let done = false;
+        const finish = (v) => {
+          if(done) return; done = true; this.adPaused=false;this.adBusy=false;this.adKind='';syncExternalPauseState(); resolve(v);
         };
-        this.externalApi=await withTimeout(window.iframeApi(callbacks),5000,'vkplay iframeApi');
-        this.connected=Boolean(this.externalApi);if(!this.connected)throw new Error('connect_failed');
-        YandexAudit.mark('vkplay:jsapi:connected',String(VKPLAY_GMRID));this.externalApi.getLoginStatus();return true;
-      }catch(err){this.error=String(err?.message||err||'connect_failed');YandexAudit.mark('vkplay:jsapi:error',this.error);return false;}
-      finally{this.connecting=false;this.refreshGarage();}
+        try {
+          this.gameplayStop();
+          this.ysdk.adv.showFullscreenAdv({ callbacks:{
+            onOpen:()=>{ YandexAudit.state.fullscreen.open++;YandexAudit.mark('fullscreen:open'); },
+            onClose:(shown)=>{YandexAudit.state.fullscreen.close++;YandexAudit.mark('fullscreen:close',String(Boolean(shown)));finish(Boolean(shown));},
+            onError:(err)=>{YandexAudit.state.fullscreen.error++;YandexAudit.mark('fullscreen:error',err?.message||err);finish(false);}
+          }});
+        } catch (_) { finish(false); }
+      });
     },
-    onLoginStatus(status){
-      if(status?.status!=='ok'){this.error=String(status?.errmsg||status?.errcode||'login_status_error');this.refreshGarage();return;}
-      this.error='';this.loginStatus=safeInt(status.loginStatus,0,3,-1);YandexAudit.mark('vkplay:login-status',String(this.loginStatus));
-      if(this.loginStatus>=2){try{this.externalApi?.userInfo();}catch(err){this.error=String(err?.message||err);}}this.refreshGarage();
-    },
-    onUserInfo(info){if(info?.status==='ok'&&info?.uid!=null){this.uid=String(info.uid);this.error='';YandexAudit.mark('vkplay:user-info','ok');void this.sync('userinfo');}else this.error=String(info?.errmsg||info?.errcode||'user_info_error');this.refreshGarage();},
-    onRegistered(info){if(info?.status==='ok'&&info?.uid!=null){this.uid=String(info.uid);this.loginStatus=2;this.error='';YandexAudit.mark('vkplay:registered','ok');void this.sync('registered');}else this.error=String(info?.errmsg||info?.errcode||'register_error');this.refreshGarage();},
-    onAuthToken(token){
-      clearTimeout(this.authTimer);this.authTimer=0;const resolve=this.authResolve,reject=this.authReject;this.authResolve=null;this.authReject=null;
-      if(token?.status==='ok'&&token?.uid!=null&&token?.hash){resolve?.({uid:String(token.uid),hash:String(token.hash)});}else reject?.(new Error(String(token?.errmsg||token?.errcode||'auth_token_error')));
-    },
-    getAuthToken(){
-      if(!this.canOffer()||!this.externalApi?.getAuthToken)return Promise.reject(new Error('vkplay_not_authorized'));
-      if(this.authResolve)return Promise.reject(new Error('auth_token_busy'));
-      return new Promise((resolve,reject)=>{this.authResolve=resolve;this.authReject=reject;this.authTimer=setTimeout(()=>{this.authTimer=0;this.authResolve=null;this.authReject=null;reject(new Error('auth_token_timeout'));},6000);try{this.externalApi.getAuthToken();}catch(err){clearTimeout(this.authTimer);this.authTimer=0;this.authResolve=null;this.authReject=null;reject(err);}});
-    },
-    async request(path,payload){
-      const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),9000);
-      try{const response=await fetch(VKPLAY_BILLING_API+path,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload),cache:'no-store',credentials:'omit',signal:controller.signal});let data=null;try{data=await response.json();}catch(_){}if(!response.ok){const err=new Error(data?.message||data?.error||`billing_http_${response.status}`);err.data=data;throw err;}return data||{};}finally{clearTimeout(timer);}
-    },
-    reconcilePendingSpend(spends){
-      const pending=normalizeVkPendingSpend(save.vkPendingSpend);if(!pending)return false;
-      const hit=(spends||[]).find(x=>String(x?.request_id||'')===pending.requestId);if(!hit)return false;
-      save.coins=Math.max(0,safeInt(save.coins,0,1_000_000_000_000,0)-pending.localPart);
-      const carId=pending.carId;if(carId>=0&&carId<CAR_NAMES.length){save.ownedCars=[...new Set([...ownedStyleIds(),carId])].sort((a,b)=>a-b);save.purchasedCars=[...new Set([...(save.purchasedCars||[]),carId])].sort((a,b)=>a-b);save.favoriteCar=carId;garagePreviewId=carId;}
-      save.vkPendingSpend=null;return true;
-    },
-    applyServerState(data,reason='sync'){
-      const serverWallet=safeInt(data?.coins,0,1_000_000_000_000,0),mirrored=safeInt(save.vkPaidCoinsCredited,0,1_000_000_000_000,0),delta=serverWallet-mirrored;
-      let changed=false;if(delta!==0){save.coins=Math.max(0,safeInt(save.coins,0,1_000_000_000_000,0)+delta);save.vkPaidCoinsCredited=serverWallet;changed=true;}
-      const ent=normalizeVkEntitlements(data?.entitlements),oldEnt=JSON.stringify(normalizeVkEntitlements(save.vkEntitlements));save.vkEntitlements=ent;if(JSON.stringify(ent)!==oldEnt)changed=true;
-      this.serverState={coins:serverWallet,entitlements:ent,transactions:Array.isArray(data?.transactions)?data.transactions.slice(0,12):[],spends:Array.isArray(data?.spends)?data.spends.slice(0,20):[]};
-      for(const spend of this.serverState.spends){const m=/^garage_car:([0-9]+)$/.exec(String(spend?.context||''));if(!m)continue;const carId=safeInt(m[1],0,CAR_NAMES.length-1,-1);if(carId>0&&!ownedStyleIds().includes(carId)){save.ownedCars=[...new Set([...ownedStyleIds(),carId])].sort((a,b)=>a-b);save.purchasedCars=[...new Set([...(save.purchasedCars||[]),carId])].sort((a,b)=>a-b);changed=true;}}
-      if(this.reconcilePendingSpend(this.serverState.spends))changed=true;
-      this.applySupporterTheme();
-      if(changed){persist();updateHud();if(delta>0&&reason!=='boot')toast(`${T.vkBillingReceived}: +${delta} ${T.coins}`);}
-      this.refreshGarage();return changed;
-    },
-    async sync(reason='manual'){
-      if(!this.canOffer())return false;const now=Date.now();if(!['poll','spend','payment','payment-close','registered','userinfo','boot'].includes(reason)&&now-this.lastSyncAt<900)return false;this.lastSyncAt=now;
-      try{const auth=await this.getAuthToken();const data=await this.request('/api/player/state-auth',auth);return this.applyServerState(data,reason);}catch(err){YandexAudit.mark('vkplay:billing:sync-error',String(err?.message||err));return false;}
-    },
-    beginPolling(){
-      if(this.pollTimer)clearInterval(this.pollTimer);const startWallet=safeInt(save.vkPaidCoinsCredited,0,1_000_000_000_000,0),started=Date.now();
-      this.pollTimer=setInterval(async()=>{const changed=await this.sync('poll');if(changed||save.vkPaidCoinsCredited!==startWallet||Date.now()-started>120000){clearInterval(this.pollTimer);this.pollTimer=0;}},2500);
-    },
-    async handleAuthAction(){
-      if(!this.connected){await this.init();return false;}if(this.loginStatus===0){try{this.externalApi?.authUser();return true;}catch(err){this.error=String(err?.message||err);this.refreshGarage();return false;}}if(this.loginStatus===1){try{this.externalApi?.registerUser();return true;}catch(err){this.error=String(err?.message||err);this.refreshGarage();return false;}}return this.canOffer();
-    },
-    async buyProduct(productId){
-      const product=VKPLAY_PRODUCTS[productId];if(!product||this.busy)return false;if(!this.canOffer()){await this.handleAuthAction();return false;}
-      this.busy=true;this.lastProductId=productId;this.refreshGarage();
-      try{snapshotLocalBeforeExternalTransition();const orderId=(crypto?.randomUUID?.()||`tp-${Date.now()}-${Math.random().toString(16).slice(2)}`);this.externalApi.paymentFrame({merchant_param:{amount:product.price,currency:'RUB',description:product.description,item_id:product.id,additional_param:orderId}});this.beginPolling();toast(T.vkBillingPending);YandexAudit.mark('vkplay:billing:frame-open',`${product.id}:${orderId}`);return true;}
-      catch(err){this.error=String(err?.message||err||'payment_frame_error');YandexAudit.mark('vkplay:billing:create-error',this.error);toast(T.vkBillingError);return false;}
-      finally{this.busy=false;this.refreshGarage();}
-    },
-    async spendForGarageCar(carId,cost){
-      const mirrored=safeInt(save.vkPaidCoinsCredited,0,1_000_000_000_000,0),localEarned=Math.max(0,safeInt(save.coins,0,1_000_000_000_000,0)-mirrored),serverPart=Math.max(0,cost-localEarned),localPart=cost-serverPart;
-      if(serverPart<=0)return {localOnly:true,localPart:cost,serverPart:0};
-      if(!this.canOffer()){toast(T.vkBillingSpendError);return null;}
-      const requestId=(crypto?.randomUUID?.()||`spend-${Date.now()}-${Math.random().toString(16).slice(2)}`),context=`garage_car:${carId}`;
-      save.vkPendingSpend={requestId,context,carId,cost,localPart,serverPart,createdAt:Date.now()};persist();
-      try{const auth=await this.getAuthToken();await this.request('/api/wallet/spend-auth',{...auth,request_id:requestId,amount:serverPart,context});await this.sync('spend');if(save.vkPendingSpend){toast(T.vkBillingSpendPending);return false;}return {localOnly:false,localPart,serverPart};}
-      catch(err){YandexAudit.mark('vkplay:billing:spend-error',String(err?.message||err));await this.sync('spend-error');if(save.vkPendingSpend){save.vkPendingSpend=null;persist();toast(T.vkBillingSpendError);}return null;}
-    },
-    onPaymentReceived(data){if(data?.uid!=null)this.uid=String(data.uid);YandexAudit.mark('vkplay:billing:received',this.uid||'unknown');toast(T.vkBillingReceived);this.beginPolling();setTimeout(()=>void this.sync('payment'),800);},
-    onPaymentWindowClosed(){YandexAudit.mark('vkplay:billing:window-closed');setTimeout(()=>void this.sync('payment-close'),900);}
+    showRewarded(onReward){
+      if(this.target==='vk')return this.showVkRewarded(onReward);
+      if(this.target==='standalone'){if(IS_DEVELOPMENT){onReward?.();toast(T.demoReward);return Promise.resolve(true);}toast(T.adUnavailable);return Promise.resolve(false);}
+      return new Promise((resolve) => {
+        if(!this.ysdk?.adv?.showRewardedVideo){
+          if(IS_DEVELOPMENT && !this.ready){ onReward?.(); toast(T.demoReward); return resolve(true); }
+          toast(T.adUnavailable); return resolve(false);
+        }
+        if(this.adBusy)return resolve(false);
+        YandexAudit.state.rewarded.request++;YandexAudit.mark('rewarded:request');this.adBusy=true;this.adKind='rewarded';this.adPaused=true;syncExternalPauseState();snapshotLocalBeforeExternalTransition();void this.flushCloud(true);
+        let rewarded = false, done = false, exposureMarked = false;
+        const markExposure = () => { if(exposureMarked)return;exposureMarked=true;this.noteRewardedExposure(); };
+        const grant = () => { if(rewarded||done)return; markExposure();rewarded=true;YandexAudit.state.rewarded.reward++;YandexAudit.mark('rewarded:reward');onReward?.(); };
+        const finish = (v) => {
+          if(done) return; done = true; this.adPaused=false;this.adBusy=false;this.adKind='';syncExternalPauseState(); resolve(v);
+        };
+        try {
+          this.gameplayStop();
+          this.ysdk.adv.showRewardedVideo({ callbacks:{
+            onOpen:()=>{ markExposure();YandexAudit.state.rewarded.open++;YandexAudit.mark('rewarded:open'); },
+            onRewarded:grant,
+            onClose:()=>{YandexAudit.state.rewarded.close++;YandexAudit.mark('rewarded:close',String(rewarded));finish(rewarded);},
+            onError:(err)=>{YandexAudit.state.rewarded.error++;YandexAudit.mark('rewarded:error',err?.message||err);toast(T.adUnavailable); finish(false); }
+          }});
+        } catch (_) { finish(false); }
+      });
+    }
   };
 
   // M115: compact recorded vehicle audio scene; distinct emergency recordings stay embedded/offline-friendly.
@@ -811,8 +997,7 @@
     musicLabel(){ return ['0%','45%','75%','100%'][safeInt(save.musicLevel,0,3,3)]; },
     setMusicLevel(level){
       save.musicLevel=safeInt(level,0,3,3);save.sound=Boolean(save.sfx||save.musicLevel>0);this.enabled=save.sound;persist();
-      if(this.musicGain&&this.ctx){try{this.musicGain.gain.setValueAtTime(this.musicGainValue(),this.ctx.currentTime);}catch(_){this.musicGain.gain.value=this.musicGainValue();}}
-      if(save.musicLevel<=0){this.stopMusic();if(!this.enabled)this.suspend(true);}else this.ensure();
+      if(this.musicGain&&this.ctx){try{this.musicGain.gain.setValueAtTime(this.musicGainValue(),this.ctx.currentTime);}catch(_){this.musicGain.gain.value=this.musicGainValue();}}      if(save.musicLevel<=0){this.stopMusic();if(!this.enabled)this.suspend(true);}else this.ensure();
     },
     cycleMusic(){this.setMusicLevel((safeInt(save.musicLevel,0,3,3)+3)%4);},
     setSfxEnabled(v){save.sfx=Boolean(v);save.sound=Boolean(save.sfx||save.musicLevel>0);this.enabled=save.sound;persist();if(save.sfx)this.ensure();else this.stopTransientAudio();if(!this.enabled)this.suspend(true);},
@@ -997,7 +1182,8 @@
     {plan:'NNWWNNWWEESS',start:'V',interval:1.13,speed:128,maxQueue:4},
     {plan:'WWWNNNEEESSS',start:'H',interval:1.10,speed:129,maxQueue:4},
     {plan:'NNWWEESSWWNN',start:'V',interval:1.08,speed:130,maxQueue:4},
-    {plan:'WWWWNNNNEESS',start:'H',interval:1.05,speed:131,maxQueue:4},    {plan:'NNNEEEWWWSSSNN',start:'V',interval:1.04,speed:132,maxQueue:4},
+    {plan:'WWWWNNNNEESS',start:'H',interval:1.05,speed:131,maxQueue:4},
+    {plan:'NNNEEEWWWSSSNN',start:'V',interval:1.04,speed:132,maxQueue:4},
     {plan:'WWNNWWEESSNNEE',start:'H',interval:1.02,speed:133,maxQueue:4},
     {plan:'NNNNWWWEEEESSS',start:'H',interval:1.00,speed:134,maxQueue:4},
     {plan:'WWEENNSSWWNNEE',start:'V',interval:.98,speed:135,maxQueue:4},
@@ -1571,6 +1757,51 @@
     return cycle===0?{key:'district6',id:'night',accent:'#b28cff',bg:'#221c4d'}:cycle===1?{key:'district7',id:'oldtown',accent:'#f0b96a',bg:'#5c4038'}:cycle===2?{key:'district8',id:'tech',accent:'#64f1d2',bg:'#173e49'}:{key:'district9',id:'winter',accent:'#9ee7ff',bg:'#35526d'};
   }
 
+
+  const CITY_PROFILE_KEYS=Object.freeze({
+    park:['cityProfilePark','cityLifePark','🌳'],coast:['cityProfileCoast','cityLifeCoast','🌊'],downtown:['cityProfileDowntown','cityLifeDowntown','🏙️'],airport:['cityProfileAirport','cityLifeAirport','✈️'],harbor:['cityProfileHarbor','cityLifeHarbor','⚓'],night:['cityProfileNight','cityLifeNight','🌃'],oldtown:['cityProfileOldtown','cityLifeOldtown','🏛️'],tech:['cityProfileTech','cityLifeTech','⚡'],winter:['cityProfileWinter','cityLifeWinter','❄️']
+  });
+  function cityProfileForLevel(level){const d=districtInfo(level),p=CITY_PROFILE_KEYS[d.id]||CITY_PROFILE_KEYS.park;return{...d,profileKey:p[0],lifeKey:p[1],icon:p[2]};}
+  function districtGrowthSummaryForLevel(level,completionAdjust=0){
+    const ch=campaignChapterForLevel(level),total=Math.max(1,ch.end-ch.start+1);let completed=0;
+    for(let n=ch.start;n<=ch.end;n++)if(campaignLevelCompleted(n))completed++;
+    completed=Math.max(0,Math.min(total,completed+completionAdjust));const ratio=completed/total;
+    const stage=ratio>=1?4:ratio>=.75?3:ratio>=.45?2:ratio>=.18?1:0;
+    const labels=['cityGrowthSeed','cityGrowthGrowing','cityGrowthActive','cityGrowthLandmark','cityGrowthComplete'];
+    const thresholds=[Math.max(1,Math.ceil(total*.18)),Math.max(2,Math.ceil(total*.45)),Math.max(3,Math.ceil(total*.75)),total];
+    const nextTarget=stage>=4?total:thresholds[stage],remaining=Math.max(0,nextTarget-completed),profile=cityProfileForLevel(level);
+    return{chapter:ch,total,completed,ratio,stage,labelKey:labels[stage],nextTarget,remaining,profile};
+  }
+  function districtGrowthBars(level){const g=districtGrowthSummaryForLevel(level),seed=(g.profile.id.length*11+g.chapter.start*3)%17;return Array.from({length:8},(_,i)=>{const base=18+((seed+i*13)%26),boost=i<2+g.stage?12+g.stage*5:0;return Math.min(68,base+boost);});}
+  function appendCityGrowthPanel(container,level){
+    const growth=districtGrowthSummaryForLevel(level),profile=growth.profile,panel=document.createElement('section');panel.className=`city-growth-panel stage-${growth.stage}`;panel.style.setProperty('--city-accent',profile.accent);panel.setAttribute('aria-label',T.cityGrowth);
+    const head=document.createElement('div');head.className='city-growth-head';const title=document.createElement('strong');title.textContent=`${profile.icon} ${T.cityGrowth}`;const stage=document.createElement('span');stage.textContent=`${T.cityGrowthStage}: ${T[growth.labelKey]}`;head.append(title,stage);
+    const skyline=document.createElement('div');skyline.className='city-growth-skyline';for(const h of districtGrowthBars(level)){const b=document.createElement('i');b.style.height=`${h}%`;skyline.appendChild(b);}const pulse=document.createElement('span');pulse.className='city-growth-pulse';pulse.style.width=`${Math.max(5,Math.round(growth.ratio*100))}%`;skyline.appendChild(pulse);
+    const meta=document.createElement('div');meta.className='city-growth-meta';const identity=document.createElement('div');identity.innerHTML=`<small>${T.cityIdentity}</small><strong>${T[profile.profileKey]}</strong>`;const life=document.createElement('div');life.innerHTML=`<small>${T.cityLife}</small><strong>${T[profile.lifeKey]}</strong>`;meta.append(identity,life);
+    const foot=document.createElement('div');foot.className='city-growth-foot';foot.textContent=growth.stage>=4?`${growth.completed}/${growth.total} · ${T.cityGrowthComplete}`:`${growth.completed}/${growth.total} · ${T.cityGrowthNext}: ${growth.remaining} ${T.cityGrowthLevels}`;
+    panel.append(head,skyline,meta,foot);container.appendChild(panel);return growth;
+  }
+  function drawDistrictIdentityMarker(g,game){
+    if(game.mode!=='campaign')return;const p=cityProfileForLevel(game.level),growth=districtGrowthSummaryForLevel(game.level),stage=growth.stage,t=performance.now()/1000;
+    const x=94,y=96;g.save();g.translate(x,y);g.globalAlpha=.72;g.strokeStyle=p.accent;g.fillStyle='rgba(7,22,35,.72)';g.lineWidth=2;roundRect(g,-34,-31,68,62,14,true);roundRect(g,-34,-31,68,62,14,false);
+    g.fillStyle=p.accent;g.globalAlpha=.82;
+    if(p.id==='park'){g.beginPath();g.arc(0,5,13,0,Math.PI*2);g.fill();g.fillRect(-3,17,6,11);g.beginPath();g.arc(-13,-3,9,0,Math.PI*2);g.fill();g.beginPath();g.arc(13,-3,9,0,Math.PI*2);g.fill();}
+    else if(p.id==='coast'){g.lineWidth=4;g.beginPath();for(let i=-24;i<=24;i+=8){const yy=Math.sin(i*.22+t*.7)*3;g.lineTo(i,yy);}g.stroke();g.fillRect(-2,-22,4,20);g.beginPath();g.arc(0,-23,7,Math.PI,0);g.fill();}
+    else if(p.id==='downtown'){for(let i=0;i<3;i++){const h=20+i*8;g.fillRect(-25+i*18,24-h,13,h);}g.fillStyle='#fff2b8';g.globalAlpha=.55;for(let i=0;i<5;i++)g.fillRect(-21+i*9,5-(i%2)*7,3,3);}
+    else if(p.id==='airport'){g.fillRect(-25,8,50,5);g.beginPath();g.moveTo(-4,5);g.lineTo(26,-3);g.lineTo(-2,-9);g.lineTo(-16,-18);g.lineTo(-12,-3);g.lineTo(-27,3);g.closePath();g.fill();}
+    else if(p.id==='harbor'){for(let i=0;i<3;i++){g.globalAlpha=.45+i*.15;g.fillRect(-27+i*18,5,15,16);}g.globalAlpha=.8;g.fillRect(-21,-20,5,25);g.fillRect(-21,-20,28,4);}
+    else if(p.id==='night'){g.shadowColor=p.accent;g.shadowBlur=10;g.fillRect(-22,-14,44,28);g.fillStyle='#ff80de';g.fillRect(-16,-8,32,4);g.fillStyle='#6cf2ff';g.fillRect(-16,2,24,4);g.shadowBlur=0;}
+    else if(p.id==='oldtown'){g.beginPath();g.arc(0,-3,18,0,Math.PI*2);g.fill();g.fillStyle='rgba(7,22,35,.9)';g.beginPath();g.arc(0,-3,13,0,Math.PI*2);g.fill();g.strokeStyle=p.accent;g.beginPath();g.moveTo(0,-3);g.lineTo(0,-12);g.moveTo(0,-3);g.lineTo(8,2);g.stroke();}
+    else if(p.id==='tech'){g.strokeStyle=p.accent;g.lineWidth=4;roundRect(g,-18,-20,36,40,8,false);g.fillRect(-4,20,8,8);g.beginPath();g.moveTo(-8,-5);g.lineTo(2,-5);g.lineTo(-2,4);g.lineTo(9,4);g.stroke();}
+    else {g.beginPath();g.arc(0,4,14,0,Math.PI*2);g.fill();g.beginPath();g.arc(0,-14,9,0,Math.PI*2);g.fill();g.fillStyle='#ff8e8e';g.fillRect(-10,-8,20,4);}
+    if(stage>0){g.globalAlpha=.9;g.fillStyle='#ffd166';for(let i=0;i<stage;i++){g.beginPath();g.arc(-22+i*14,26,2.5,0,Math.PI*2);g.fill();}}g.restore();
+  }
+  function drawCityGrowthEdge(g,game){
+    if(game.mode!=='campaign')return;const growth=districtGrowthSummaryForLevel(game.level),bars=districtGrowthBars(game.level),p=growth.profile;g.save();g.globalAlpha=.17+.035*growth.stage;g.fillStyle=p.accent;
+    const baseY=190,startX=705;for(let i=0;i<Math.min(4+growth.stage,bars.length);i++){const h=8+bars[i]*.38;roundRect(g,startX+i*23,baseY-h,17,h,3,true);if(growth.stage>=2){g.fillStyle='rgba(255,239,174,.5)';for(let wy=baseY-h+5;wy<baseY-4;wy+=8)g.fillRect(startX+i*23+5,wy,3,3);g.fillStyle=p.accent;}}
+    g.restore();
+  }
+
   function nextDistrictUnlock(level){
     const next=level+1; if([11,21,31,46,61,76,91,111].includes(next)) return T[districtInfo(next).key];
     return '';
@@ -1765,8 +1996,7 @@
       trafficPlan:{opening:['N','S','W','E','N','S','W','E','W','E'],service_a:['N','S','N','S','W','E','W','E'],service_b:['W','E','N','S','W','E','N','S','W','E'],final:['N','S','W','E','N','S','W','E','N','S']},
       objectives:{maxQueue:6,maxSwitches:15,priorityRequired:4},starThresholds:{twoStarQueue:6,threeStarSwitches:15}
     }),
-    roadworks_detour:Object.freeze({
-      id:'roadworks_detour',version:1,icon:'🚧',seed:0x5c4041,unlockRule:{minLevel:50},nameKey:'scenarioRoadworks',descriptionKey:'scenarioRoadworksDesc',goalKey:'scenarioRoadworksGoal',ruleKey:'scenarioRoadworksRule',
+    roadworks_detour:Object.freeze({      id:'roadworks_detour',version:1,icon:'🚧',seed:0x5c4041,unlockRule:{minLevel:50},nameKey:'scenarioRoadworks',descriptionKey:'scenarioRoadworksDesc',goalKey:'scenarioRoadworksGoal',ruleKey:'scenarioRoadworksRule',
       board:{level:52,startPhase:'H',lanes:2,closedLane:1,maxQueue:7,perfectQueue:4,interval:.62,speed:160,clearance:1.24,junctionType:'cross',variant:'roadwork',busChance:.12,ambulanceChance:.03,truckChance:.18,sportChance:.05,compactChance:.12},
       stages:[
         {id:'prep',start:0,labelKey:'scenarioStageRoadworksPrep',events:[{id:'opening',at:0,type:'traffic',wave:'opening'}]},
@@ -1996,7 +2226,8 @@
     startScenario(id='after_school',rescued=false){
       this.clearNoticeTimers();this.clearFailureUiTimer();
       const def=scenarioDefinition(id);if(!def){toast(T.scenarioMode);return false;}if(!scenarioUnlocked(def)){toast(T.scenarioLocked);return false;}
-      this.mode='scenario';this.scenarioId=def.id;this.incidentDirector=null;this.greenWaveId='';this.greenWaveDirector=null;this.signalMode='shared';this.signalControllers=null;this.greenWaveStats=null;this.dailyKey='';this.weeklyKey='';this.level=def.board.level;this.config=scenarioConfig(def);this.scenarioDirector=createScenarioDirector(def);this.assistActive=false;this.mission=null;      this.rng=seeded(def.seed);this.cars=[];this.spawned=0;this.exited=0;this.phase=this.config.startPhase;this.pendingPhase=null;this.transitionTimer=0;this.switches=0;this.spawnTimer=.42;this.phaseElapsed=0;this.pedestrians=[];this.pedestrianSerial=0;this.pedestrianSpawnTimer=99;this.pedestrianHold=false;this.emergencyPriorityId=null;AudioFx.stopTransientAudio();AudioFx.refreshMusicTheme();
+      this.mode='scenario';this.scenarioId=def.id;this.incidentDirector=null;this.greenWaveId='';this.greenWaveDirector=null;this.signalMode='shared';this.signalControllers=null;this.greenWaveStats=null;this.dailyKey='';this.weeklyKey='';this.level=def.board.level;this.config=scenarioConfig(def);this.scenarioDirector=createScenarioDirector(def);this.assistActive=false;this.mission=null;
+      this.rng=seeded(def.seed);this.cars=[];this.spawned=0;this.exited=0;this.phase=this.config.startPhase;this.pendingPhase=null;this.transitionTimer=0;this.switches=0;this.spawnTimer=.42;this.phaseElapsed=0;this.pedestrians=[];this.pedestrianSerial=0;this.pedestrianSpawnTimer=99;this.pedestrianHold=false;this.emergencyPriorityId=null;AudioFx.stopTransientAudio();AudioFx.refreshMusicTheme();
       this.maxObservedQueue=0;this.elapsed=0;this.accumulator=0;this.renderAlpha=1;this.state='playing';this.externalPaused=Boolean(platform.pausedByPlatform||platform.browserPaused||platform.adPaused);this.userPaused=false;this.rescueUsed=rescued;this.crashPair=null;this.crashFx=null;this.cameraKick=0;this.turnOwnerId=null;this.particles=[];this.flowStreak=0;this.maxFlowStreak=0;this.syncStreak=0;this.maxSyncStreak=0;this.prioritySaved=0;this.lastPassAt=-99;this.failureReplayFrames=[];this.failureReplayClock=0;this.replayPlayback=null;clearTimeout(this.replayTimer);this.lastFailType='';this.firstInput=true;if(typeof PersonalBestService!=='undefined')PersonalBestService.clear();
       clearTimeout(this.tutorialCueTimer);this.tutorialCueTimer=0;$('tap-hint').style.display='none';closeOverlay();applyDistrictTheme();this.scenarioDirector.update(0,this);updateHud();this.primeTraffic();toast(`${def.icon||'🎒'} ${T[def.nameKey]}`);this.scheduleNotice(()=>{if(this.state==='playing'&&this.mode==='scenario'&&this.scenarioId===def.id)toast(`⚙️ ${T[def.ruleKey]||T.scenarioRule}`);},1450);if(!this.externalPaused&&!platform.booting){platform.gameplayStart();AudioFx.recoverAfterExternalResume();}return true;
     },
@@ -2764,8 +2995,7 @@
   function linkedTurnPedestrianBlocked(c,junctionId,game=Game){
     const route=linkedRouteSpec(c?.linkedRouteId);
     return Boolean(route?.turn&&route.turnAt===junctionId&&game.pedestriansOnAxis(AXIS[route.turnOutDir||route.exitDir],junctionId));
-  }
-  function linkedTurnExitBlocked(c,junctionId,game=Game,lanes=(game.config?.lanes||1)){
+  }  function linkedTurnExitBlocked(c,junctionId,game=Game,lanes=(game.config?.lanes||1)){
     const route=linkedRouteSpec(c?.linkedRouteId);
     if(!route?.turn||route.turnAt!==junctionId)return false;
     const geometry=linkedTurnGeometry(c,lanes);if(!geometry)return true;
@@ -2995,7 +3225,8 @@
       rg.addColorStop(0,`rgba(104,229,255,${.14+pulse})`);rg.addColorStop(1,'rgba(104,229,255,0)');
       g.fillStyle=rg;g.fillRect(x-94,y-94,188,188);
     }
-    g.restore();  }
+    g.restore();
+  }
 
   function weatherForLevel(level){
     if(districtInfo(level).id==='winter'&&level%5!==0)return 'snow';
@@ -3763,8 +3994,7 @@
   function drawStorefrontDeliveryLifecycle(g,game){
     if(reducedMotion||RenderQuality.level===0||isLinkedJunctionType(game.config?.junctionType))return;
     const s=storefrontDeliveryState(game),t=Math.max(0,game.elapsed||0),high=RenderQuality.level>=2;
-    if(s.activity<.12)return;
-    const zones=s.district==='harbor'?[[744,168,-1],[748,726,-1]]:s.district==='airport'?[[126,168,1],[742,726,-1]]:[[116,168,1],[748,726,-1]];
+    if(s.activity<.12)return;    const zones=s.district==='harbor'?[[744,168,-1],[748,726,-1]]:s.district==='airport'?[[126,168,1],[742,726,-1]]:[[116,168,1],[748,726,-1]];
     g.save();g.lineCap='round';g.lineJoin='round';
     for(let k=0;k<(high?2:1);k++){
       const [sx,sy,dir]=zones[k],active=s.stage!=='closed';
@@ -3994,7 +4224,8 @@
         g.fillStyle='#9a7650';roundRect(g,x-9,y-4,18,9,2,true);g.fillStyle='#d6b36d';g.fillRect(x-6,y-1,4,3);g.fillStyle='#78995f';g.fillRect(x+2,y-1,4,3);
         if(s.stage==='setup'||s.stage==='packing'){g.globalAlpha=.34;g.fillStyle='#9b7650';roundRect(g,x+dir*11,y+4,7,6,1,true);}
       }
-      if(s.shoppers){        const count=Math.min(s.shoppers,high?7:4);
+      if(s.shoppers){
+        const count=Math.min(s.shoppers,high?7:4);
         for(let q=0;q<count;q++){
           const px=cx-25+(q%4)*16+Math.sin(t*.9+q+k)*2,py=cy+17+Math.floor(q/4)*8,bob=Math.sin(t*2+q)*.35;
           g.globalAlpha=.30+.42*s.activity;g.fillStyle=['#efc7a7','#d9ad8b','#f0d1b4'][q%3];g.beginPath();g.arc(px,py-7+bob,2.4,0,Math.PI*2);g.fill();
@@ -4410,7 +4641,7 @@
     if(isLinkedJunctionType(game.config?.junctionType))return drawLinkedWorld(g,game);
     const theme=districtInfo(game.level),layout=roadLayout(game.config?.lanes||1),roadA=layout.edgeMin,roadB=layout.edgeMax;
     g.drawImage(getWorldCache(theme,game.config?.lanes||1,game.config?.junctionType||'cross'),0,0);
-    drawDynamicAmbient(g,theme);drawLivingCityAmbient(g,game);drawDistrictMicroLife(g,game);drawStreetLifeActivity(g,game);drawDistrictSignatureEvents(g,game);drawDailyCityRhythm(g,game);drawCivicServicePulse(g,game);drawTransitStopPulse(g,game);drawStorefrontDeliveryLifecycle(g,game);drawNeighborhoodParkingTurnover(g,game);drawBuildingEntranceActivity(g,game);drawPublicSpaceLeisure(g,game);drawCafeTerraceLifecycle(g,game);drawStreetMarketLifecycle(g,game);drawConstructionSiteLifecycle(g,game);drawBuildingOccupancyRhythm(g,game);drawRooftopLife(g,game);drawNeighborhoodPetWalk(g,game);drawNeighborhoodPlayground(g,game);drawPocketParkLife(g,game);drawBalconyLife(g,game);drawWeatherResponsiveCity(g,game);drawTrafficAwareCityReactions(g,game);drawLivingCityFire(g,game);drawScenarioDecor(g,game);
+    drawDynamicAmbient(g,theme);drawLivingCityAmbient(g,game);drawDistrictMicroLife(g,game);drawStreetLifeActivity(g,game);drawDistrictSignatureEvents(g,game);drawDailyCityRhythm(g,game);drawCivicServicePulse(g,game);drawTransitStopPulse(g,game);drawStorefrontDeliveryLifecycle(g,game);drawNeighborhoodParkingTurnover(g,game);drawBuildingEntranceActivity(g,game);drawPublicSpaceLeisure(g,game);drawCafeTerraceLifecycle(g,game);drawStreetMarketLifecycle(g,game);drawConstructionSiteLifecycle(g,game);drawBuildingOccupancyRhythm(g,game);drawRooftopLife(g,game);drawNeighborhoodPetWalk(g,game);drawNeighborhoodPlayground(g,game);drawPocketParkLife(g,game);drawBalconyLife(g,game);drawWeatherResponsiveCity(g,game);drawTrafficAwareCityReactions(g,game);drawLivingCityFire(g,game);drawScenarioDecor(g,game);drawCityGrowthEdge(g,game);drawDistrictIdentityMarker(g,game);
     const active=game.activeAxis(); const transition=game.transitionTimer>0;
     const occupied=game.cars.some(c=>c.inside);
     g.save();
@@ -4762,8 +4993,7 @@
     for(const [yy,c,on] of [[-28,'#ff5964',redOn],[0,'#ffd166',yellowOn],[28,'#56e39f',greenOn]]){
       g.fillStyle='rgba(3,12,20,.48)';g.beginPath();g.arc(0,yy-6,16,Math.PI,Math.PI*2);g.fill();
       g.fillStyle=on?c:'rgba(255,255,255,.14)';
-      g.shadowColor=on?c:'transparent';g.shadowBlur=on?(RenderQuality.level>=2?22:RenderQuality.level===1?11:0):0;
-      g.beginPath();g.arc(0,yy,12,0,Math.PI*2);g.fill();
+      g.shadowColor=on?c:'transparent';g.shadowBlur=on?(RenderQuality.level>=2?22:RenderQuality.level===1?11:0):0;      g.beginPath();g.arc(0,yy,12,0,Math.PI*2);g.fill();
       if(on){const pulse=(reducedMotion?0:.04*Math.sin(performance.now()/180+yy));g.globalAlpha=.34+pulse;g.beginPath();g.arc(0,yy,19,0,Math.PI*2);g.fill();g.globalAlpha=.10+pulse*.5;g.beginPath();g.arc(0,yy,30,0,Math.PI*2);g.fill();g.globalAlpha=1;}
     }
     // Small directional plaque: shows which stream this head controls (↑ ↓ ← →).
@@ -4968,7 +5198,7 @@
 
   function showPause(){
     $('modal-kicker').textContent='TRAFFIC PULSE';$('modal-title').textContent=T.paused;$('modal-text').textContent=T.pausedText;$('modal-stars').textContent='';$('modal-reward').classList.add('hidden');$('modal-extra').classList.add('hidden');
-    const pauseActions=[{text:T.continue,cls:'primary',fn:()=>Game.resume()},{text:`🎮 ${T.modesHub}`,fn:()=>showModeHub('pause')},{text:`🗺️ ${T.campaignMap}`,fn:()=>showCampaignMap('pause',save.level)},{text:`🚗 ${T.garage}`,fn:()=>showGarage('pause')},{text:`📊 ${T.stats}`,fn:()=>showStats('pause')},{text:`ℹ️ ${T.developer}`,fn:()=>showDeveloperInfo('pause')},{text:`${T.musicLevel}: ${AudioFx.musicLabel()}`,cls:'sound-toggle',fn:(b)=>{AudioFx.cycleMusic();b.textContent=`${T.musicLevel}: ${AudioFx.musicLabel()}`;}},{text:save.sfx?T.effectsOn:T.effectsOff,cls:'sound-toggle',fn:(b)=>{AudioFx.setSfxEnabled(!save.sfx);b.textContent=save.sfx?T.effectsOn:T.effectsOff;}},{text:`${T.language}: ${languageModeLabel()}`,cls:'sound-toggle',fn:()=>{cycleLanguageMode();showPause();}},{text:T.restart,fn:()=>Game.restart()}];actions(pauseActions);openOverlay();
+    const pauseActions=[{text:T.continue,cls:'primary',fn:()=>Game.resume()},{text:`🎮 ${T.modesHub}`,fn:()=>showModeHub('pause')},{text:`🗺️ ${T.campaignMap}`,fn:()=>showCampaignMap('pause',save.level)},{text:`🚗 ${T.garage}`,fn:()=>showGarage('pause')},{text:`📊 ${T.stats}`,fn:()=>showStats('pause')},{text:`🏆 ${T.leaderboard}`,fn:()=>showLeaderboard('pause')},{text:`ℹ️ ${T.developer}`,fn:()=>showDeveloperInfo('pause')},{text:`${T.musicLevel}: ${AudioFx.musicLabel()}`,cls:'sound-toggle',fn:(b)=>{AudioFx.cycleMusic();b.textContent=`${T.musicLevel}: ${AudioFx.musicLabel()}`;}},{text:save.sfx?T.effectsOn:T.effectsOff,cls:'sound-toggle',fn:(b)=>{AudioFx.setSfxEnabled(!save.sfx);b.textContent=save.sfx?T.effectsOn:T.effectsOff;}},{text:`${T.language}: ${languageModeLabel()}`,cls:'sound-toggle',fn:()=>{cycleLanguageMode();showPause();}},{text:T.restart,fn:()=>Game.restart()}];actions(pauseActions);openOverlay();
   }
   // M195 Hotfix03: player-facing About panel contains only studio, support email and public game version.
   function showDeveloperInfo(origin='pause'){
@@ -4993,7 +5223,8 @@
 
   function leaderboardErrorIsMissing(error){return /404|not.?found|leaderboard.*missing/i.test(String(error||''));}
   function leaderboardPublicName(entry){const raw=String(entry?.player?.publicName||'').trim();return raw||T.leaderboardAnonymous;}
-  function leaderboardRankLabel(entry,index=0){const rank=Number(entry?.rank);return Number.isFinite(rank)&&rank>0?`#${rank}`:`#${index+1}`;}  function renderLeaderboardRows(extra,result){
+  function leaderboardRankLabel(entry,index=0){const rank=Number(entry?.rank);return Number.isFinite(rank)&&rank>0?`#${rank}`:`#${index+1}`;}
+  function renderLeaderboardRows(extra,result){
     const list=document.createElement('div');list.className='leaderboard-list';const rows=Array.isArray(result?.entries)?result.entries:[];
     if(!rows.length){const empty=document.createElement('div');empty.className='leaderboard-empty';empty.textContent=result?.error?(leaderboardErrorIsMissing(result.error)?T.leaderboardSetup:T.adUnavailable):T.leaderboardNoEntries;list.appendChild(empty);extra.appendChild(list);return;}
     const seen=new Set();let visualIndex=0;
@@ -5029,16 +5260,6 @@
   }
   function garageSetPreview(id,fromPause=false){garagePreviewId=safeInt(id,0,CAR_NAMES.length-1,0);showGarage(fromPause?'pause':'rerender');}
 
-  async function purchaseGarageCar(i,fromPause=false){
-    const cost=CAR_COSTS[i]||0;if(save.coins<cost){toast(T.notEnough);return false;}
-    if(PLATFORM_TARGET==='vkplay'&&safeInt(save.vkPaidCoinsCredited,0,1_000_000_000_000,0)>0){
-      const result=await VKBilling.spendForGarageCar(i,cost);if(!result)return false;
-      if(result.localOnly){save.coins=Math.max(0,save.coins-cost);save.ownedCars=[...new Set([...ownedStyleIds(),i])].sort((a,b)=>a-b);save.purchasedCars=[...new Set([...(save.purchasedCars||[]),i])].sort((a,b)=>a-b);save.favoriteCar=i;garagePreviewId=i;persist();updateHud();showGarage(fromPause?'pause':'rerender');}
-      return true;
-    }
-    save.coins=Math.max(0,save.coins-cost);save.ownedCars=[...new Set([...ownedStyleIds(),i])].sort((a,b)=>a-b);save.purchasedCars=[...new Set([...(save.purchasedCars||[]),i])].sort((a,b)=>a-b);save.favoriteCar=i;garagePreviewId=i;persist();updateHud();showGarage(fromPause?'pause':'rerender');return true;
-  }
-
   function showGarage(origin='game'){
     if(origin==='game'){ $('overlay').dataset.garageOrigin=(Game.state==='playing'&&!Game.userPaused)?'game':'pause'; garagePreviewId=ownedStyleIds().includes(save.favoriteCar)?save.favoriteCar:0; }
     if(garagePreviewId==null||garagePreviewId<0||garagePreviewId>=CAR_NAMES.length)garagePreviewId=ownedStyleIds().includes(save.favoriteCar)?save.favoriteCar:0;
@@ -5050,23 +5271,6 @@
     const summary=document.createElement('div');summary.className='garage-summary';
     const ownedCount=ownedStyleIds().length,nextPurchase=nextGaragePurchase(),nextText=nextPurchase?(!nextPurchase.unlocked?`${T.nextPurchase}: ${nextPurchase.name} · ${T.level} ${nextPurchase.level}`:nextPurchase.missing>0?`${T.nextPurchase}: ${nextPurchase.name} · ${T.needCoins} ${nextPurchase.missing} 🪙`:`${T.nextPurchase}: ${nextPurchase.name} · ${T.readyToBuy}`):T.allCars;
     summary.textContent=`${T.collection}: ${ownedCount}/${CAR_NAMES.length} · ${T.favoriteCar}: ${T[CAR_NAMES[save.favoriteCar||0]]} · ${nextText}`;extra.appendChild(summary);
-    if(PLATFORM_TARGET==='vkplay'){
-      const store=document.createElement('section');store.className='vk-store';store.setAttribute('aria-label',T.vkBillingStore);
-      const storeHead=document.createElement('div');storeHead.className='vk-store-head';const storeTitle=document.createElement('strong');storeTitle.textContent=`💳 ${T.vkBillingStore}`;const storeMeta=document.createElement('small');storeMeta.textContent=VKBilling.canOffer()?`${T.vkBillingPaidWallet}: ${safeInt(save.vkPaidCoinsCredited,0,1_000_000_000_000,0)} 🪙 · ${T.vkBillingSecure}`:VKBilling.statusText();storeHead.append(storeTitle,storeMeta);store.appendChild(storeHead);
-      if(!VKBilling.canOffer()){
-        const auth=document.createElement('button');auth.type='button';auth.className='vk-store-auth';auth.textContent=VKBilling.actionLabel();auth.disabled=VKBilling.busy||VKBilling.connecting;auth.onclick=()=>void VKBilling.handleAuthAction();store.appendChild(auth);
-      }else{
-        const grid=document.createElement('div');grid.className='vk-store-grid';
-        for(const product of Object.values(VKPLAY_PRODUCTS)){
-          const card=document.createElement('div');card.className=`vk-store-card${product.supporter?' supporter':''}`;card.dataset.product=product.id;
-          const name=document.createElement('strong');name.textContent=VKBilling.productTitle(product);const desc=document.createElement('small');desc.textContent=product.supporter?(VKBilling.supporterOwned()?T.vkBillingSupporterOwned:T.vkBillingSupporterDesc):`${product.coins.toLocaleString(lang==='ru'?'ru-RU':'en-US')} 🪙`;
-          const buy=document.createElement('button');buy.type='button';buy.textContent=VKBilling.busy&&VKBilling.lastProductId===product.id?T.vkBillingOpening:`${product.price} ₽ · ${T.vkBillingBuy}`;buy.disabled=VKBilling.busy;buy.onclick=()=>void VKBilling.buyProduct(product.id);card.append(name,desc,buy);grid.appendChild(card);
-        }
-        store.appendChild(grid);
-      }
-      const tx=VKBilling.serverState.transactions||[];if(tx.length){const details=document.createElement('details');details.className='vk-purchase-history';const sum=document.createElement('summary');sum.textContent=`${T.vkBillingHistory} (${tx.length})`;details.appendChild(sum);for(const item of tx.slice(0,6)){const row=document.createElement('div');row.className='vk-history-row';const product=VKPLAY_PRODUCTS[item.product_id];const when=new Date(Number(item.created_at||0));const date=Number.isFinite(when.getTime())?when.toLocaleDateString(lang==='ru'?'ru-RU':'en-US'):'';row.textContent=`${product?VKBilling.productTitle(product):item.product_id} · ${item.sum_value} ₽${date?` · ${date}`:''}`;details.appendChild(row);}store.appendChild(details);}
-      extra.appendChild(store);
-    }
     const collectionTrack=document.createElement('div');collectionTrack.className='garage-collection-track';collectionTrack.setAttribute('role','progressbar');collectionTrack.setAttribute('aria-label',T.garageCollectionProgress);collectionTrack.setAttribute('aria-valuemin','0');collectionTrack.setAttribute('aria-valuemax',String(CAR_NAMES.length));collectionTrack.setAttribute('aria-valuenow',String(ownedCount));const collectionFill=document.createElement('span');collectionFill.style.width=`${Math.round(ownedCount/CAR_NAMES.length*100)}%`;collectionTrack.appendChild(collectionFill);extra.appendChild(collectionTrack);
     const previewMeta=garagePreviewMeta(garagePreviewId),showcase=document.createElement('section');showcase.className=`garage-showcase${previewMeta.rare?' rare':''}`;showcase.setAttribute('aria-label',`${T.garagePreview}: ${previewMeta.name}`);const car=document.createElement('div');car.className='garage-showcase-car';car.style.setProperty('--car-color',previewMeta.color);car.dataset.style=String(previewMeta.id);const cabin=document.createElement('span');cabin.className='garage-showcase-cabin';const wheelA=document.createElement('i');wheelA.className='wheel-a';const wheelB=document.createElement('i');wheelB.className='wheel-b';car.append(cabin,wheelA,wheelB);const showcaseCopy=document.createElement('div');const label=document.createElement('small');label.textContent=T.garagePreview;const title=document.createElement('strong');title.textContent=previewMeta.name;const state=document.createElement('span');state.textContent=previewMeta.status;showcaseCopy.append(label,title,state);showcase.append(car,showcaseCopy);extra.appendChild(showcase);
     const previewHint=document.createElement('div');previewHint.className='garage-preview-hint';previewHint.textContent=T.garageTapPreview;extra.appendChild(previewHint);
@@ -5085,7 +5289,7 @@
         b.onclick=()=>{if(selected)return;save.favoriteCar=i;garagePreviewId=i;persist();updateHud();showGarage(fromPause?'pause':'rerender');};
       }else if(!available){b.textContent='🔒';b.disabled=true;}else{
         b.textContent=`${T.buy} ${CAR_COSTS[i]}`;b.disabled=save.coins<CAR_COSTS[i];b.title=b.disabled?T.notEnough:'';
-        b.onclick=()=>void purchaseGarageCar(i,fromPause);
+        b.onclick=()=>{if(save.coins<CAR_COSTS[i]){toast(T.notEnough);return;}save.coins-=CAR_COSTS[i];save.ownedCars=[...new Set([...ownedStyleIds(),i])].sort((a,b)=>a-b);save.purchasedCars=[...new Set([...(save.purchasedCars||[]),i])].sort((a,b)=>a-b);save.favoriteCar=i;garagePreviewId=i;persist();updateHud();showGarage(fromPause?'pause':'rerender');};
       }
       row.append(preview,copy,b);list.appendChild(row);
     });
@@ -5135,6 +5339,7 @@
     const extra=$('modal-extra');extra.classList.remove('hidden');extra.textContent='';extra.className='modal-extra campaign-map-extra';
     const progress=campaignProgressSummary(ch);
     const summary=document.createElement('div');summary.className='campaign-map-summary';summary.textContent=`${T.level} ${ch.start}–${ch.end} · ${T.campaignCompleted}: ${progress.completed}/${progress.total}`;extra.appendChild(summary);
+    appendCityGrowthPanel(extra,ch.start);
     const progressPanel=document.createElement('section');progressPanel.className='campaign-progress-panel';progressPanel.setAttribute('aria-label',T.campaignProgress);
     const progressHead=document.createElement('div');progressHead.className='campaign-progress-head';const progressTitle=document.createElement('strong');progressTitle.textContent=T.campaignProgress;const progressStars=document.createElement('span');progressStars.textContent=`${T.campaignStars}: ${progress.chapterStars}/${progress.chapterStarsMax}★ · ${T.campaignMedals}: ${progress.chapterMedals}/${progress.chapterMedalsMax}🏅`;progressHead.append(progressTitle,progressStars);
     const progressTrack=document.createElement('div');progressTrack.className='campaign-progress-track';progressTrack.setAttribute('role','progressbar');progressTrack.setAttribute('aria-valuemin','0');progressTrack.setAttribute('aria-valuemax',String(progress.total));progressTrack.setAttribute('aria-valuenow',String(progress.completed));const progressFill=document.createElement('span');progressFill.style.width=`${Math.round(progress.levelProgress*100)}%`;progressTrack.appendChild(progressFill);progressPanel.append(progressHead,progressTrack);
@@ -5241,13 +5446,13 @@
 
   function showFail(type){
     $('modal-kicker').textContent='TRAFFIC PULSE';$('modal-title').textContent=type==='crash'?T.crash:T.trafficJam;const baseText=type==='crash'?T.crashText:T.jamText;const willAssist=Game.mode==='campaign'&&(sessionFailCounts.get(Game.level)||0)>=2;$('modal-text').textContent=willAssist?`${baseText} ${T.assistNext}`:baseText;$('modal-stars').textContent='';$('modal-reward').classList.add('hidden');const failExtra=$('modal-extra');failExtra.classList.remove('hidden');failExtra.textContent=type==='crash'?`🎬 ${T.failureReplayCrash}`:`🎬 ${T.failureReplayJam}`;
-    const failActions=[{text:T.tryAgain,cls:'primary',fn:()=>Game.restart()}];if(Game.mode!=='greenwave'&&(Game.failureReplayFrames?.length||0)>=2)failActions.push({text:`🎬 ${T.failureReplay}`,fn:()=>Game.playFailureReplay()});actions(failActions);openOverlay('fail');
+    const failActions=[{text:T.tryAgain,cls:'primary',fn:()=>Game.restart()}];if(Game.mode!=='greenwave'&&(Game.failureReplayFrames?.length||0)>=2)failActions.push({text:`🎬 ${T.failureReplay}`,fn:()=>Game.playFailureReplay()});if(Game.mode!=='greenwave'&&!Game.rescueUsed)failActions.push({text:`🎬 ${type==='crash'?T.rescueCrashAd:T.rescueJamAd}`,cls:'rewarded',fn:async(b)=>{if(b.disabled)return;b.disabled=true;const ok=await Game.rescue();if(!ok&&b.isConnected)b.disabled=false;}});actions(failActions);openOverlay('fail');
   }
   function showWin(stars,reward,unlocked,district,starBonus=0,flowBonus=0,priorityBonus=0,newFlowRecord=false,missionSuccess=false,missionBonus=0,missionMilestoneBonus=0,unlockedAchievements=[],achievementBonus=0,syncBonus=0,firstClear=true,starImprovement=0,rewardedBonus=0){
     $('modal-kicker').textContent='TRAFFIC PULSE';$('modal-title').textContent=stars===3?T.perfect:stars===2?T.good:T.survived;$('modal-text').textContent=T.completeText;$('modal-stars').textContent='⭐'.repeat(stars)+'☆'.repeat(3-stars);
     const rw=$('modal-reward');if(reward>0){rw.textContent=`+${reward} ${T.coins}`;rw.classList.remove('hidden');}else{rw.textContent='';rw.classList.add('hidden');}
-    const extra=$('modal-extra');const extras=[`🚦 ${T.queueShort}: ${Game.maxObservedQueue} · ${T.switchesShort}: ${Game.switches}`];if(firstClear)extras.push(`🪙 ${T.campaignFirstClear}`);else extras.push(`↻ ${T.campaignBaseAlreadyPaid}`);if(!firstClear&&starImprovement)extras.push(`⭐ ${T.campaignStarImprove}: +${starImprovement*15} ${T.coins}`);if(starBonus)extras.push(`⭐ ${T.starBonus}: +${starBonus} ${T.coins}`);if(flowBonus)extras.push(`⚡ ${T.flowBonus}: +${flowBonus} ${T.coins}`);if(priorityBonus)extras.push(`🚑 ${T.priorityBonus}: +${priorityBonus} ${T.coins}`);if(syncBonus)extras.push(`⚡ ${T.syncBonus}: +${syncBonus} ${T.coins}`);if(newFlowRecord)extras.push(`⚡ ${T.newFlowRecord}: ×${save.bestFlow}`);if(missionSuccess)extras.push(`🎯 ${T.missionDone}${missionBonus?`: +${missionBonus} ${T.coins}`:''}`);if(missionMilestoneBonus)extras.push(`🏆 ${T.missionMilestone}: +${missionMilestoneBonus} ${T.coins}`);if(Game.lastMedalResult){extras.push(`🏅 ${T.medals}: ${Game.lastMedalResult.count}/3`);if(Game.lastMedalResult.newCount)extras.push(`✨ ${T.medalNew}: ${Game.lastMedalResult.newLabels.join(', ')}`);}if(unlockedAchievements.length)extras.push(`🏅 ${T.achievement}: ${unlockedAchievements.map(a=>a.label).join(', ')}${achievementBonus?` · +${achievementBonus} ${T.coins}`:''}`);if(unlocked)extras.push(`🚗 ${T.newCar} ${unlocked}`);if(district)extras.push(`🌆 ${T.newDistrict} ${district}`);if(Game.mode==='campaign')extras.push(`🗺️ ${T.campaignNextReward}: ${campaignNextGoalText()}`);extra.textContent=extras.join('  •  ');extra.classList.toggle('hidden',extras.length===0);
-    const winActions=[{text:T.next,cls:'primary',fn:()=>Game.next()},{text:`🗺️ ${T.campaignMap}`,fn:()=>showCampaignMap('result',save.level)}];actions(winActions);openOverlay('win');
+    const extra=$('modal-extra');const extras=[`🚦 ${T.queueShort}: ${Game.maxObservedQueue} · ${T.switchesShort}: ${Game.switches}`];if(firstClear)extras.push(`🪙 ${T.campaignFirstClear}`);else extras.push(`↻ ${T.campaignBaseAlreadyPaid}`);if(!firstClear&&starImprovement)extras.push(`⭐ ${T.campaignStarImprove}: +${starImprovement*15} ${T.coins}`);if(starBonus)extras.push(`⭐ ${T.starBonus}: +${starBonus} ${T.coins}`);if(flowBonus)extras.push(`⚡ ${T.flowBonus}: +${flowBonus} ${T.coins}`);if(priorityBonus)extras.push(`🚑 ${T.priorityBonus}: +${priorityBonus} ${T.coins}`);if(syncBonus)extras.push(`⚡ ${T.syncBonus}: +${syncBonus} ${T.coins}`);if(newFlowRecord)extras.push(`⚡ ${T.newFlowRecord}: ×${save.bestFlow}`);if(missionSuccess)extras.push(`🎯 ${T.missionDone}${missionBonus?`: +${missionBonus} ${T.coins}`:''}`);if(missionMilestoneBonus)extras.push(`🏆 ${T.missionMilestone}: +${missionMilestoneBonus} ${T.coins}`);if(Game.lastMedalResult){extras.push(`🏅 ${T.medals}: ${Game.lastMedalResult.count}/3`);if(Game.lastMedalResult.newCount)extras.push(`✨ ${T.medalNew}: ${Game.lastMedalResult.newLabels.join(', ')}`);}if(unlockedAchievements.length)extras.push(`🏅 ${T.achievement}: ${unlockedAchievements.map(a=>a.label).join(', ')}${achievementBonus?` · +${achievementBonus} ${T.coins}`:''}`);if(unlocked)extras.push(`🚗 ${T.newCar} ${unlocked}`);if(district)extras.push(`🌆 ${T.newDistrict} ${district}`);if(Game.mode==='campaign'){const cityNow=districtGrowthSummaryForLevel(Game.level),cityBefore=firstClear?districtGrowthSummaryForLevel(Game.level,-1):cityNow;if(firstClear&&cityNow.stage>cityBefore.stage)extras.push(`🏙️ ${T.cityGrowthWin}: ${T[cityNow.labelKey]}`);else extras.push(`🏙️ ${T.cityGrowth}: ${cityNow.completed}/${cityNow.total} · ${T[cityNow.labelKey]}`);extras.push(`🗺️ ${T.campaignNextReward}: ${campaignNextGoalText()}`);}extra.textContent=extras.join('  •  ');extra.classList.toggle('hidden',extras.length===0);
+    const winActions=[{text:T.next,cls:'primary',fn:()=>Game.next()},{text:`🗺️ ${T.campaignMap}`,fn:()=>showCampaignMap('result',save.level)}];if(rewardedBonus>0)winActions.push({text:`🎬 ${T.rewardAdCoins} +${rewardedBonus} ${T.coins}`,cls:'rewarded',fn:async(b)=>{if(b.disabled)return;b.disabled=true;const ok=await platform.showRewarded(()=>{save.coins+=rewardedBonus;persist();updateHud();rw.textContent=`+${reward+rewardedBonus} ${T.coins}`;b.remove();});if(!ok&&b.isConnected)b.disabled=false;}});actions(winActions);openOverlay('win');
   }
   function actions(items){const box=$('modal-actions');box.innerHTML='';items.forEach(it=>{const b=document.createElement('button');b.type='button';b.textContent=it.text;b.className=it.cls||'';b.onclick=()=>it.fn?.(b);box.appendChild(b);});}
   let overlayReturnFocus=null;
@@ -5291,7 +5496,7 @@
   }
   function startApp(){save.sessions=(save.sessions||0)+1;persist();Game.startLevel(save.level,false,'campaign');syncExternalPauseState();Game.draw();if(!Game.frameId)Game.frameId=requestAnimationFrame(t=>Game.loop(t));}
 
-  $('coin-btn').addEventListener('click',()=>{void VKBilling.sync('garage');showGarage('game');});$('map-btn').addEventListener('click',()=>showCampaignMap('game',save.level));
+  $('coin-btn').addEventListener('click',()=>showGarage('game'));$('map-btn').addEventListener('click',()=>showCampaignMap('game',save.level));
   $('daily-btn').addEventListener('click',()=>showModeHub('game'));$('record-badge')?.addEventListener('click',()=>PersonalBestService.toggle());
   // M112 Hotfix03: keep a cheap gesture fallback alive for iOS/WebKit. After an ad or app
   // switch the AudioContext may remain `interrupted`/`suspended` even though gameplay resumed.
@@ -5333,7 +5538,7 @@
   // Genuine app/tab departure requires an explicit manual resume after return. Ads are excluded:
   // Yandex ad callbacks own their lifecycle and should not strand the player on an extra pause screen.
   window.addEventListener('blur',()=>{YandexAudit.state.lifecycle.blurs++;YandexAudit.mark('lifecycle:blur');scheduleBlurPause();});
-  window.addEventListener('focus',()=>{YandexAudit.state.lifecycle.focuses++;YandexAudit.mark('lifecycle:focus');restoreBrowserFocus();if(!platform.cloudReady&&navigator.onLine!==false)void platform.recoverCloudAfterReconnect();void VKBilling.sync('focus');});
+  window.addEventListener('focus',()=>{YandexAudit.state.lifecycle.focuses++;YandexAudit.mark('lifecycle:focus');restoreBrowserFocus();if(!platform.cloudReady&&navigator.onLine!==false)void platform.recoverCloudAfterReconnect();});
   window.addEventListener('pagehide',()=>{YandexAudit.state.lifecycle.pagehides++;YandexAudit.mark('lifecycle:pagehide');cancelBlurPause();pauseForFocusLoss(true);AudioFx.stopTransientAudio();clearWorldCache();snapshotLocalBeforeExternalTransition();void platform.flushCloud(true);});
   // M136: network-aware cloud recovery also heals an offline boot where initial getPlayer/getData timed out.
   window.addEventListener('offline',()=>{clearTimeout(platform.cloudTimer);platform.cloudTimer=0;platform.cloudDirty=platform.cloudDirty||Boolean(platform.cloudFlushRequested);});
@@ -5345,7 +5550,7 @@
   // a few frames after orientation/pageshow. Re-sample only the stable layout viewport at bounded
   // settling points; never bind board geometry to visualViewport chrome animations.
   let layoutSettleTimers=[];function scheduleSettledLayoutRefresh(){for(const id of layoutSettleTimers)clearTimeout(id);layoutSettleTimers=[];scheduleLayoutRefresh();for(const delay of [120,360])layoutSettleTimers.push(setTimeout(scheduleLayoutRefresh,delay));}
-  window.addEventListener('pageshow',()=>{YandexAudit.state.lifecycle.pageshows++;YandexAudit.mark('lifecycle:pageshow');Game.lastTs=performance.now();restoreBrowserFocus();if(!platform.cloudReady&&navigator.onLine!==false)void platform.recoverCloudAfterReconnect();void VKBilling.sync('pageshow');scheduleSettledLayoutRefresh();});
+  window.addEventListener('pageshow',()=>{YandexAudit.state.lifecycle.pageshows++;YandexAudit.mark('lifecycle:pageshow');Game.lastTs=performance.now();restoreBrowserFocus();if(!platform.cloudReady&&navigator.onLine!==false)void platform.recoverCloudAfterReconnect();scheduleSettledLayoutRefresh();});
   window.addEventListener('resize',scheduleLayoutRefresh,{passive:true});window.addEventListener('orientationchange',scheduleSettledLayoutRefresh,{passive:true});
   // visualViewport scroll/resize is deliberately not a layout trigger: the layout viewport is the
   // stable authority for the game board. Real window/orientation changes still refresh immediately.
@@ -5354,7 +5559,7 @@
   // M88 Draft audit: explicit opt-in with ?tpdebug=1. No player identifiers or private SDK data are recorded.
   if(YANDEX_AUDIT_ENABLED||IS_DEVELOPMENT){window.__trafficPulseYandexAudit=()=>YandexAudit.snapshot();window.__trafficPulseCopyAudit=()=>YandexAudit.copyReport();window.__trafficPulseYandexValidate=()=>YandexAudit.validateSession();}
 
-  // M195 Hotfix04 VK Play browser release: production diagnostics stripped.
+  // M195 Hotfix03 production build: About panel simplified; static bicycle cleanup retained; local automation/debug API stripped.
 
-  applyLanguage(); void VKBilling.init(); platform.init();
+  applyLanguage(); platform.init();
 })();
