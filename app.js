@@ -13,7 +13,7 @@
   }catch(_){}
 
   const BUILD_MODE = 'production';
-  const BUILD_VERSION = 'M197-VKPLAY-ROUNDABOUT-TRIAL-RC1-HF3';
+  const BUILD_VERSION = 'M197-VKPLAY-ROUNDABOUT-TRIAL-RC1-HF4';
   const IS_DEVELOPMENT = BUILD_MODE === 'development';
   const PLATFORM_TARGET = 'vkplay'; // browser release target: VK Play iframe
   const YANDEX_PUBLIC_LEADERBOARD_NAME = 'TrafficPulseStars';
@@ -668,15 +668,11 @@
       if(!save.sfx||RenderQuality.level===0)return false;const ac=this.ensure();if(!ac)return false;const now=Number(ac.currentTime||0);if(now-this.lastBusAirAt<.7)return false;
       const played=this.playGenerated('airNoise',{rate:.88,gain:.043,pan:this.panForDir(dir)*.72,duration:.48,filterType:'highpass',filterFreq:920,q:.55,release:.30});if(played){this.lastBusAirAt=now;this.busAirBrakePlays++;YandexAudit.mark('audio:vehicle:bus-air',dir||'center');}return played;
     },
-    vehicleMotion(car,previousSpeed,currentSpeed,dt){
-      if(!car||!save.sfx)return;car.audioBrakeCooldown=Math.max(0,Number(car.audioBrakeCooldown||0)-Math.max(0,dt||0));const drop=Math.max(0,(Number(previousSpeed)||0)-(Number(currentSpeed)||0));if(car.audioBrakeCooldown<=0&&(previousSpeed||0)>42&&drop>4.2){const expected=Math.max(5,(Number(car.brake)||620)*Math.max(.008,dt||.016));const intensity=Math.min(1,drop/expected);if(intensity>.48&&this.brakeScrub(car.kind,car.dir,intensity)){car.audioBrakeCooldown=(car.kind==='truck'||car.kind==='bus')?.72:.92;}}
-    },
+    vehicleMotion(car,previousSpeed,currentSpeed,dt){ return false; },
     ensureRoadBed(){
       const ac=this.ctx;if(!save.sfx||RenderQuality.level===0||this.playbackBlocked()||!ac||String(ac.state||'')!=='running')return false;if(!this.prepareGeneratedBuffers())return false;if(this.roadBedSource)return true;try{const source=ac.createBufferSource(),g=ac.createGain();source.buffer=this.generatedBuffers.roadNoise;source.loop=true;g.gain.value=.0001;let node=source;if(typeof ac.createBiquadFilter==='function'){const f=ac.createBiquadFilter();f.type='lowpass';f.frequency.value=520;f.Q.value=.4;source.connect(f);node=f;this.roadBedFilter=f;}node.connect(g);g.connect(this.sfxGain||ac.destination);source.onended=()=>{if(this.roadBedSource===source){this.roadBedSource=null;this.roadBedGain=null;this.roadBedFilter=null;}};source.start();this.roadBedSource=source;this.roadBedGain=g;this.roadBedStarts++;return true;}catch(_){return false;}
     },
-    updateRoadBed(carCount=0){
-      const ac=this.ctx;if(!save.sfx||RenderQuality.level===0||this.playbackBlocked()||!ac||String(ac.state||'')!=='running'){if(this.roadBedGain&&ac&&String(ac.state||'')==='running'){try{this.roadBedGain.gain.setTargetAtTime(.0001,ac.currentTime,.08);}catch(_){}}this.lastRoadBedLevel=0;return;}if(!this.ensureRoadBed())return;const density=Math.max(0,Math.min(1,(Number(carCount)||0)/10)),quality=RenderQuality.level>=2?1:.62,target=density<.12?.0001:(.0022+density*.0095)*quality;this.lastRoadBedLevel=target;this.roadBedUpdates++;try{this.roadBedGain.gain.setTargetAtTime(target,ac.currentTime,.18);}catch(_){this.roadBedGain.gain.value=target;}
-    },
+    updateRoadBed(carCount=0){ this.stopRoadBed(); this.lastRoadBedLevel=0; return false; },
     stopRoadBed(){if(this.roadBedSource){try{this.roadBedSource.stop();}catch(_){}try{this.roadBedSource.disconnect();}catch(_){}}this.roadBedSource=null;this.roadBedGain=null;this.roadBedFilter=null;this.lastRoadBedLevel=0;},
     stopTransientAudio(){for(const set of [this.vehicleVoices,this.transientVoices]){for(const source of [...set]){try{source.onended=null;source.stop();}catch(_){}try{source.disconnect();}catch(_){}}set.clear();}this.stopRoadBed();},
     crashImpact(a=null,b=null){
