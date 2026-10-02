@@ -801,3 +801,7 @@ html.first-session-focus .desktop-insight{display:none!important;}
 /* M197 experimental roundabout scenario. */
 .roundabout-experimental{margin:0 0 8px;padding:7px 9px;border-radius:10px;border:1px solid rgba(255,209,102,.28);background:linear-gradient(135deg,rgba(255,209,102,.10),rgba(85,213,255,.06));color:#ffe29a;font-size:9px;font-weight:950;letter-spacing:.025em}
 .mode-card.scenario strong{line-height:1.15}.mode-card.scenario small{line-height:1.25}
+
+
+/* M198 Twin Junction Trial: presentation only. */
+.roundabout-experimental{box-shadow:inset 0 0 18px rgba(255,209,102,.035)}
