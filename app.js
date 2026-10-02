@@ -13,7 +13,7 @@
   }catch(_){}
 
   const BUILD_MODE = 'production';
-  const BUILD_VERSION = 'M197-VKPLAY-ROUNDABOUT-TRIAL-RC1-HF1';
+  const BUILD_VERSION = 'M197-VKPLAY-ROUNDABOUT-TRIAL-RC1-HF2';
   const IS_DEVELOPMENT = BUILD_MODE === 'development';
   const PLATFORM_TARGET = 'vkplay'; // browser release target: VK Play iframe
   const YANDEX_PUBLIC_LEADERBOARD_NAME = 'TrafficPulseStars';
@@ -1008,7 +1008,8 @@
 
   const EARLY_LEVELS = [
     {plan:'NNNNN',start:'H',interval:1.45,speed:120,maxQueue:5},
-    {plan:'WWWNNN',start:'V',interval:1.34,speed:122,maxQueue:5},    {plan:'NNWWEENN',start:'H',interval:1.28,speed:124,maxQueue:5},
+    {plan:'WWWNNN',start:'V',interval:1.34,speed:122,maxQueue:5},
+    {plan:'NNWWEENN',start:'H',interval:1.28,speed:124,maxQueue:5},
     {plan:'WWWNNNEE',start:'H',interval:1.22,speed:125,maxQueue:4},
     {plan:'NNNEEEWWW',start:'V',interval:1.18,speed:126,maxQueue:4},
     {plan:'WWNNEESSNN',start:'H',interval:1.16,speed:127,maxQueue:4},
@@ -2007,7 +2008,8 @@
     if(level===2)return `🚦 ${T.tutorialGoal2}`;
     if(level===3)return `👀 ${T.tutorialGoal3}`;
     if(level===4)return `🛡 ${T.tutorialGoal4}`;
-    if(level===5)return `⚡ ${T.tutorialGoal5}`;    if(level===6)return `🚶 ${T.tutorialPedestrians}`;
+    if(level===5)return `⚡ ${T.tutorialGoal5}`;
+    if(level===6)return `🚶 ${T.tutorialPedestrians}`;
     if(level===8)return `↪ ${T.tutorialTurns}`;
     if(level===14)return `🟡 ${T.tutorialYellow}`;
     if(level===18)return `↰ ${T.tutorialLeftTurns}`;
@@ -3045,7 +3047,8 @@
       pose=straightCarPose(c.dir,p,visualLane);
       if(lt<1){const steer=(laneGoal-c.laneFrom)*Math.sin(Math.PI*lt)*.16;pose.rot+=steer*(c.dir==='E'||c.dir==='S'?-1:1);}
     }
-    let {x,y,rot}=pose;    if(c.parkingSource&&c.mergeT<1&&p<TURN_START){
+    let {x,y,rot}=pose;
+    if(c.parkingSource&&c.mergeT<1&&p<TURN_START){
       // M69: curb merge uses a smoothstep envelope with a shallower steering angle. This removes
       // the old "turning out of the corner" snap while keeping parking-lot entries readable.
       const mt=c.mergeT,smooth=mt*mt*(3-2*mt),inv=1-smooth,side=c.mergeSide||1,lateral=92*inv*side,longitudinal=20*Math.sin(Math.PI*mt);
@@ -4044,7 +4047,8 @@
     const districtBoost=r.district==='park'?.28:r.district==='coast'?.22:['oldtown','downtown'].includes(r.district)?.16:.08;
     const weatherPenalty=r.weather==='snow'?.26:r.weather==='rain'?.22:r.weather==='fog'?.08:0;
     const activity=Math.max(.04,Math.min(1,.20+r.commerce*.14+r.commute*.10+districtBoost-weatherPenalty));
-    const people=stage==='quiet'?0:Math.max(1,Math.round((RenderQuality.level>=2?5:3)*activity));    return {stage,cycle,activity,people,phase:r.phase,weather:r.weather,district:r.district};
+    const people=stage==='quiet'?0:Math.max(1,Math.round((RenderQuality.level>=2?5:3)*activity));
+    return {stage,cycle,activity,people,phase:r.phase,weather:r.weather,district:r.district};
   }
 
   function drawPublicSpaceLeisure(g,game){
@@ -5043,7 +5047,8 @@
     else if(fire){const flash=reducedMotion?0:Math.floor(performance.now()/210)%2;g.fillStyle='rgba(255,255,255,.86)';g.fillRect(-bodyW/2+12,-5,bodyW-24,10);g.fillStyle='#ffd166';roundRect(g,-30,-18,42,8,3,true);g.fillStyle='rgba(80,34,34,.45)';for(let i=0;i<3;i++)roundRect(g,-34+i*20,10,14,10,3,true);g.shadowBlur=14;g.shadowColor=flash?'#ffd166':'#ff5964';g.fillStyle=flash?'#ffd166':'#ff5964';g.fillRect(-8,-32,8,5);g.fillStyle=flash?'#ff5964':'#ffd166';g.fillRect(0,-32,8,5);g.shadowBlur=0;}
     else if(c.style===1){g.fillStyle='#1f2937';g.fillRect(-21,-26,42,5);for(let i=0;i<6;i++){g.fillStyle=i%2?'#fff':'#1f2937';g.fillRect(-18+i*6,-4,6,6);}}
     else if(c.style===4){g.fillStyle='#fff';g.fillRect(-7,-25,14,50);const flash=reducedMotion?0:Math.floor(performance.now()/180)%2;g.shadowBlur=12;g.shadowColor=flash?'#55d5ff':'#ff5964';g.fillStyle=flash?'#55d5ff':'#ff5964';g.fillRect(-7,-29,7,5);g.fillStyle=flash?'#ff5964':'#55d5ff';g.fillRect(0,-29,7,5);g.shadowBlur=0;}
-    else if(c.style===2){g.fillStyle='rgba(255,255,255,.64)';roundRect(g,-31,-5,23,10,3,true);g.fillStyle='rgba(12,37,55,.40)';roundRect(g,-29,-3,19,6,2,true);}    else if(c.style===3){g.fillStyle='rgba(255,255,255,.72)';g.fillRect(-bodyW/2+10,-3,bodyW-20,6);g.fillStyle='rgba(255,255,255,.28)';g.fillRect(-bodyW/2+18,-11,bodyW-36,3);}
+    else if(c.style===2){g.fillStyle='rgba(255,255,255,.64)';roundRect(g,-31,-5,23,10,3,true);g.fillStyle='rgba(12,37,55,.40)';roundRect(g,-29,-3,19,6,2,true);}
+    else if(c.style===3){g.fillStyle='rgba(255,255,255,.72)';g.fillRect(-bodyW/2+10,-3,bodyW-20,6);g.fillStyle='rgba(255,255,255,.28)';g.fillRect(-bodyW/2+18,-11,bodyW-36,3);}
     else if(c.style===5){g.strokeStyle='#8affdf';g.lineWidth=2;g.beginPath();g.arc(-24,0,6,0,Math.PI*2);g.stroke();g.beginPath();g.moveTo(-18,0);g.lineTo(-10,0);g.stroke();}
     else if(c.style===6){g.strokeStyle='#e8ca7a';g.lineWidth=2;roundRect(g,-bodyW/2+2,-bodyH/2+2,bodyW-4,bodyH-4,14,false);g.fillStyle='rgba(232,202,122,.28)';g.fillRect(-bodyW/2+14,-bodyH/2+9,bodyW-28,3);}
     else if(c.style===7){g.save();g.strokeStyle='#d88cff';g.shadowColor='#bd5cff';g.shadowBlur=13;g.lineWidth=2.5;roundRect(g,-bodyW/2+3,-bodyH/2+3,bodyW-6,bodyH-6,13,false);g.shadowBlur=0;g.fillStyle='#5df0ff';g.fillRect(-bodyW/2+18,bodyH/2-7,bodyW-36,3);g.restore();}
@@ -5542,4 +5547,4 @@
   // M195 Hotfix04 VK Play browser release: production diagnostics stripped.
 
   applyLanguage(); void VKBilling.init(); platform.init();
-})();})();
+})();
