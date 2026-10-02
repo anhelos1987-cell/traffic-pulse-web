@@ -2,7 +2,7 @@
   'use strict';
 
   const BUILD_MODE = 'production';
-  const BUILD_VERSION = 'M195-HF07-VKPLAY-JSAPI-BILLING-RC1';
+  const BUILD_VERSION = 'M195-HF08-VKPLAY-PAYMENT-HARDENING-RC1';
   const IS_DEVELOPMENT = BUILD_MODE === 'development';
   const PLATFORM_TARGET = 'vkplay'; // browser release target: VK Play iframe
   const YANDEX_PUBLIC_LEADERBOARD_NAME = 'TrafficPulseStars';
@@ -219,8 +219,8 @@
 
   Object.assign(TEXT.ru,{medals:'Медали',medalQueue:'Чистая очередь',medalSwitch:'Точный диспетчер',medalFlow:'Идеальный поток',medalPriority:'Приоритет спасения',medalIncident:'Контроль происшествия',medalNew:'Новая медаль',campaignMedals:'Медали района'});
   Object.assign(TEXT.en,{medals:'Medals',medalQueue:'Queue Control',medalSwitch:'Signal Discipline',medalFlow:'Perfect Flow',medalPriority:'Emergency Priority',medalIncident:'Incident Control',medalNew:'New medal',campaignMedals:'District medals'});
-  Object.assign(TEXT.ru,{vkBillingPack:'500 монет',vkBillingPrice:'99 ₽ · VK Play',vkBillingBuy:'Купить',vkBillingOpening:'Открываем…',vkBillingPending:'Оплата открыта · после оплаты вернись в игру',vkBillingUnavailable:'Покупки доступны только внутри VK Play',vkBillingError:'Не удалось открыть оплату',vkBillingPopup:'Разреши открытие платёжного окна',vkBillingReceived:'Покупка подтверждена',vkBillingStore:'Пополнить монеты'});
-  Object.assign(TEXT.en,{vkBillingPack:'500 coins',vkBillingPrice:'99 ₽ · VK Play',vkBillingBuy:'Buy',vkBillingOpening:'Opening…',vkBillingPending:'Payment opened · return to the game after paying',vkBillingUnavailable:'Purchases are available only inside VK Play',vkBillingError:'Could not open payment',vkBillingPopup:'Allow the payment window to open',vkBillingReceived:'Purchase confirmed',vkBillingStore:'Get more coins'});
+  Object.assign(TEXT.ru,{vkBillingPack:'500 монет',vkBillingPrice:'99 ₽ · VK Play',vkBillingBuy:'Купить',vkBillingOpening:'Открываем…',vkBillingPending:'Оплата открыта · после оплаты вернись в игру',vkBillingUnavailable:'Покупки доступны только внутри VK Play',vkBillingError:'Не удалось открыть оплату',vkBillingPopup:'Разреши открытие платёжного окна',vkBillingReceived:'Покупка подтверждена',vkBillingStore:'Магазин VK Play',vkBillingHistory:'Последние покупки',vkBillingPaidWallet:'Покупные монеты',vkBillingSpendPending:'Покупка подтверждается сервером…',vkBillingSpendError:'Не удалось подтвердить расход покупных монет',vkBillingRestore:'Покупки восстановлены',vkBillingSupporter:'Supporter Pack',vkBillingSupporterDesc:'Тема Gold Pulse + 800 монет',vkBillingSupporterOwned:'Gold Pulse активна',vkBillingSecure:'Цены и начисления проверяются сервером'});
+  Object.assign(TEXT.en,{vkBillingPack:'500 coins',vkBillingPrice:'99 ₽ · VK Play',vkBillingBuy:'Buy',vkBillingOpening:'Opening…',vkBillingPending:'Payment opened · return to the game after paying',vkBillingUnavailable:'Purchases are available only inside VK Play',vkBillingError:'Could not open payment',vkBillingPopup:'Allow the payment window to open',vkBillingReceived:'Purchase confirmed',vkBillingStore:'VK Play Store',vkBillingHistory:'Recent purchases',vkBillingPaidWallet:'Purchased coins',vkBillingSpendPending:'Confirming purchase with the server…',vkBillingSpendError:'Could not confirm purchased-coin spend',vkBillingRestore:'Purchases restored',vkBillingSupporter:'Supporter Pack',vkBillingSupporterDesc:'Gold Pulse theme + 800 coins',vkBillingSupporterOwned:'Gold Pulse active',vkBillingSecure:'Prices and grants are verified by the server'});
 
 
   const SAVE_KEY = 'traffic_pulse_save_v4';
@@ -347,6 +347,18 @@
     const week=document.createElement('div');week.className='challenge-retention-row weekly';const wcopy=document.createElement('div');const status=summary.weeklyClaimed?T.challengeClaimed:T.challengeReady;wcopy.innerHTML=`<small>${T.challengeWeek}</small><strong>📆 ${T.weeklyStreak}: ${summary.weeklyCurrent} → ${summary.weeklyProspective} · ${status}</strong>`;const bonus=document.createElement('b');bonus.className='challenge-bonus';bonus.textContent=`${T.challengeNextBonus}: +${summary.weeklyBonus} ${T.coins}`;week.append(wcopy,bonus);wrap.appendChild(week);parent.appendChild(wrap);return wrap;
   }
 
+  function normalizeVkEntitlements(value){
+    const src=value&&typeof value==='object'?value:{},out={};
+    for(const [k,v] of Object.entries(src)){if(!/^[A-Za-z0-9._:-]{1,64}$/.test(k))continue;const qty=safeInt(v,0,999,0);if(qty>0)out[k]=qty;}
+    return out;
+  }
+  function normalizeVkPendingSpend(value){
+    if(!value||typeof value!=='object')return null;
+    const requestId=String(value.requestId||''),context=String(value.context||''),carId=safeInt(value.carId,0,9,-1),cost=safeInt(value.cost,0,100000,0),localPart=safeInt(value.localPart,0,100000,0),serverPart=safeInt(value.serverPart,0,100000,0),createdAt=safeInt(value.createdAt,0,9_000_000_000_000_000,0);
+    if(!/^[A-Za-z0-9._:-]{12,128}$/.test(requestId)||!/^garage_car:[0-9]+$/.test(context)||carId<0||cost<=0||localPart+serverPart!==cost)return null;
+    return {requestId,context,carId,cost,localPart,serverPart,createdAt};
+  }
+
   function normalizeSaveData(data={}){
     if(!data||typeof data!=='object')data={};
     const level=safeInt(data.level,1,1_000_000,1),legacyCount=safeInt(data.unlockedCars,1,10,1);
@@ -357,7 +369,7 @@
     const reportedStars=Math.min(safeInt(data.totalStars,0,3_000_000,0),level*3),totalStars=Math.max(starsSum,reportedStars);
     const maxClaimed=Math.floor(totalStars/15),claimedRaw=Number(data.starMilestonesClaimed),claimed=Number.isFinite(claimedRaw)?Math.min(safeInt(claimedRaw,0,200_000,0),maxClaimed):maxClaimed;
     return {
-      schemaVersion:SAVE_SCHEMA_VERSION, level, coins:safeInt(data.coins,0,1_000_000_000_000,0), vkPaidCoinsCredited:safeInt(data.vkPaidCoinsCredited,0,1_000_000_000_000,0), totalStars, starsByLevel,
+      schemaVersion:SAVE_SCHEMA_VERSION, level, coins:safeInt(data.coins,0,1_000_000_000_000,0), vkPaidCoinsCredited:safeInt(data.vkPaidCoinsCredited,0,1_000_000_000_000,0), vkEntitlements:normalizeVkEntitlements(data.vkEntitlements), vkPendingSpend:normalizeVkPendingSpend(data.vkPendingSpend), totalStars, starsByLevel,
       sound:data.sound!==false, sfx:data.sfx===undefined?data.sound!==false:data.sfx!==false, musicLevel:data.musicLevel===undefined?(data.sound===false?0:3):safeInt(data.musicLevel,0,3,3), langMode:normalizeLanguageMode(data.langMode), ownedCars, purchasedCars, favoriteCar:ownedCars.includes(safeInt(data.favoriteCar,0,9,0))?safeInt(data.favoriteCar,0,9,0):0, sessions:safeInt(data.sessions,0,1_000_000_000,0),
       dailyBest:normalizeDailyBest(data.dailyBest), dailyBestCompat:normalizeChallengeCompatMap(data.dailyBestCompat), dailyRewards:normalizeDailyRewards(data.dailyRewards),
       starMilestonesClaimed:claimed, bestFlow:safeInt(data.bestFlow,0,9999,0), missionCompleted:normalizeMissionMap(data.missionCompleted,level), medalsByLevel:normalizeMedalMap(data.medalsByLevel,level), achievements:normalizeAchievements(data.achievements), weeklyBest:normalizeDailyBest(data.weeklyBest), weeklyBestCompat:normalizeChallengeCompatMap(data.weeklyBestCompat), weeklyRewards:normalizeDailyRewards(data.weeklyRewards), endlessBestScore:safeInt(data.endlessBestScore,0,1_000_000_000,0), endlessBestWave:safeInt(data.endlessBestWave,0,1_000_000,0), scenarioProgress:normalizeScenarioProgress(data.scenarioProgress), greenWaveProgress:normalizeGreenWaveProgress(data.greenWaveProgress), campaignRewardedThrough:(()=>{const raw=Number(data.campaignRewardedThrough);if(Number.isFinite(raw))return safeInt(raw,0,level,0);const currentPaid=Number(starsByLevel[String(level)]||0)>0?level:Math.max(0,level-1);return currentPaid;})(), revision:safeInt(data.revision,0,9_000_000_000_000_000,0), updatedAt:safeInt(data.updatedAt,0,9_000_000_000_000_000,0)
@@ -415,7 +427,7 @@
     // Use the conservative balance branch, then charge any purchase receipt imported only from the other branch exactly once.
     const newerPurchases=new Set(balanceNewer.purchasedCars||[]);let coins=balanceNewer.coins;
     for(const id of balanceOlder.purchasedCars||[])if(!newerPurchases.has(id))coins=Math.max(0,coins-(CAR_COSTS[id]||0));
-    return normalizeSaveData({ ...a, level:Math.max(a.level,b.level), coins, vkPaidCoinsCredited:Math.max(a.vkPaidCoinsCredited||0,b.vkPaidCoinsCredited||0), totalStars, starsByLevel:stars, ownedCars, purchasedCars, favoriteCar, sessions:Math.max(a.sessions,b.sessions), dailyBest, dailyBestCompat, dailyRewards, starMilestonesClaimed:Math.max(a.starMilestonesClaimed||0,b.starMilestonesClaimed||0), bestFlow:Math.max(a.bestFlow||0,b.bestFlow||0), missionCompleted, medalsByLevel, achievements, weeklyBest, weeklyBestCompat, weeklyRewards, endlessBestScore:Math.max(a.endlessBestScore||0,b.endlessBestScore||0), endlessBestWave:Math.max(a.endlessBestWave||0,b.endlessBestWave||0), scenarioProgress, greenWaveProgress, campaignRewardedThrough:Math.max(a.campaignRewardedThrough||0,b.campaignRewardedThrough||0), sound:preferenceNewer.sound, sfx:preferenceNewer.sfx, musicLevel:preferenceNewer.musicLevel, langMode:preferenceNewer.langMode, revision:Math.max(a.revision||0,b.revision||0), updatedAt:Math.max(a.updatedAt||0,b.updatedAt||0) });
+    return normalizeSaveData({ ...a, level:Math.max(a.level,b.level), coins, vkPaidCoinsCredited:Math.max(a.vkPaidCoinsCredited||0,b.vkPaidCoinsCredited||0), vkEntitlements:{...a.vkEntitlements,...b.vkEntitlements}, vkPendingSpend:balanceNewer.vkPendingSpend||balanceOlder.vkPendingSpend||null, totalStars, starsByLevel:stars, ownedCars, purchasedCars, favoriteCar, sessions:Math.max(a.sessions,b.sessions), dailyBest, dailyBestCompat, dailyRewards, starMilestonesClaimed:Math.max(a.starMilestonesClaimed||0,b.starMilestonesClaimed||0), bestFlow:Math.max(a.bestFlow||0,b.bestFlow||0), missionCompleted, medalsByLevel, achievements, weeklyBest, weeklyBestCompat, weeklyRewards, endlessBestScore:Math.max(a.endlessBestScore||0,b.endlessBestScore||0), endlessBestWave:Math.max(a.endlessBestWave||0,b.endlessBestWave||0), scenarioProgress, greenWaveProgress, campaignRewardedThrough:Math.max(a.campaignRewardedThrough||0,b.campaignRewardedThrough||0), sound:preferenceNewer.sound, sfx:preferenceNewer.sfx, musicLevel:preferenceNewer.musicLevel, langMode:preferenceNewer.langMode, revision:Math.max(a.revision||0,b.revision||0), updatedAt:Math.max(a.updatedAt||0,b.updatedAt||0) });
   }
   function persist(){
     save.dailyBest=normalizeDailyBest(save.dailyBest); save.dailyBestCompat=normalizeChallengeCompatMap(save.dailyBestCompat); save.dailyRewards=normalizeDailyRewards(save.dailyRewards); save.missionCompleted=normalizeMissionMap(save.missionCompleted,save.level||1); save.medalsByLevel=normalizeMedalMap(save.medalsByLevel,save.level||1); save.achievements=normalizeAchievements(save.achievements); save.weeklyBest=normalizeDailyBest(save.weeklyBest); save.weeklyBestCompat=normalizeChallengeCompatMap(save.weeklyBestCompat); save.weeklyRewards=normalizeDailyRewards(save.weeklyRewards); save.scenarioProgress=normalizeScenarioProgress(save.scenarioProgress); save.greenWaveProgress=normalizeGreenWaveProgress(save.greenWaveProgress);
@@ -462,22 +474,26 @@
     shouldRequestFullscreen(){return false;}, showFullscreen(){return Promise.resolve(false);}, showRewarded(){return Promise.resolve(false);}
   };
 
-  // M195 Hotfix07: official VK Play browser JS API integration.
-  // Test iFrames expose the platform binding through mailru.core.js / iframeApi.
-  // Do not rely on sign/uid/appid query parameters in the test frame.
+  // M195 Hotfix08: VK Play payment hardening.
+  // Paid currency is mirrored from the server wallet, purchases restore by VK Play UID,
+  // paid-wallet spending is idempotent, and transaction history is read back from D1.
   const VKPLAY_BILLING_API='https://traffic-pulse-billing.anhelos1987.workers.dev';
   const VKPLAY_GMRID=50363;
-  const VKPLAY_BILLING_SKU='coins_500';
-  const VKPLAY_BILLING_PACK_COINS=500;
-  const VKPLAY_BILLING_PRICE_RUB=99;
+  const VKPLAY_PRODUCTS=Object.freeze({
+    coins_500:{id:'coins_500',coins:500,price:99,titleRu:'500 монет',titleEn:'500 coins',description:'500 монет Traffic Pulse'},
+    coins_1500:{id:'coins_1500',coins:1500,price:249,titleRu:'1 500 монет',titleEn:'1,500 coins',description:'1500 монет Traffic Pulse'},
+    coins_3500:{id:'coins_3500',coins:3500,price:499,titleRu:'3 500 монет',titleEn:'3,500 coins',description:'3500 монет Traffic Pulse'},
+    supporter_pack:{id:'supporter_pack',coins:800,price:199,titleRu:'Supporter Pack',titleEn:'Supporter Pack',description:'Supporter Pack Traffic Pulse: тема Gold Pulse + 800 монет',supporter:true}
+  });
 
   const VKBilling={
     externalApi:null,connected:false,connecting:false,loginStatus:-1,uid:'',error:'',busy:false,pollTimer:0,lastSyncAt:0,
-    authResolve:null,authReject:null,authTimer:0,
+    authResolve:null,authReject:null,authTimer:0,serverState:{coins:0,entitlements:{},transactions:[],spends:[]},lastProductId:'',
     t(ru,en){return lang==='ru'?ru:en;},
-    refreshGarage(){
-      if(overlayVisible()&&String($('modal-title')?.textContent||'').includes(T.garage))showGarage('rerender');
-    },
+    productTitle(product){return lang==='ru'?product.titleRu:product.titleEn;},
+    supporterOwned(){return Boolean((this.serverState.entitlements?.supporter_pack||save.vkEntitlements?.supporter_pack||0)>0);},
+    applySupporterTheme(){document.body?.classList.toggle('vk-supporter',this.supporterOwned());},
+    refreshGarage(){if(overlayVisible()&&String($('modal-title')?.textContent||'').includes(T.garage))showGarage('rerender');},
     statusText(){
       if(this.error==='iframe_api_missing')return this.t('VK Play API не найден в тестовом iFrame','VK Play API was not found in the test iFrame');
       if(this.error)return this.t(`Ошибка VK Play API: ${this.error}`,`VK Play API error: ${this.error}`);
@@ -492,144 +508,89 @@
       if(!this.connected)return this.t('Подключение…','Connecting…');
       if(this.loginStatus===0)return this.t('Войти','Sign in');
       if(this.loginStatus===1)return this.t('Регистрация','Register');
-      if(this.canOffer())return T.vkBillingBuy;
-      return this.t('Пока недоступно','Unavailable');
+      return this.canOffer()?T.vkBillingBuy:this.t('Пока недоступно','Unavailable');
     },
     canOffer(){return PLATFORM_TARGET==='vkplay'&&this.connected&&this.loginStatus>=2&&Boolean(this.uid)&&Boolean(this.externalApi);},
     async init(){
       if(PLATFORM_TARGET!=='vkplay'||this.connecting||this.connected)return false;
-      this.connecting=true;this.error='';
+      this.connecting=true;this.error='';this.applySupporterTheme();
       try{
         if(typeof window.iframeApi!=='function'){this.error='iframe_api_missing';return false;}
         const callbacks={
-          appid:VKPLAY_GMRID,
-          getLoginStatusCallback:(status)=>this.onLoginStatus(status),
-          userInfoCallback:(info)=>this.onUserInfo(info),
-          userProfileCallback:()=>{},
-          registerUserCallback:(info)=>this.onRegistered(info),
-          paymentFrameUrlCallback:()=>{},
-          getAuthTokenCallback:(token)=>this.onAuthToken(token),
-          paymentReceivedCallback:(data)=>this.onPaymentReceived(data),
-          paymentWindowClosedCallback:()=>this.onPaymentWindowClosed(),
-          userConfirmCallback:()=>{},
-          paymentFrameItem:()=>{},
-          getGameInventoryItems:()=>{}
+          appid:VKPLAY_GMRID,getLoginStatusCallback:(status)=>this.onLoginStatus(status),userInfoCallback:(info)=>this.onUserInfo(info),userProfileCallback:()=>{},registerUserCallback:(info)=>this.onRegistered(info),paymentFrameUrlCallback:()=>{},getAuthTokenCallback:(token)=>this.onAuthToken(token),paymentReceivedCallback:(data)=>this.onPaymentReceived(data),paymentWindowClosedCallback:()=>this.onPaymentWindowClosed(),userConfirmCallback:()=>{},paymentFrameItem:()=>{},getGameInventoryItems:()=>{}
         };
         this.externalApi=await withTimeout(window.iframeApi(callbacks),5000,'vkplay iframeApi');
-        this.connected=Boolean(this.externalApi);
-        if(!this.connected)throw new Error('connect_failed');
-        YandexAudit.mark('vkplay:jsapi:connected',String(VKPLAY_GMRID));
-        this.externalApi.getLoginStatus();
-        return true;
-      }catch(err){
-        this.error=String(err?.message||err||'connect_failed');
-        YandexAudit.mark('vkplay:jsapi:error',this.error);
-        return false;
-      }finally{
-        this.connecting=false;this.refreshGarage();
-      }
+        this.connected=Boolean(this.externalApi);if(!this.connected)throw new Error('connect_failed');
+        YandexAudit.mark('vkplay:jsapi:connected',String(VKPLAY_GMRID));this.externalApi.getLoginStatus();return true;
+      }catch(err){this.error=String(err?.message||err||'connect_failed');YandexAudit.mark('vkplay:jsapi:error',this.error);return false;}
+      finally{this.connecting=false;this.refreshGarage();}
     },
     onLoginStatus(status){
       if(status?.status!=='ok'){this.error=String(status?.errmsg||status?.errcode||'login_status_error');this.refreshGarage();return;}
-      this.error='';this.loginStatus=safeInt(status.loginStatus,0,3,-1);
-      YandexAudit.mark('vkplay:login-status',String(this.loginStatus));
-      if(this.loginStatus>=2){try{this.externalApi?.userInfo();}catch(err){this.error=String(err?.message||err);}}
-      this.refreshGarage();
+      this.error='';this.loginStatus=safeInt(status.loginStatus,0,3,-1);YandexAudit.mark('vkplay:login-status',String(this.loginStatus));
+      if(this.loginStatus>=2){try{this.externalApi?.userInfo();}catch(err){this.error=String(err?.message||err);}}this.refreshGarage();
     },
-    onUserInfo(info){
-      if(info?.status==='ok'&&info?.uid!=null){this.uid=String(info.uid);this.error='';YandexAudit.mark('vkplay:user-info','ok');void this.sync('userinfo');}
-      else this.error=String(info?.errmsg||info?.errcode||'user_info_error');
-      this.refreshGarage();
-    },
-    onRegistered(info){
-      if(info?.status==='ok'&&info?.uid!=null){this.uid=String(info.uid);this.loginStatus=2;this.error='';YandexAudit.mark('vkplay:registered','ok');void this.sync('registered');}
-      else this.error=String(info?.errmsg||info?.errcode||'register_error');
-      this.refreshGarage();
-    },
+    onUserInfo(info){if(info?.status==='ok'&&info?.uid!=null){this.uid=String(info.uid);this.error='';YandexAudit.mark('vkplay:user-info','ok');void this.sync('userinfo');}else this.error=String(info?.errmsg||info?.errcode||'user_info_error');this.refreshGarage();},
+    onRegistered(info){if(info?.status==='ok'&&info?.uid!=null){this.uid=String(info.uid);this.loginStatus=2;this.error='';YandexAudit.mark('vkplay:registered','ok');void this.sync('registered');}else this.error=String(info?.errmsg||info?.errcode||'register_error');this.refreshGarage();},
     onAuthToken(token){
-      clearTimeout(this.authTimer);this.authTimer=0;
-      const resolve=this.authResolve,reject=this.authReject;this.authResolve=null;this.authReject=null;
-      if(token?.status==='ok'&&token?.uid!=null&&token?.hash){resolve?.({uid:String(token.uid),hash:String(token.hash)});}
-      else reject?.(new Error(String(token?.errmsg||token?.errcode||'auth_token_error')));
+      clearTimeout(this.authTimer);this.authTimer=0;const resolve=this.authResolve,reject=this.authReject;this.authResolve=null;this.authReject=null;
+      if(token?.status==='ok'&&token?.uid!=null&&token?.hash){resolve?.({uid:String(token.uid),hash:String(token.hash)});}else reject?.(new Error(String(token?.errmsg||token?.errcode||'auth_token_error')));
     },
     getAuthToken(){
       if(!this.canOffer()||!this.externalApi?.getAuthToken)return Promise.reject(new Error('vkplay_not_authorized'));
       if(this.authResolve)return Promise.reject(new Error('auth_token_busy'));
-      return new Promise((resolve,reject)=>{
-        this.authResolve=resolve;this.authReject=reject;
-        this.authTimer=setTimeout(()=>{this.authTimer=0;this.authResolve=null;this.authReject=null;reject(new Error('auth_token_timeout'));},6000);
-        try{this.externalApi.getAuthToken();}catch(err){clearTimeout(this.authTimer);this.authTimer=0;this.authResolve=null;this.authReject=null;reject(err);}
-      });
+      return new Promise((resolve,reject)=>{this.authResolve=resolve;this.authReject=reject;this.authTimer=setTimeout(()=>{this.authTimer=0;this.authResolve=null;this.authReject=null;reject(new Error('auth_token_timeout'));},6000);try{this.externalApi.getAuthToken();}catch(err){clearTimeout(this.authTimer);this.authTimer=0;this.authResolve=null;this.authReject=null;reject(err);}});
     },
     async request(path,payload){
       const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),9000);
-      try{
-        const response=await fetch(VKPLAY_BILLING_API+path,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload),cache:'no-store',credentials:'omit',signal:controller.signal});
-        let data=null;try{data=await response.json();}catch(_){}
-        if(!response.ok)throw new Error(data?.message||data?.error||`billing_http_${response.status}`);
-        return data||{};
-      }finally{clearTimeout(timer);}
+      try{const response=await fetch(VKPLAY_BILLING_API+path,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload),cache:'no-store',credentials:'omit',signal:controller.signal});let data=null;try{data=await response.json();}catch(_){}if(!response.ok){const err=new Error(data?.message||data?.error||`billing_http_${response.status}`);err.data=data;throw err;}return data||{};}finally{clearTimeout(timer);}
+    },
+    reconcilePendingSpend(spends){
+      const pending=normalizeVkPendingSpend(save.vkPendingSpend);if(!pending)return false;
+      const hit=(spends||[]).find(x=>String(x?.request_id||'')===pending.requestId);if(!hit)return false;
+      save.coins=Math.max(0,safeInt(save.coins,0,1_000_000_000_000,0)-pending.localPart);
+      const carId=pending.carId;if(carId>=0&&carId<CAR_NAMES.length){save.ownedCars=[...new Set([...ownedStyleIds(),carId])].sort((a,b)=>a-b);save.purchasedCars=[...new Set([...(save.purchasedCars||[]),carId])].sort((a,b)=>a-b);save.favoriteCar=carId;garagePreviewId=carId;}
+      save.vkPendingSpend=null;return true;
+    },
+    applyServerState(data,reason='sync'){
+      const serverWallet=safeInt(data?.coins,0,1_000_000_000_000,0),mirrored=safeInt(save.vkPaidCoinsCredited,0,1_000_000_000_000,0),delta=serverWallet-mirrored;
+      let changed=false;if(delta!==0){save.coins=Math.max(0,safeInt(save.coins,0,1_000_000_000_000,0)+delta);save.vkPaidCoinsCredited=serverWallet;changed=true;}
+      const ent=normalizeVkEntitlements(data?.entitlements),oldEnt=JSON.stringify(normalizeVkEntitlements(save.vkEntitlements));save.vkEntitlements=ent;if(JSON.stringify(ent)!==oldEnt)changed=true;
+      this.serverState={coins:serverWallet,entitlements:ent,transactions:Array.isArray(data?.transactions)?data.transactions.slice(0,12):[],spends:Array.isArray(data?.spends)?data.spends.slice(0,20):[]};
+      for(const spend of this.serverState.spends){const m=/^garage_car:([0-9]+)$/.exec(String(spend?.context||''));if(!m)continue;const carId=safeInt(m[1],0,CAR_NAMES.length-1,-1);if(carId>0&&!ownedStyleIds().includes(carId)){save.ownedCars=[...new Set([...ownedStyleIds(),carId])].sort((a,b)=>a-b);save.purchasedCars=[...new Set([...(save.purchasedCars||[]),carId])].sort((a,b)=>a-b);changed=true;}}
+      if(this.reconcilePendingSpend(this.serverState.spends))changed=true;
+      this.applySupporterTheme();
+      if(changed){persist();updateHud();if(delta>0&&reason!=='boot')toast(`${T.vkBillingReceived}: +${delta} ${T.coins}`);}
+      this.refreshGarage();return changed;
     },
     async sync(reason='manual'){
-      if(!this.canOffer())return false;
-      const now=Date.now();if(reason!=='poll'&&now-this.lastSyncAt<1200)return false;this.lastSyncAt=now;
-      try{
-        const auth=await this.getAuthToken();
-        const data=await this.request('/api/player/state-auth',auth);
-        const paidTotal=safeInt(data?.coins,0,1_000_000_000_000,0),credited=safeInt(save.vkPaidCoinsCredited,0,1_000_000_000_000,0);
-        if(paidTotal<=credited)return false;
-        const delta=paidTotal-credited;
-        save.coins=safeInt(save.coins+delta,0,1_000_000_000_000,save.coins);
-        save.vkPaidCoinsCredited=paidTotal;
-        persist();updateHud();toast(`${T.vkBillingReceived}: +${delta} ${T.coins}`);
-        this.refreshGarage();return true;
-      }catch(err){
-        YandexAudit.mark('vkplay:billing:sync-error',String(err?.message||err));return false;
-      }
+      if(!this.canOffer())return false;const now=Date.now();if(!['poll','spend','payment','payment-close','registered','userinfo','boot'].includes(reason)&&now-this.lastSyncAt<900)return false;this.lastSyncAt=now;
+      try{const auth=await this.getAuthToken();const data=await this.request('/api/player/state-auth',auth);return this.applyServerState(data,reason);}catch(err){YandexAudit.mark('vkplay:billing:sync-error',String(err?.message||err));return false;}
     },
     beginPolling(){
-      if(this.pollTimer)clearInterval(this.pollTimer);
-      const startCredit=safeInt(save.vkPaidCoinsCredited,0,1_000_000_000_000,0),started=Date.now();
-      this.pollTimer=setInterval(async()=>{
-        const changed=await this.sync('poll');
-        if(changed||save.vkPaidCoinsCredited>startCredit||Date.now()-started>120000){clearInterval(this.pollTimer);this.pollTimer=0;}
-      },2500);
+      if(this.pollTimer)clearInterval(this.pollTimer);const startWallet=safeInt(save.vkPaidCoinsCredited,0,1_000_000_000_000,0),started=Date.now();
+      this.pollTimer=setInterval(async()=>{const changed=await this.sync('poll');if(changed||save.vkPaidCoinsCredited!==startWallet||Date.now()-started>120000){clearInterval(this.pollTimer);this.pollTimer=0;}},2500);
     },
-    async handleAction(){
-      if(!this.connected){await this.init();return false;}
-      if(this.loginStatus===0){try{this.externalApi?.authUser();return true;}catch(err){this.error=String(err?.message||err);this.refreshGarage();return false;}}
-      if(this.loginStatus===1){try{this.externalApi?.registerUser();return true;}catch(err){this.error=String(err?.message||err);this.refreshGarage();return false;}}
-      if(this.canOffer())return this.buyCoins500();
-      return false;
+    async handleAuthAction(){
+      if(!this.connected){await this.init();return false;}if(this.loginStatus===0){try{this.externalApi?.authUser();return true;}catch(err){this.error=String(err?.message||err);this.refreshGarage();return false;}}if(this.loginStatus===1){try{this.externalApi?.registerUser();return true;}catch(err){this.error=String(err?.message||err);this.refreshGarage();return false;}}return this.canOffer();
     },
-    async buyCoins500(){
-      if(this.busy)return false;
-      if(!this.canOffer()){toast(T.vkBillingUnavailable);return false;}
-      this.busy=true;this.refreshGarage();
-      try{
-        snapshotLocalBeforeExternalTransition();
-        const orderId=(crypto?.randomUUID?.()||`tp-${Date.now()}-${Math.random().toString(16).slice(2)}`);
-        this.externalApi.paymentFrame({merchant_param:{
-          amount:VKPLAY_BILLING_PRICE_RUB,
-          currency:'RUB',
-          description:'500 монет Traffic Pulse',
-          item_id:VKPLAY_BILLING_SKU,
-          additional_param:orderId
-        }});
-        this.beginPolling();
-        toast(T.vkBillingPending);
-        YandexAudit.mark('vkplay:billing:frame-open',orderId);
-        return true;
-      }catch(err){
-        this.error=String(err?.message||err||'payment_frame_error');
-        YandexAudit.mark('vkplay:billing:create-error',this.error);toast(T.vkBillingError);return false;
-      }finally{this.busy=false;this.refreshGarage();}
+    async buyProduct(productId){
+      const product=VKPLAY_PRODUCTS[productId];if(!product||this.busy)return false;if(!this.canOffer()){await this.handleAuthAction();return false;}
+      this.busy=true;this.lastProductId=productId;this.refreshGarage();
+      try{snapshotLocalBeforeExternalTransition();const orderId=(crypto?.randomUUID?.()||`tp-${Date.now()}-${Math.random().toString(16).slice(2)}`);this.externalApi.paymentFrame({merchant_param:{amount:product.price,currency:'RUB',description:product.description,item_id:product.id,additional_param:orderId}});this.beginPolling();toast(T.vkBillingPending);YandexAudit.mark('vkplay:billing:frame-open',`${product.id}:${orderId}`);return true;}
+      catch(err){this.error=String(err?.message||err||'payment_frame_error');YandexAudit.mark('vkplay:billing:create-error',this.error);toast(T.vkBillingError);return false;}
+      finally{this.busy=false;this.refreshGarage();}
     },
-    onPaymentReceived(data){
-      if(data?.uid!=null)this.uid=String(data.uid);
-      YandexAudit.mark('vkplay:billing:received',this.uid||'unknown');
-      toast(T.vkBillingReceived);this.beginPolling();setTimeout(()=>void this.sync('payment'),800);
+    async spendForGarageCar(carId,cost){
+      const mirrored=safeInt(save.vkPaidCoinsCredited,0,1_000_000_000_000,0),localEarned=Math.max(0,safeInt(save.coins,0,1_000_000_000_000,0)-mirrored),serverPart=Math.max(0,cost-localEarned),localPart=cost-serverPart;
+      if(serverPart<=0)return {localOnly:true,localPart:cost,serverPart:0};
+      if(!this.canOffer()){toast(T.vkBillingSpendError);return null;}
+      const requestId=(crypto?.randomUUID?.()||`spend-${Date.now()}-${Math.random().toString(16).slice(2)}`),context=`garage_car:${carId}`;
+      save.vkPendingSpend={requestId,context,carId,cost,localPart,serverPart,createdAt:Date.now()};persist();
+      try{const auth=await this.getAuthToken();await this.request('/api/wallet/spend-auth',{...auth,request_id:requestId,amount:serverPart,context});await this.sync('spend');if(save.vkPendingSpend){toast(T.vkBillingSpendPending);return false;}return {localOnly:false,localPart,serverPart};}
+      catch(err){YandexAudit.mark('vkplay:billing:spend-error',String(err?.message||err));await this.sync('spend-error');if(save.vkPendingSpend){save.vkPendingSpend=null;persist();toast(T.vkBillingSpendError);}return null;}
     },
+    onPaymentReceived(data){if(data?.uid!=null)this.uid=String(data.uid);YandexAudit.mark('vkplay:billing:received',this.uid||'unknown');toast(T.vkBillingReceived);this.beginPolling();setTimeout(()=>void this.sync('payment'),800);},
     onPaymentWindowClosed(){YandexAudit.mark('vkplay:billing:window-closed');setTimeout(()=>void this.sync('payment-close'),900);}
   };
 
@@ -997,7 +958,8 @@
     document.documentElement.lang = lang;
     document.querySelectorAll('[data-i18n]').forEach(el=>el.textContent=T[el.dataset.i18n]);
     $('signal-label').textContent=T.switchLight;
-    $('tap-hint-text').textContent=T.tapSignal;    $('coin-btn').setAttribute('aria-label',T.garage);
+    $('tap-hint-text').textContent=T.tapSignal;
+    $('coin-btn').setAttribute('aria-label',T.garage);
     $('pause-btn').setAttribute('aria-label',T.pauseAction);
     $('daily-btn').setAttribute('aria-label',T.modesHub);$('map-btn')?.setAttribute('aria-label',T.campaignMap);
     $('restart-btn').setAttribute('aria-label',T.restart);
@@ -1035,8 +997,7 @@
     {plan:'NNWWNNWWEESS',start:'V',interval:1.13,speed:128,maxQueue:4},
     {plan:'WWWNNNEEESSS',start:'H',interval:1.10,speed:129,maxQueue:4},
     {plan:'NNWWEESSWWNN',start:'V',interval:1.08,speed:130,maxQueue:4},
-    {plan:'WWWWNNNNEESS',start:'H',interval:1.05,speed:131,maxQueue:4},
-    {plan:'NNNEEEWWWSSSNN',start:'V',interval:1.04,speed:132,maxQueue:4},
+    {plan:'WWWWNNNNEESS',start:'H',interval:1.05,speed:131,maxQueue:4},    {plan:'NNNEEEWWWSSSNN',start:'V',interval:1.04,speed:132,maxQueue:4},
     {plan:'WWNNWWEESSNNEE',start:'H',interval:1.02,speed:133,maxQueue:4},
     {plan:'NNNNWWWEEEESSS',start:'H',interval:1.00,speed:134,maxQueue:4},
     {plan:'WWEENNSSWWNNEE',start:'V',interval:.98,speed:135,maxQueue:4},
@@ -1996,7 +1957,8 @@
   }
 
   const Game = {
-    state:'boot', mode:'campaign', dailyKey:'', weeklyKey:'', scenarioId:'', scenarioDirector:null, incidentDirector:null, greenWaveId:'', greenWaveDirector:null, signalMode:'shared', signalControllers:null, greenWaveStats:null, level:save.level, config:null, cars:[], spawned:0, exited:0, phase:'H', pendingPhase:null, transitionTimer:0, endlessWave:0, endlessScore:0, endlessSessionSeed:0,    switches:0, spawnTimer:0, maxObservedQueue:0, elapsed:0, externalPaused:false, userPaused:false, rescueUsed:false, assistActive:false,
+    state:'boot', mode:'campaign', dailyKey:'', weeklyKey:'', scenarioId:'', scenarioDirector:null, incidentDirector:null, greenWaveId:'', greenWaveDirector:null, signalMode:'shared', signalControllers:null, greenWaveStats:null, level:save.level, config:null, cars:[], spawned:0, exited:0, phase:'H', pendingPhase:null, transitionTimer:0, endlessWave:0, endlessScore:0, endlessSessionSeed:0,
+    switches:0, spawnTimer:0, maxObservedQueue:0, elapsed:0, externalPaused:false, userPaused:false, rescueUsed:false, assistActive:false,
     firstInput:false, tutorialCueTimer:0, noticeTimers:[], failureUiTimer:0, coachFlags:{}, crashPair:null, crashFx:null, cameraKick:0, turnOwnerId:null, rng:Math.random, lastTs:0, lastDrawTs:0, lastHudTs:0, hudDirty:true, hudRefreshCount:0, frameId:0, accumulator:0, renderAlpha:1, particles:[], pedestrians:[], pedestrianSerial:0, pedestrianSpawnTimer:.4, pedestrianHold:false, phaseElapsed:0, emergencyPriorityId:null, flowStreak:0, maxFlowStreak:0, syncStreak:0, maxSyncStreak:0, prioritySaved:0, mission:null, lastMedalResult:null, lastPassAt:-99, failureReplayFrames:[], failureReplayClock:0, replayPlayback:null, replayTimer:0, lastFailType:'',
 
     clearNoticeTimers(){for(const id of this.noticeTimers||[])clearTimeout(id);this.noticeTimers=[];},
@@ -2034,8 +1996,7 @@
     startScenario(id='after_school',rescued=false){
       this.clearNoticeTimers();this.clearFailureUiTimer();
       const def=scenarioDefinition(id);if(!def){toast(T.scenarioMode);return false;}if(!scenarioUnlocked(def)){toast(T.scenarioLocked);return false;}
-      this.mode='scenario';this.scenarioId=def.id;this.incidentDirector=null;this.greenWaveId='';this.greenWaveDirector=null;this.signalMode='shared';this.signalControllers=null;this.greenWaveStats=null;this.dailyKey='';this.weeklyKey='';this.level=def.board.level;this.config=scenarioConfig(def);this.scenarioDirector=createScenarioDirector(def);this.assistActive=false;this.mission=null;
-      this.rng=seeded(def.seed);this.cars=[];this.spawned=0;this.exited=0;this.phase=this.config.startPhase;this.pendingPhase=null;this.transitionTimer=0;this.switches=0;this.spawnTimer=.42;this.phaseElapsed=0;this.pedestrians=[];this.pedestrianSerial=0;this.pedestrianSpawnTimer=99;this.pedestrianHold=false;this.emergencyPriorityId=null;AudioFx.stopTransientAudio();AudioFx.refreshMusicTheme();
+      this.mode='scenario';this.scenarioId=def.id;this.incidentDirector=null;this.greenWaveId='';this.greenWaveDirector=null;this.signalMode='shared';this.signalControllers=null;this.greenWaveStats=null;this.dailyKey='';this.weeklyKey='';this.level=def.board.level;this.config=scenarioConfig(def);this.scenarioDirector=createScenarioDirector(def);this.assistActive=false;this.mission=null;      this.rng=seeded(def.seed);this.cars=[];this.spawned=0;this.exited=0;this.phase=this.config.startPhase;this.pendingPhase=null;this.transitionTimer=0;this.switches=0;this.spawnTimer=.42;this.phaseElapsed=0;this.pedestrians=[];this.pedestrianSerial=0;this.pedestrianSpawnTimer=99;this.pedestrianHold=false;this.emergencyPriorityId=null;AudioFx.stopTransientAudio();AudioFx.refreshMusicTheme();
       this.maxObservedQueue=0;this.elapsed=0;this.accumulator=0;this.renderAlpha=1;this.state='playing';this.externalPaused=Boolean(platform.pausedByPlatform||platform.browserPaused||platform.adPaused);this.userPaused=false;this.rescueUsed=rescued;this.crashPair=null;this.crashFx=null;this.cameraKick=0;this.turnOwnerId=null;this.particles=[];this.flowStreak=0;this.maxFlowStreak=0;this.syncStreak=0;this.maxSyncStreak=0;this.prioritySaved=0;this.lastPassAt=-99;this.failureReplayFrames=[];this.failureReplayClock=0;this.replayPlayback=null;clearTimeout(this.replayTimer);this.lastFailType='';this.firstInput=true;if(typeof PersonalBestService!=='undefined')PersonalBestService.clear();
       clearTimeout(this.tutorialCueTimer);this.tutorialCueTimer=0;$('tap-hint').style.display='none';closeOverlay();applyDistrictTheme();this.scenarioDirector.update(0,this);updateHud();this.primeTraffic();toast(`${def.icon||'🎒'} ${T[def.nameKey]}`);this.scheduleNotice(()=>{if(this.state==='playing'&&this.mode==='scenario'&&this.scenarioId===def.id)toast(`⚙️ ${T[def.ruleKey]||T.scenarioRule}`);},1450);if(!this.externalPaused&&!platform.booting){platform.gameplayStart();AudioFx.recoverAfterExternalResume();}return true;
     },
@@ -2995,7 +2956,8 @@
     drawDistrictDecor(g,theme.id);
     drawLivingCityShops(g,theme.id);
     drawNeighborhoodEdge(g,theme.id);
-    if(isLinkedJunctionType(junctionType)){      drawLinkedRoadSurface(g,lanes);
+    if(isLinkedJunctionType(junctionType)){
+      drawLinkedRoadSurface(g,lanes);
       for(const cx of [230,670]){g.save();const ring=g.createRadialGradient(cx,450,18,cx,450,104);ring.addColorStop(0,'rgba(255,255,255,.05)');ring.addColorStop(1,'rgba(255,255,255,0)');g.fillStyle=ring;g.beginPath();g.arc(cx,450,104,0,Math.PI*2);g.fill();g.restore();}
     }else{
       drawRoadSurface(g,lanes);drawSidewalkFrame(g,lanes);drawAsphaltSheen(g,lanes);drawApproachMarkings(g,lanes);drawRoadReflectors(g,lanes);drawJunctionClosure(g,junctionType,theme,lanes);
@@ -3033,8 +2995,7 @@
       rg.addColorStop(0,`rgba(104,229,255,${.14+pulse})`);rg.addColorStop(1,'rgba(104,229,255,0)');
       g.fillStyle=rg;g.fillRect(x-94,y-94,188,188);
     }
-    g.restore();
-  }
+    g.restore();  }
 
   function weatherForLevel(level){
     if(districtInfo(level).id==='winter'&&level%5!==0)return 'snow';
@@ -3994,7 +3955,8 @@
       }
       if(s.stage==='serving'){
         const wx=cx+dir*(29+Math.sin(t*1.8+k)*4),wy=cy+7;g.globalAlpha=.52;g.fillStyle='#e8c09f';g.beginPath();g.arc(wx,wy-8,2.6,0,Math.PI*2);g.fill();g.strokeStyle='#526f77';g.lineWidth=3;g.beginPath();g.moveTo(wx,wy-4);g.lineTo(wx,wy+5);g.stroke();g.fillStyle='#c9b48a';roundRect(g,wx+dir*4,wy-2,7,3,1,true);
-      }    }
+      }
+    }
     g.restore();
   }
 
@@ -4032,8 +3994,7 @@
         g.fillStyle='#9a7650';roundRect(g,x-9,y-4,18,9,2,true);g.fillStyle='#d6b36d';g.fillRect(x-6,y-1,4,3);g.fillStyle='#78995f';g.fillRect(x+2,y-1,4,3);
         if(s.stage==='setup'||s.stage==='packing'){g.globalAlpha=.34;g.fillStyle='#9b7650';roundRect(g,x+dir*11,y+4,7,6,1,true);}
       }
-      if(s.shoppers){
-        const count=Math.min(s.shoppers,high?7:4);
+      if(s.shoppers){        const count=Math.min(s.shoppers,high?7:4);
         for(let q=0;q<count;q++){
           const px=cx-25+(q%4)*16+Math.sin(t*.9+q+k)*2,py=cy+17+Math.floor(q/4)*8,bob=Math.sin(t*2+q)*.35;
           g.globalAlpha=.30+.42*s.activity;g.fillStyle=['#efc7a7','#d9ad8b','#f0d1b4'][q%3];g.beginPath();g.arc(px,py-7+bob,2.4,0,Math.PI*2);g.fill();
@@ -4993,7 +4954,8 @@
     const flowHot=Game.flowStreak>=6;if(HUD_CACHE.flowHot!==flowHot){HUD_CACHE.flowHot=flowHot;document.querySelector('.game-card')?.classList.toggle('flow-hot',flowHot);}
     const signalKey=independentSignals(Game)?`ind:${Object.entries(Game.signalControllers).map(([k,c])=>`${k}:${c.phase}:${c.transitionTimer>0?'t':'s'}`).join('|')}:${lang}`:`${Game.phase}:${Game.transitionTimer>0?'t':'s'}:${lang}`;if(HUD_CACHE.signalKey!==signalKey){HUD_CACHE.signalKey=signalKey;updateSignalIcon();}
     if(typeof PersonalBestService!=='undefined')PersonalBestService.renderBadge(Game);
-    // Coalescing bookkeeping. Explicit calls are also treated as a completed refresh, so the rAF    // loop will not immediately duplicate the same DOM work on the next frame.
+    // Coalescing bookkeeping. Explicit calls are also treated as a completed refresh, so the rAF
+    // loop will not immediately duplicate the same DOM work on the next frame.
     Game.hudDirty=false;Game.lastHudTs=performance.now();Game.hudRefreshCount=(Game.hudRefreshCount||0)+1;
   }
   function updateSignalIcon(){
@@ -5031,8 +4993,7 @@
 
   function leaderboardErrorIsMissing(error){return /404|not.?found|leaderboard.*missing/i.test(String(error||''));}
   function leaderboardPublicName(entry){const raw=String(entry?.player?.publicName||'').trim();return raw||T.leaderboardAnonymous;}
-  function leaderboardRankLabel(entry,index=0){const rank=Number(entry?.rank);return Number.isFinite(rank)&&rank>0?`#${rank}`:`#${index+1}`;}
-  function renderLeaderboardRows(extra,result){
+  function leaderboardRankLabel(entry,index=0){const rank=Number(entry?.rank);return Number.isFinite(rank)&&rank>0?`#${rank}`:`#${index+1}`;}  function renderLeaderboardRows(extra,result){
     const list=document.createElement('div');list.className='leaderboard-list';const rows=Array.isArray(result?.entries)?result.entries:[];
     if(!rows.length){const empty=document.createElement('div');empty.className='leaderboard-empty';empty.textContent=result?.error?(leaderboardErrorIsMissing(result.error)?T.leaderboardSetup:T.adUnavailable):T.leaderboardNoEntries;list.appendChild(empty);extra.appendChild(list);return;}
     const seen=new Set();let visualIndex=0;
@@ -5068,6 +5029,16 @@
   }
   function garageSetPreview(id,fromPause=false){garagePreviewId=safeInt(id,0,CAR_NAMES.length-1,0);showGarage(fromPause?'pause':'rerender');}
 
+  async function purchaseGarageCar(i,fromPause=false){
+    const cost=CAR_COSTS[i]||0;if(save.coins<cost){toast(T.notEnough);return false;}
+    if(PLATFORM_TARGET==='vkplay'&&safeInt(save.vkPaidCoinsCredited,0,1_000_000_000_000,0)>0){
+      const result=await VKBilling.spendForGarageCar(i,cost);if(!result)return false;
+      if(result.localOnly){save.coins=Math.max(0,save.coins-cost);save.ownedCars=[...new Set([...ownedStyleIds(),i])].sort((a,b)=>a-b);save.purchasedCars=[...new Set([...(save.purchasedCars||[]),i])].sort((a,b)=>a-b);save.favoriteCar=i;garagePreviewId=i;persist();updateHud();showGarage(fromPause?'pause':'rerender');}
+      return true;
+    }
+    save.coins=Math.max(0,save.coins-cost);save.ownedCars=[...new Set([...ownedStyleIds(),i])].sort((a,b)=>a-b);save.purchasedCars=[...new Set([...(save.purchasedCars||[]),i])].sort((a,b)=>a-b);save.favoriteCar=i;garagePreviewId=i;persist();updateHud();showGarage(fromPause?'pause':'rerender');return true;
+  }
+
   function showGarage(origin='game'){
     if(origin==='game'){ $('overlay').dataset.garageOrigin=(Game.state==='playing'&&!Game.userPaused)?'game':'pause'; garagePreviewId=ownedStyleIds().includes(save.favoriteCar)?save.favoriteCar:0; }
     if(garagePreviewId==null||garagePreviewId<0||garagePreviewId>=CAR_NAMES.length)garagePreviewId=ownedStyleIds().includes(save.favoriteCar)?save.favoriteCar:0;
@@ -5080,11 +5051,21 @@
     const ownedCount=ownedStyleIds().length,nextPurchase=nextGaragePurchase(),nextText=nextPurchase?(!nextPurchase.unlocked?`${T.nextPurchase}: ${nextPurchase.name} · ${T.level} ${nextPurchase.level}`:nextPurchase.missing>0?`${T.nextPurchase}: ${nextPurchase.name} · ${T.needCoins} ${nextPurchase.missing} 🪙`:`${T.nextPurchase}: ${nextPurchase.name} · ${T.readyToBuy}`):T.allCars;
     summary.textContent=`${T.collection}: ${ownedCount}/${CAR_NAMES.length} · ${T.favoriteCar}: ${T[CAR_NAMES[save.favoriteCar||0]]} · ${nextText}`;extra.appendChild(summary);
     if(PLATFORM_TARGET==='vkplay'){
-      const billingRow=document.createElement('div');billingRow.className='garage-row owned';billingRow.setAttribute('data-vk-billing','coins_500');
-      const billingIcon=document.createElement('span');billingIcon.className='garage-preview';billingIcon.textContent='🪙';billingIcon.setAttribute('aria-hidden','true');
-      const billingCopy=document.createElement('div');const billingName=document.createElement('strong');billingName.textContent=T.vkBillingPack;const billingMeta=document.createElement('small');billingMeta.textContent=VKBilling.canOffer()?T.vkBillingPrice:VKBilling.statusText();billingCopy.append(billingName,billingMeta);
-      const billingButton=document.createElement('button');billingButton.type='button';billingButton.textContent=VKBilling.busy?T.vkBillingOpening:VKBilling.actionLabel();billingButton.disabled=Boolean(VKBilling.busy||(!VKBilling.connected&&VKBilling.connecting));billingButton.onclick=async()=>{if(VKBilling.busy)return;billingButton.disabled=true;billingButton.textContent=T.vkBillingOpening;await VKBilling.handleAction();if(billingButton.isConnected){billingButton.disabled=Boolean(VKBilling.busy);billingButton.textContent=VKBilling.actionLabel();}};
-      billingRow.append(billingIcon,billingCopy,billingButton);extra.appendChild(billingRow);
+      const store=document.createElement('section');store.className='vk-store';store.setAttribute('aria-label',T.vkBillingStore);
+      const storeHead=document.createElement('div');storeHead.className='vk-store-head';const storeTitle=document.createElement('strong');storeTitle.textContent=`💳 ${T.vkBillingStore}`;const storeMeta=document.createElement('small');storeMeta.textContent=VKBilling.canOffer()?`${T.vkBillingPaidWallet}: ${safeInt(save.vkPaidCoinsCredited,0,1_000_000_000_000,0)} 🪙 · ${T.vkBillingSecure}`:VKBilling.statusText();storeHead.append(storeTitle,storeMeta);store.appendChild(storeHead);
+      if(!VKBilling.canOffer()){
+        const auth=document.createElement('button');auth.type='button';auth.className='vk-store-auth';auth.textContent=VKBilling.actionLabel();auth.disabled=VKBilling.busy||VKBilling.connecting;auth.onclick=()=>void VKBilling.handleAuthAction();store.appendChild(auth);
+      }else{
+        const grid=document.createElement('div');grid.className='vk-store-grid';
+        for(const product of Object.values(VKPLAY_PRODUCTS)){
+          const card=document.createElement('div');card.className=`vk-store-card${product.supporter?' supporter':''}`;card.dataset.product=product.id;
+          const name=document.createElement('strong');name.textContent=VKBilling.productTitle(product);const desc=document.createElement('small');desc.textContent=product.supporter?(VKBilling.supporterOwned()?T.vkBillingSupporterOwned:T.vkBillingSupporterDesc):`${product.coins.toLocaleString(lang==='ru'?'ru-RU':'en-US')} 🪙`;
+          const buy=document.createElement('button');buy.type='button';buy.textContent=VKBilling.busy&&VKBilling.lastProductId===product.id?T.vkBillingOpening:`${product.price} ₽ · ${T.vkBillingBuy}`;buy.disabled=VKBilling.busy;buy.onclick=()=>void VKBilling.buyProduct(product.id);card.append(name,desc,buy);grid.appendChild(card);
+        }
+        store.appendChild(grid);
+      }
+      const tx=VKBilling.serverState.transactions||[];if(tx.length){const details=document.createElement('details');details.className='vk-purchase-history';const sum=document.createElement('summary');sum.textContent=`${T.vkBillingHistory} (${tx.length})`;details.appendChild(sum);for(const item of tx.slice(0,6)){const row=document.createElement('div');row.className='vk-history-row';const product=VKPLAY_PRODUCTS[item.product_id];const when=new Date(Number(item.created_at||0));const date=Number.isFinite(when.getTime())?when.toLocaleDateString(lang==='ru'?'ru-RU':'en-US'):'';row.textContent=`${product?VKBilling.productTitle(product):item.product_id} · ${item.sum_value} ₽${date?` · ${date}`:''}`;details.appendChild(row);}store.appendChild(details);}
+      extra.appendChild(store);
     }
     const collectionTrack=document.createElement('div');collectionTrack.className='garage-collection-track';collectionTrack.setAttribute('role','progressbar');collectionTrack.setAttribute('aria-label',T.garageCollectionProgress);collectionTrack.setAttribute('aria-valuemin','0');collectionTrack.setAttribute('aria-valuemax',String(CAR_NAMES.length));collectionTrack.setAttribute('aria-valuenow',String(ownedCount));const collectionFill=document.createElement('span');collectionFill.style.width=`${Math.round(ownedCount/CAR_NAMES.length*100)}%`;collectionTrack.appendChild(collectionFill);extra.appendChild(collectionTrack);
     const previewMeta=garagePreviewMeta(garagePreviewId),showcase=document.createElement('section');showcase.className=`garage-showcase${previewMeta.rare?' rare':''}`;showcase.setAttribute('aria-label',`${T.garagePreview}: ${previewMeta.name}`);const car=document.createElement('div');car.className='garage-showcase-car';car.style.setProperty('--car-color',previewMeta.color);car.dataset.style=String(previewMeta.id);const cabin=document.createElement('span');cabin.className='garage-showcase-cabin';const wheelA=document.createElement('i');wheelA.className='wheel-a';const wheelB=document.createElement('i');wheelB.className='wheel-b';car.append(cabin,wheelA,wheelB);const showcaseCopy=document.createElement('div');const label=document.createElement('small');label.textContent=T.garagePreview;const title=document.createElement('strong');title.textContent=previewMeta.name;const state=document.createElement('span');state.textContent=previewMeta.status;showcaseCopy.append(label,title,state);showcase.append(car,showcaseCopy);extra.appendChild(showcase);
@@ -5104,7 +5085,7 @@
         b.onclick=()=>{if(selected)return;save.favoriteCar=i;garagePreviewId=i;persist();updateHud();showGarage(fromPause?'pause':'rerender');};
       }else if(!available){b.textContent='🔒';b.disabled=true;}else{
         b.textContent=`${T.buy} ${CAR_COSTS[i]}`;b.disabled=save.coins<CAR_COSTS[i];b.title=b.disabled?T.notEnough:'';
-        b.onclick=()=>{if(save.coins<CAR_COSTS[i]){toast(T.notEnough);return;}save.coins-=CAR_COSTS[i];save.ownedCars=[...new Set([...ownedStyleIds(),i])].sort((a,b)=>a-b);save.purchasedCars=[...new Set([...(save.purchasedCars||[]),i])].sort((a,b)=>a-b);save.favoriteCar=i;garagePreviewId=i;persist();updateHud();showGarage(fromPause?'pause':'rerender');};
+        b.onclick=()=>void purchaseGarageCar(i,fromPause);
       }
       row.append(preview,copy,b);list.appendChild(row);
     });
