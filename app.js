@@ -2,7 +2,7 @@
   'use strict';
 
   const BUILD_MODE = 'production';
-  const BUILD_VERSION = 'M197-VKPLAY-ROUNDABOUT-TRIAL-RC1';
+  const BUILD_VERSION = 'M198-VKPLAY-TWIN-JUNCTION-TRIAL-RC1';
   const IS_DEVELOPMENT = BUILD_MODE === 'development';
   const PLATFORM_TARGET = 'vkplay'; // browser release target: VK Play iframe
   const YANDEX_PUBLIC_LEADERBOARD_NAME = 'TrafficPulseStars';
@@ -244,6 +244,10 @@
   Object.assign(TEXT.ru,{roundaboutTrial:'Кольцевой перекрёсток',roundaboutTrialDesc:'Экспериментальный уровень: машины входят на кольцо и расходятся по разным съездам. Управление остаётся прежним — переключай горизонтальную и вертикальную подачу.',roundaboutTrialGoal:'Пропусти весь поток через кольцо без аварии и критической пробки',roundaboutTrialRule:'Светофоры дозируют въезд. Машина, уже вошедшая на кольцо, имеет приоритет; дождись освобождения кольца перед новой подачей.',roundaboutWarmup:'Разогрев кольца',roundaboutMixed:'Смешанные съезды',roundaboutFinal:'Финальный поток',roundaboutExperimental:'Эксперимент',roundaboutYield:'Кольцо занято',roundaboutMetering:'Дозирование въезда'});
   Object.assign(TEXT.en,{roundaboutTrial:'Roundabout Trial',roundaboutTrialDesc:'Experimental level: cars enter a roundabout and leave through different exits. The core control stays the same — switch horizontal and vertical entry flow.',roundaboutTrialGoal:'Move all traffic through the roundabout without a crash or critical jam',roundaboutTrialRule:'Signals meter entry. A vehicle already on the roundabout has priority; wait until the circle is clear before releasing another approach.',roundaboutWarmup:'Roundabout warm-up',roundaboutMixed:'Mixed exits',roundaboutFinal:'Final flow',roundaboutExperimental:'Experimental',roundaboutYield:'Roundabout occupied',roundaboutMetering:'Entry metering'});
 
+
+  Object.assign(TEXT.ru,{twinJunctionTrial:'Связанные перекрёстки',twinJunctionTrialDesc:'Экспериментальный уровень: два близких перекрёстка работают как единый коридор. Одно привычное переключение меняет фазу сразу на обоих узлах.',twinJunctionTrialGoal:'Проведи поток через оба перекрёстка и не заполни соединительный участок',twinJunctionTrialRule:'Одна фаза управляет обоими перекрёстками. Горизонтальная подача освобождает коридор, вертикальная обслуживает боковые улицы; не выпускай новую группу в занятый соединительный участок.',twinJunctionWarmup:'Синхронный разогрев',twinJunctionSides:'Боковые улицы',twinJunctionTurns:'Поворотный поток',twinJunctionFinal:'Финальный коридор',twinJunctionSync:'Один переключатель · два узла',twinJunctionConnector:'Следи за соединительным участком'});
+  Object.assign(TEXT.en,{twinJunctionTrial:'Linked Junctions',twinJunctionTrialDesc:'Experimental level: two nearby junctions act as one corridor. The familiar single toggle changes the phase at both nodes together.',twinJunctionTrialGoal:'Carry traffic through both junctions without filling the connector',twinJunctionTrialRule:'One shared phase controls both junctions. Horizontal clears the corridor while vertical serves the side streets; do not release another group into an occupied connector.',twinJunctionWarmup:'Synchronized warm-up',twinJunctionSides:'Side streets',twinJunctionTurns:'Turning traffic',twinJunctionFinal:'Final corridor',twinJunctionSync:'One toggle · two nodes',twinJunctionConnector:'Watch the connector segment'});
+
   let T = TEXT.ru;
 
   function safeInt(value,min,max,fallback=min){ const n=Number(value); return Number.isFinite(n)?Math.max(min,Math.min(max,Math.floor(n))):fallback; }
@@ -312,7 +316,7 @@
     return out;
   }
   function normalizeDailyRewards(value){ const src=boundedDailyMap(value),out={}; for(const [k,v] of Object.entries(src))if(v===true||v===1)out[k]=true; return out; }
-  const SCENARIO_SAVE_KEYS=new Set(['after_school@1','after_school@2','green_corridor@1','stadium_exit@1','airport_priority@1','roadworks_detour@1','freight_port@1','roundabout_trial@1']);
+  const SCENARIO_SAVE_KEYS=new Set(['after_school@1','after_school@2','green_corridor@1','stadium_exit@1','airport_priority@1','roadworks_detour@1','freight_port@1','roundabout_trial@1','twin_junction_trial@1']);
   function normalizeScenarioProgress(value){
     const src=value&&typeof value==='object'?value:{},out={};
     for(const [k,v] of Object.entries(src)){if(!SCENARIO_SAVE_KEYS.has(k)||!v||typeof v!=='object')continue;out[k]={stars:safeInt(v.stars,0,3,0),bestQueue:safeInt(v.bestQueue,0,999,999),bestSwitches:safeInt(v.bestSwitches,0,9999,9999),bestPriority:safeInt(v.bestPriority,0,999,0),clears:safeInt(v.clears,0,1_000_000,0)};}
@@ -994,10 +998,10 @@
   const CAR_COSTS = [0,180,330,580,850,1200,1750,2500,3500,5000];
   const CAR_REQUIREMENTS = [0,3,6,10,15,20,30,45,65,90];
   const CAR_SWATCHES = ['#55d5ff','#ffd34d','#ff9f68','#ff5964','#2c7be5','#53dfbd','#d6b36a','#bd5cff','#f2d7a4','#111827'];
-
   const EARLY_LEVELS = [
     {plan:'NNNNN',start:'H',interval:1.45,speed:120,maxQueue:5},
-    {plan:'WWWNNN',start:'V',interval:1.34,speed:122,maxQueue:5},    {plan:'NNWWEENN',start:'H',interval:1.28,speed:124,maxQueue:5},
+    {plan:'WWWNNN',start:'V',interval:1.34,speed:122,maxQueue:5},
+    {plan:'NNWWEENN',start:'H',interval:1.28,speed:124,maxQueue:5},
     {plan:'WWWNNNEE',start:'H',interval:1.22,speed:125,maxQueue:4},
     {plan:'NNNEEEWWW',start:'V',interval:1.18,speed:126,maxQueue:4},
     {plan:'WWNNEESSNN',start:'H',interval:1.16,speed:127,maxQueue:4},
@@ -1846,6 +1850,25 @@
       roundaboutTurns:['right','straight','left','right','straight','left','straight','right','left','straight','right','left','straight','right','left','straight','right','left','straight','right','left','straight','right','left','straight','right'],
       objectives:{maxQueue:5,maxSwitches:14},starThresholds:{twoStarQueue:5,threeStarSwitches:14}
     }),
+
+    twin_junction_trial:Object.freeze({
+      id:'twin_junction_trial',version:1,icon:'↔️',seed:0x5c4081,unlockRule:{minLevel:22},nameKey:'twinJunctionTrial',descriptionKey:'twinJunctionTrialDesc',goalKey:'twinJunctionTrialGoal',ruleKey:'twinJunctionTrialRule',experimental:true,experimentalMetaKey:'twinJunctionSync',
+      board:{level:36,startPhase:'H',lanes:1,maxQueue:7,perfectQueue:4,interval:.72,speed:150,clearance:1.16,junctionType:'double-horizontal',variant:'alternating',busChance:.06,ambulanceChance:.02,truckChance:.05,sportChance:.07,compactChance:.16},
+      stages:[
+        {id:'warmup',start:0,labelKey:'twinJunctionWarmup',events:[{id:'opening',at:0,type:'traffic',wave:'opening'}]},
+        {id:'sides',start:11,labelKey:'twinJunctionSides',events:[{id:'sides_a',at:11,type:'traffic',wave:'sides_a'},{id:'sides_b',at:20,type:'traffic',wave:'sides_b'}]},
+        {id:'turns',start:30,labelKey:'twinJunctionTurns',events:[{id:'turns',at:30,type:'traffic',wave:'turns'}]},
+        {id:'final',start:42,labelKey:'twinJunctionFinal',events:[{id:'final',at:42,type:'traffic',wave:'final'}]}
+      ],
+      trafficPlan:{
+        opening:['W>E','E>W','W>E','E>W','N0>S0','S1>N1'],
+        sides_a:['N0>S0','S0>N0','W>E','E>W','N1>S1','S1>N1','W>E'],
+        sides_b:['W>E','E>W','N1>S1','N0>S0','S0>N0','S1>N1','E>W'],
+        turns:['W>S0','E>N1','W>N0','E>S1','W>E','E>W','N0>S0','S1>N1'],
+        final:['W>E','E>W','W>S0','E>N1','N0>S0','N1>S1','S0>N0','S1>N1','W>N0','E>S1']
+      },
+      objectives:{maxQueue:6,maxSwitches:17},starThresholds:{twoStarQueue:6,threeStarSwitches:17}
+    }),
     freight_port:Object.freeze({
       id:'freight_port',version:1,icon:'🚛',seed:0x5c4051,unlockRule:{minLevel:60},nameKey:'scenarioFreightPort',descriptionKey:'scenarioFreightPortDesc',goalKey:'scenarioFreightPortGoal',ruleKey:'scenarioFreightPortRule',
       board:{level:58,startPhase:'V',lanes:3,maxQueue:8,perfectQueue:5,interval:.66,speed:158,clearance:1.26,junctionType:'cross',variant:'freight',busChance:.12,ambulanceChance:.02,truckChance:.42,sportChance:.03,compactChance:.06},
@@ -1973,8 +1996,7 @@
       else ok=(Game.maxFlowStreak||0)>=objective.target;
       if(ok)mask|=objective.bit;
     }
-    return mask&7;
-  }
+    return mask&7;  }
   function medalLabels(mask,level=Game.level,config=Game.config){return medalObjectivesForLevel(level,config).filter(x=>(Number(mask)||0)&x.bit).map(x=>x.label);}
   function medalResultForRun(level=Game.level,config=Game.config){
     const key=String(level),previous=(Number(save.medalsByLevel?.[key])||0)&7,runMask=medalMaskForRun(level,config),savedMask=(previous|runMask)&7,newMask=savedMask&~previous;
@@ -1996,7 +2018,8 @@
     if(level===2)return `🚦 ${T.tutorialGoal2}`;
     if(level===3)return `👀 ${T.tutorialGoal3}`;
     if(level===4)return `🛡 ${T.tutorialGoal4}`;
-    if(level===5)return `⚡ ${T.tutorialGoal5}`;    if(level===6)return `🚶 ${T.tutorialPedestrians}`;
+    if(level===5)return `⚡ ${T.tutorialGoal5}`;
+    if(level===6)return `🚶 ${T.tutorialPedestrians}`;
     if(level===8)return `↪ ${T.tutorialTurns}`;
     if(level===14)return `🟡 ${T.tutorialYellow}`;
     if(level===18)return `↰ ${T.tutorialLeftTurns}`;
@@ -2972,8 +2995,7 @@
     const laneGoal=c.laneTarget==null?(c.lane||0):c.laneTarget;
     const visualLane=lt<1?(c.laneFrom+(laneGoal-c.laneFrom)*ease):(c.lane||0);
     let pose;
-    const curveBounds=turnCurveBounds(Game.config?.lanes||1);
-    if(isRoundaboutJunction(Game.config?.junctionType)){pose=roundaboutPoseAt(c,p,Game.config?.lanes||1);}
+    const curveBounds=turnCurveBounds(Game.config?.lanes||1);    if(isRoundaboutJunction(Game.config?.junctionType)){pose=roundaboutPoseAt(c,p,Game.config?.lanes||1);}
     else if(c.turn&&c.turn!=='straight'&&p>=curveBounds.start){
       const outDir=c.turnOutDir||turnExitDir(c.dir,c.turn),outLane=c.turnOutLane||0;
       if(p>=curveBounds.end){
@@ -2995,7 +3017,8 @@
       pose=straightCarPose(c.dir,p,visualLane);
       if(lt<1){const steer=(laneGoal-c.laneFrom)*Math.sin(Math.PI*lt)*.16;pose.rot+=steer*(c.dir==='E'||c.dir==='S'?-1:1);}
     }
-    let {x,y,rot}=pose;    if(c.parkingSource&&c.mergeT<1&&p<TURN_START){
+    let {x,y,rot}=pose;
+    if(c.parkingSource&&c.mergeT<1&&p<TURN_START){
       // M69: curb merge uses a smoothstep envelope with a shallower steering angle. This removes
       // the old "turning out of the corner" snap while keeping parking-lot entries readable.
       const mt=c.mergeT,smooth=mt*mt*(3-2*mt),inv=1-smooth,side=c.mergeSide||1,lateral=92*inv*side,longitudinal=20*Math.sin(Math.PI*mt);
@@ -3971,8 +3994,7 @@
       for(let i=0;i<n;i++){
         const spread=(i-(n-1)/2)*7,progress=Math.min(1,(s.cycle%0.5)*2),motion=s.stage==='leaving'?progress:s.stage==='arriving'?1-progress:.45;
         const x=ex+spread+dir*motion*16,y=ey+13+(i%2)*2,bob=Math.sin(t*2.1+i*.8+k)*.45;
-        g.globalAlpha=.30+.48*s.activity;g.fillStyle=['#edc6a6','#d8a985','#f0cdb1'][i%3];g.beginPath();g.arc(x,y-8+bob,2.7,0,Math.PI*2);g.fill();
-        g.strokeStyle=['#5b7884','#7a687b','#607269'][i%3];g.lineWidth=3;g.beginPath();g.moveTo(x,y-4+bob);g.lineTo(x,y+5+bob);g.stroke();
+        g.globalAlpha=.30+.48*s.activity;g.fillStyle=['#edc6a6','#d8a985','#f0cdb1'][i%3];g.beginPath();g.arc(x,y-8+bob,2.7,0,Math.PI*2);g.fill();        g.strokeStyle=['#5b7884','#7a687b','#607269'][i%3];g.lineWidth=3;g.beginPath();g.moveTo(x,y-4+bob);g.lineTo(x,y+5+bob);g.stroke();
       }
       if(s.stage==='social'&&high){g.globalAlpha=.26+.30*s.activity;g.fillStyle='#d6b77c';roundRect(g,ex+dir*20,ey+14,10,5,2,true);}
     }
@@ -3994,7 +4016,8 @@
     const districtBoost=r.district==='park'?.28:r.district==='coast'?.22:['oldtown','downtown'].includes(r.district)?.16:.08;
     const weatherPenalty=r.weather==='snow'?.26:r.weather==='rain'?.22:r.weather==='fog'?.08:0;
     const activity=Math.max(.04,Math.min(1,.20+r.commerce*.14+r.commute*.10+districtBoost-weatherPenalty));
-    const people=stage==='quiet'?0:Math.max(1,Math.round((RenderQuality.level>=2?5:3)*activity));    return {stage,cycle,activity,people,phase:r.phase,weather:r.weather,district:r.district};
+    const people=stage==='quiet'?0:Math.max(1,Math.round((RenderQuality.level>=2?5:3)*activity));
+    return {stage,cycle,activity,people,phase:r.phase,weather:r.weather,district:r.district};
   }
 
   function drawPublicSpaceLeisure(g,game){
@@ -4474,10 +4497,26 @@
     g.restore();
   }
 
+
+  function drawTwinJunctionScenarioOverlay(g,game,yA,yB,w){
+    if(game.mode!=='scenario'||game.scenarioId!=='twin_junction_trial')return;
+    const active=game.activeAxis(),transition=game.transitionTimer>0,c=transition?'#ffd166':active==='H'?'#55d5ff':'#56e39f';
+    g.save();
+    g.globalAlpha=.16;g.fillStyle=c;roundRect(g,330,yA+12,240,w-24,14,true);
+    g.globalAlpha=.72;g.strokeStyle=c;g.lineWidth=3;g.setLineDash([12,10]);g.beginPath();g.moveTo(278,450);g.lineTo(622,450);g.stroke();g.setLineDash([]);
+    g.fillStyle='rgba(4,18,30,.92)';g.strokeStyle=c;g.lineWidth=2;roundRect(g,376,78,148,32,11,true);roundRect(g,376,78,148,32,11,false);
+    g.fillStyle='#f4fbff';g.font='900 12px system-ui';g.textAlign='center';g.textBaseline='middle';g.fillText('1  ↔  2   SYNC',450,94);
+    // Connector occupancy is readable without adding another control or gameplay state.
+    const connectorBusy=game.cars.some(car=>{const route=linkedRouteSpec(car.linkedRouteId);return (route?.junctions||[]).length>1&&car.progress>390&&car.progress<920;});
+    if(connectorBusy){g.globalAlpha=.18;g.fillStyle='#ff9162';roundRect(g,330,yA+18,240,w-36,12,true);g.globalAlpha=.9;g.fillStyle='#ffe0cf';g.font='900 10px system-ui';g.fillText(T.twinJunctionConnector,450,yB+32);}
+    g.restore();
+  }
+
   function drawLinkedWorld(g,game){
     const theme=districtInfo(game.level),lanes=game.config?.lanes||1,layout=roadLayout(lanes),w=layout.edgeMax-layout.edgeMin,half=w/2,yA=450-half,yB=450+half,centers=[230,670];
     g.drawImage(getWorldCache(theme,lanes,'double-horizontal'),0,0);drawDynamicAmbient(g,theme);drawLivingCityAmbient(g,game);
     const sharedActive=game.activeAxis(),sharedTransition=game.transitionTimer>0;
+    drawTwinJunctionScenarioOverlay(g,game,yA,yB,w);
     if(!independentSignals(game)&&!sharedTransition&&sharedActive){const flowColor=sharedActive==='H'?'#55d5ff':'#56e39f';g.save();g.globalAlpha=.13;g.fillStyle=flowColor;if(sharedActive==='H')g.fillRect(0,yA,900,w);else for(const cx of centers)g.fillRect(cx-half,0,w,900);g.globalAlpha=.55;g.strokeStyle=flowColor;g.lineWidth=6;g.setLineDash([18,18]);g.beginPath();if(sharedActive==='H'){g.moveTo(14,450);g.lineTo(886,450);}else for(const cx of centers){g.moveTo(cx,14);g.lineTo(cx,886);}g.stroke();g.setLineDash([]);g.restore();}
     for(let ji=0;ji<centers.length;ji++){
       const junctionId=`J${ji}`,active=game.activeAxis(junctionId),transition=signalTransitionTimer(game,junctionId)>0,hSignal=signalStateForAxis('H',game,junctionId),vSignal=signalStateForAxis('V',game,junctionId),cx=centers[ji],left=cx-half,right=cx+half,top=yA,bottom=yB;
@@ -4954,8 +4993,7 @@
     g.fillStyle='rgba(7,25,36,.34)';roundRect(g,roofX+3,-bodyH*.33+4,roofW,bodyH*.66,9,true);
     if(RenderQuality.level>=1){const roofGrad=g.createLinearGradient(roofX,-bodyH*.34,roofX+roofW,bodyH*.34);roofGrad.addColorStop(0,'rgba(195,240,255,.58)');roofGrad.addColorStop(.48,'rgba(32,74,94,.88)');roofGrad.addColorStop(1,'rgba(8,32,48,.92)');g.fillStyle=roofGrad;}else g.fillStyle='rgba(32,74,94,.88)';roundRect(g,roofX,-bodyH*.33,roofW,bodyH*.66,9,true);
     g.strokeStyle='rgba(255,255,255,.22)';g.lineWidth=1.5;roundRect(g,roofX+2,-bodyH*.33+2,roofW-4,bodyH*.66-4,7,false);
-    drawEmergencyLightbar(g,c,bodyH);
-    g.fillStyle='rgba(0,0,0,.13)';roundRect(g,-bodyW/2+4,bodyH/2-11,bodyW-8,9,6,true);g.fillStyle='rgba(10,20,28,.28)';roundRect(g,-bodyW/2+6,-bodyH/2+3,6,bodyH-6,3,true);
+    drawEmergencyLightbar(g,c,bodyH);    g.fillStyle='rgba(0,0,0,.13)';roundRect(g,-bodyW/2+4,bodyH/2-11,bodyW-8,9,6,true);g.fillStyle='rgba(10,20,28,.28)';roundRect(g,-bodyW/2+6,-bodyH/2+3,6,bodyH-6,3,true);
     g.fillStyle='rgba(255,255,255,.28)';roundRect(g,-bodyW/2+9,-bodyH/2+6,bodyW-24,6,4,true);g.fillStyle='rgba(255,255,255,.10)';roundRect(g,-bodyW/2+15,-bodyH/2+14,bodyW*.34,4,2,true);
     g.fillStyle='rgba(255,255,255,.12)';roundRect(g,-bodyW/2+14,-bodyH/2+14,bodyW*0.22,bodyH*0.18,4,true);
 
@@ -4993,7 +5031,8 @@
     else if(fire){const flash=reducedMotion?0:Math.floor(performance.now()/210)%2;g.fillStyle='rgba(255,255,255,.86)';g.fillRect(-bodyW/2+12,-5,bodyW-24,10);g.fillStyle='#ffd166';roundRect(g,-30,-18,42,8,3,true);g.fillStyle='rgba(80,34,34,.45)';for(let i=0;i<3;i++)roundRect(g,-34+i*20,10,14,10,3,true);g.shadowBlur=14;g.shadowColor=flash?'#ffd166':'#ff5964';g.fillStyle=flash?'#ffd166':'#ff5964';g.fillRect(-8,-32,8,5);g.fillStyle=flash?'#ff5964':'#ffd166';g.fillRect(0,-32,8,5);g.shadowBlur=0;}
     else if(c.style===1){g.fillStyle='#1f2937';g.fillRect(-21,-26,42,5);for(let i=0;i<6;i++){g.fillStyle=i%2?'#fff':'#1f2937';g.fillRect(-18+i*6,-4,6,6);}}
     else if(c.style===4){g.fillStyle='#fff';g.fillRect(-7,-25,14,50);const flash=reducedMotion?0:Math.floor(performance.now()/180)%2;g.shadowBlur=12;g.shadowColor=flash?'#55d5ff':'#ff5964';g.fillStyle=flash?'#55d5ff':'#ff5964';g.fillRect(-7,-29,7,5);g.fillStyle=flash?'#ff5964':'#55d5ff';g.fillRect(0,-29,7,5);g.shadowBlur=0;}
-    else if(c.style===2){g.fillStyle='rgba(255,255,255,.64)';roundRect(g,-31,-5,23,10,3,true);g.fillStyle='rgba(12,37,55,.40)';roundRect(g,-29,-3,19,6,2,true);}    else if(c.style===3){g.fillStyle='rgba(255,255,255,.72)';g.fillRect(-bodyW/2+10,-3,bodyW-20,6);g.fillStyle='rgba(255,255,255,.28)';g.fillRect(-bodyW/2+18,-11,bodyW-36,3);}
+    else if(c.style===2){g.fillStyle='rgba(255,255,255,.64)';roundRect(g,-31,-5,23,10,3,true);g.fillStyle='rgba(12,37,55,.40)';roundRect(g,-29,-3,19,6,2,true);}
+    else if(c.style===3){g.fillStyle='rgba(255,255,255,.72)';g.fillRect(-bodyW/2+10,-3,bodyW-20,6);g.fillStyle='rgba(255,255,255,.28)';g.fillRect(-bodyW/2+18,-11,bodyW-36,3);}
     else if(c.style===5){g.strokeStyle='#8affdf';g.lineWidth=2;g.beginPath();g.arc(-24,0,6,0,Math.PI*2);g.stroke();g.beginPath();g.moveTo(-18,0);g.lineTo(-10,0);g.stroke();}
     else if(c.style===6){g.strokeStyle='#e8ca7a';g.lineWidth=2;roundRect(g,-bodyW/2+2,-bodyH/2+2,bodyW-4,bodyH-4,14,false);g.fillStyle='rgba(232,202,122,.28)';g.fillRect(-bodyW/2+14,-bodyH/2+9,bodyW-28,3);}
     else if(c.style===7){g.save();g.strokeStyle='#d88cff';g.shadowColor='#bd5cff';g.shadowBlur=13;g.lineWidth=2.5;roundRect(g,-bodyW/2+3,-bodyH/2+3,bodyW-6,bodyH-6,13,false);g.shadowBlur=0;g.fillStyle='#5df0ff';g.fillRect(-bodyW/2+18,bodyH/2-7,bodyW-36,3);g.restore();}
@@ -5333,7 +5372,7 @@
     const resumeAfter=origin==='game'&&Game.state==='playing'&&!Game.userPaused;if(resumeAfter){Game.userPaused=true;platform.gameplayStop();}
     const best=save.scenarioProgress?.[scenarioSaveKey(def)]||null;
     $('modal-kicker').textContent=T.scenarioDistrict;$('modal-title').textContent=`🎒 ${T[def.nameKey]}`;$('modal-text').textContent=T[def.descriptionKey];$('modal-stars').textContent=best&&best.stars?'⭐'.repeat(best.stars)+'☆'.repeat(3-best.stars):'';$('modal-reward').classList.add('hidden');
-    const extra=$('modal-extra');extra.classList.remove('hidden');extra.textContent='';if(def.experimental){const exp=document.createElement('div');exp.className='roundabout-experimental';exp.textContent=`🧪 ${T.roundaboutExperimental} · ${T.roundaboutMetering}`;extra.appendChild(exp);}const goal=document.createElement('div');goal.className='daily-streak';goal.textContent=`🎯 ${T[def.goalKey]}`;extra.appendChild(goal);const rule=document.createElement('div');rule.className='scenario-rule';rule.textContent=`⚙️ ${T.scenarioRule}: ${T[def.ruleKey]||''}`;extra.appendChild(rule);const note=document.createElement('div');note.textContent=T.scenarioNoCoins;extra.appendChild(note);if(best){const line=document.createElement('div');line.textContent=`🏆 ${T.scenarioBest}: ${best.stars}/3★ · ${T.queueShort} ${best.bestQueue} · ${T.switchesShort} ${best.bestSwitches}${best.bestPriority?` · 🚨 ${best.bestPriority}`:''}`;extra.appendChild(line);}
+    const extra=$('modal-extra');extra.classList.remove('hidden');extra.textContent='';if(def.experimental){const exp=document.createElement('div');exp.className='roundabout-experimental';const meta=T[def.experimentalMetaKey]||T.roundaboutMetering;exp.textContent=`🧪 ${T.roundaboutExperimental} · ${meta}`;extra.appendChild(exp);}const goal=document.createElement('div');goal.className='daily-streak';goal.textContent=`🎯 ${T[def.goalKey]}`;extra.appendChild(goal);const rule=document.createElement('div');rule.className='scenario-rule';rule.textContent=`⚙️ ${T.scenarioRule}: ${T[def.ruleKey]||''}`;extra.appendChild(rule);const note=document.createElement('div');note.textContent=T.scenarioNoCoins;extra.appendChild(note);if(best){const line=document.createElement('div');line.textContent=`🏆 ${T.scenarioBest}: ${best.stars}/3★ · ${T.queueShort} ${best.bestQueue} · ${T.switchesShort} ${best.bestSwitches}${best.bestPriority?` · 🚨 ${best.bestPriority}`:''}`;extra.appendChild(line);}
     actions([{text:T.scenarioStart,cls:'primary',fn:()=>{Game.userPaused=false;Game.startScenario(def.id);}},{text:T.close,fn:()=>{if(origin==='hub'){showModeHub('return');return;}closeOverlay();if(resumeAfter){resumePausedGameplay();}else if(origin==='pause')showPause();}}]);openOverlay();
   }
   function showScenarioWin(def,stars,previous,best){
