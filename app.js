@@ -13,7 +13,7 @@
   }catch(_){}
 
   const BUILD_MODE = 'production';
-  const BUILD_VERSION = 'M197-VKPLAY-ROUNDABOUT-TRIAL-RC1-HF2';
+  const BUILD_VERSION = 'M197-VKPLAY-ROUNDABOUT-TRIAL-RC1-HF3';
   const IS_DEVELOPMENT = BUILD_MODE === 'development';
   const PLATFORM_TARGET = 'vkplay'; // browser release target: VK Play iframe
   const YANDEX_PUBLIC_LEADERBOARD_NAME = 'TrafficPulseStars';
@@ -927,7 +927,7 @@
       // Decode/autoplay fallback: preserve the old lightweight signal until the real sample is ready.
       this.tone(740,.08,.024,'square');setTimeout(()=>this.tone(560,.09,.022,'square'),90);setTimeout(()=>this.tone(820,.08,.020,'square'),190);
     },
-    pass(streak=1){ const f=Math.min(940,600+streak*26);this.tone(f,.040,.013,'triangle');if(streak===3||streak===5||streak===8)setTimeout(()=>this.tone(f*1.25,.055,.010,'sine'),28); },
+    pass(streak=1){ return false; },
     fail(){ this.stopRoadBed(); this.duckMusic(.12,1.55); this.tone(138,.26,.05,'sawtooth'); setTimeout(()=>this.tone(82,.32,.045,'square'),55); },
     win(){ this.stopRoadBed(); this.duckMusic(.38,1.15); [520,660,820,1040].forEach((f,i)=>setTimeout(()=>this.tone(f,.11,.026,'triangle'),i*78)); },
     suspend(recoverIfReenabled=false){
