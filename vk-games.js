@@ -390,9 +390,7 @@ const PREFIX='trafficpulse_vkg_v2';
      if(!insideVK){this.error='outside_vk';this.inform();return false;}
      try{
        await this.initializeAccount();
-       this.ready=true;this.error='';await this.load();this.inform();
-       root.setTimeout(()=>{void this.showAdaptiveBanner();},500);
-       return true;
+       this.ready=true;this.error='';await this.load();this.inform();return true;
      }catch(error){
        this.error=String(error?.message||error||'vk_init_error');this.ready=false;this.cloud=false;this.loaded=true;this.inform();return false;
      }
