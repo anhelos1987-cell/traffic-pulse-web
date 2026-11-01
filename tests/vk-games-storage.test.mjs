@@ -42,7 +42,7 @@ function accountStore(all,userId){
 function harness(allVk,localMap,initialSave={},opts={}){
   let data=normalize(initialSave);
   const operations=[];
-  const userId=opts.userId??42,appId=opts.appId??100;
+  const userId=opts.userId??42,appId=opts.appId??54870403;
   const vk=accountStore(allVk,userId);
   const supported=new Set(opts.unsupported?[
     'VKWebAppGetLaunchParams','VKWebAppStorageGet','VKWebAppStorageSet',
@@ -240,6 +240,14 @@ test('deleteData clears only Traffic Pulse VK keys and advances reset epoch',asy
   for(const [key,value] of a.vk)if(key.startsWith(prefix)&&key!==epochKey)assert.equal(value,'');
   assert.equal(a.getSave().level,1);assert.equal(a.getSave().coins,0);
   a.cleanup();
+});
+
+test('wrong VK application id fails closed before storage operations',async()=>{
+  const h=harness(new Map(),new Map(),{}, {embedded:true,appId:54870404});
+  assert.equal(await h.instance.init(),false);
+  assert.match(h.instance.error,/Wrong VK application/i);
+  assert.ok(!h.operations.includes('VKWebAppStorageGet'));
+  h.cleanup();
 });
 
 test('account mismatch fails closed before storage operations',async()=>{
