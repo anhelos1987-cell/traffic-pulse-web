@@ -13,7 +13,7 @@
   }catch(_){}
 
   const BUILD_MODE = 'production';
-  const BUILD_VERSION = 'M197-VKGAMES-VKSTORAGE-RC1';
+  const BUILD_VERSION = 'M197-VKGAMES-PRIVACY-HARDENED-RC2';
   const IS_DEVELOPMENT = BUILD_MODE === 'development';
   const PLATFORM_TARGET = 'vkgames'; // VK Games / VK Mini Apps, not VK Play
   const YANDEX_PUBLIC_LEADERBOARD_NAME = 'TrafficPulseStars';
@@ -473,7 +473,7 @@
     let timer;return Promise.race([Promise.resolve(promise).finally(()=>clearTimeout(timer)),new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error(`${label} timeout`)),ms);})]);
   }
 
-  // VK Play browser release: no embedded advertising, no VK Mini Apps bridge and no external SDK.
+  // VK Games: native VK Bridge handles account storage and advertising; no external player backend.
   const normalizePlatformLanguage=(raw)=>/^ru(?:[_-]|$)/i.test(String(raw||''))?'ru':'en';
   const platform = {
     target:PLATFORM_TARGET, ready:false, booting:true, pausedByPlatform:false, browserPaused:Boolean(document.hidden), adPaused:false, adBusy:false, adKind:'', gameplayActive:false, cloudReady:false, cloudTimer:0, cloudWriting:false, cloudWriteAwaitingSettlement:false, cloudDirty:false, cloudFlushRequested:false, cloudFailureStreak:0, cloudNextRetryAt:0, cloudInitInFlight:false, cloudInitNextRetryAt:0, cloudInitFailureStreak:0, leaderboardTimer:0, leaderboardBusy:false, leaderboardLastSubmittedStars:-1, leaderboardLastSubmittedMastery:-1, leaderboardLastError:'', leaderboardLastErrors:{}, player:null,
@@ -510,192 +510,55 @@
     async showRewarded(){if(this.adBusy)return false;this.adBusy=true;this.adPaused=true;syncExternalPauseState();try{return await VKGames.showAd('reward');}finally{this.adPaused=false;this.adBusy=false;syncExternalPauseState();}}
   };
 
-  // M195 Hotfix08: VK Play payment hardening.
-  // Paid currency is mirrored from the server wallet, purchases restore by VK Play UID,
-  // paid-wallet spending is idempotent, and transaction history is read back from D1.
-  const VKPLAY_BILLING_API='https://traffic-pulse-billing.anhelos1987.workers.dev';
-  const VKPLAY_GMRID=50363;
-  const VKPLAY_PRODUCTS=Object.freeze({
-    coins_500:{id:'coins_500',coins:500,price:99,titleRu:'500 монет',titleEn:'500 coins',description:'500 монет Traffic Pulse'},
-    coins_1500:{id:'coins_1500',coins:1500,price:249,titleRu:'1 500 монет',titleEn:'1,500 coins',description:'1500 монет Traffic Pulse'},
-    coins_3500:{id:'coins_3500',coins:3500,price:499,titleRu:'3 500 монет',titleEn:'3,500 coins',description:'3500 монет Traffic Pulse'},
-    supporter_pack:{id:'supporter_pack',coins:800,price:199,titleRu:'Supporter Pack',titleEn:'Supporter Pack',description:'Supporter Pack Traffic Pulse: тема Gold Pulse + 800 монет',supporter:true}
-  });
 
-  const VKBilling={
-    externalApi:null,connected:false,connecting:false,loginStatus:-1,uid:'',error:'',busy:false,paymentOpen:false,garageDeferred:false,syncPromise:null,pendingOrderId:'',pollSerial:0,pollTimer:0,lastSyncAt:0,
-    authResolve:null,authReject:null,authTimer:0,serverState:{coins:0,entitlements:{},transactions:[],spends:[]},lastProductId:'',
-    t(ru,en){return lang==='ru'?ru:en;},
-    productTitle(product){return lang==='ru'?product.titleRu:product.titleEn;},
-    supporterOwned(){return Boolean((this.serverState.entitlements?.supporter_pack||save.vkEntitlements?.supporter_pack||0)>0);},
-    applySupporterTheme(){document.body?.classList.toggle('vk-supporter',this.supporterOwned());},
-    refreshGarage(){if(!overlayVisible()||!String($('modal-title')?.textContent||'').includes(T.garage))return;if(this.paymentOpen||!document.hasFocus()){this.garageDeferred=true;return;}this.garageDeferred=false;showGarage('rerender');},
-    statusText(){
-      if(this.error==='iframe_api_missing')return this.t('VK Play API не найден в тестовом iFrame','VK Play API was not found in the test iFrame');
-      if(this.error)return this.t(`Ошибка VK Play API: ${this.error}`,`VK Play API error: ${this.error}`);
-      if(!this.connected)return this.t('Подключение к VK Play…','Connecting to VK Play…');
-      if(this.loginStatus===0)return this.t('Нужно войти в VK Play','Sign in to VK Play');
-      if(this.loginStatus===1)return this.t('Нужно подтвердить регистрацию в игре','Game registration is required');
-      if(this.loginStatus>=2&&!this.uid)return this.t('Получение профиля VK Play…','Loading VK Play profile…');
-      if(this.loginStatus>=2&&this.uid)return `VK Play · UID ${this.uid}`;
-      return this.t('Проверка авторизации VK Play…','Checking VK Play authorization…');
-    },
-    actionLabel(){
-      if(!this.connected)return this.t('Подключение…','Connecting…');
-      if(this.loginStatus===0)return this.t('Войти','Sign in');
-      if(this.loginStatus===1)return this.t('Регистрация','Register');
-      return this.canOffer()?T.vkBillingBuy:this.t('Пока недоступно','Unavailable');
-    },
-    canOffer(){return PLATFORM_TARGET==='vkplay'&&this.connected&&this.loginStatus>=2&&Boolean(this.uid)&&Boolean(this.externalApi);},
-    async init(){
-      if(PLATFORM_TARGET!=='vkplay'||this.connecting||this.connected)return false;
-      this.connecting=true;this.error='';this.applySupporterTheme();
-      try{
-        if(typeof window.iframeApi!=='function'){this.error='iframe_api_missing';return false;}
-        const callbacks={
-          appid:VKPLAY_GMRID,getLoginStatusCallback:(status)=>this.onLoginStatus(status),userInfoCallback:(info)=>this.onUserInfo(info),userProfileCallback:()=>{},registerUserCallback:(info)=>this.onRegistered(info),paymentFrameUrlCallback:()=>{},getAuthTokenCallback:(token)=>this.onAuthToken(token),paymentReceivedCallback:(data)=>this.onPaymentReceived(data),paymentWindowClosedCallback:()=>this.onPaymentWindowClosed(),userConfirmCallback:()=>{},paymentFrameItem:()=>{},getGameInventoryItems:()=>{}
-        };
-        this.externalApi=await withTimeout(window.iframeApi(callbacks),5000,'vkplay iframeApi');
-        this.connected=Boolean(this.externalApi);if(!this.connected)throw new Error('connect_failed');
-        YandexAudit.mark('vkplay:jsapi:connected',String(VKPLAY_GMRID));this.externalApi.getLoginStatus();return true;
-      }catch(err){this.error=String(err?.message||err||'connect_failed');YandexAudit.mark('vkplay:jsapi:error',this.error);return false;}
-      finally{this.connecting=false;this.refreshGarage();}
-    },
-    onLoginStatus(status){
-      if(status?.status!=='ok'){this.error=String(status?.errmsg||status?.errcode||'login_status_error');this.refreshGarage();return;}
-      this.error='';this.loginStatus=safeInt(status.loginStatus,0,3,-1);YandexAudit.mark('vkplay:login-status',String(this.loginStatus));
-      if(this.loginStatus===0)VKCloud.unbind();
-      if(this.loginStatus>=2){try{this.externalApi?.userInfo();}catch(err){this.error=String(err?.message||err);}}this.refreshGarage();
-    },
-    onUserInfo(info){if(info?.status==='ok'&&info?.uid!=null){this.uid=String(info.uid);this.error='';YandexAudit.mark('vkplay:user-info','ok');VKCloud.bind(this.uid);void VKCloud.sync().then(()=>this.sync('userinfo'));}else this.error=String(info?.errmsg||info?.errcode||'user_info_error');this.refreshGarage();},
-    onRegistered(info){if(info?.status==='ok'&&info?.uid!=null){this.uid=String(info.uid);this.loginStatus=2;this.error='';YandexAudit.mark('vkplay:registered','ok');VKCloud.bind(this.uid);void VKCloud.sync().then(()=>this.sync('registered'));}else this.error=String(info?.errmsg||info?.errcode||'register_error');this.refreshGarage();},
-    onAuthToken(token){
-      clearTimeout(this.authTimer);this.authTimer=0;const resolve=this.authResolve,reject=this.authReject;this.authResolve=null;this.authReject=null;
-      if(token?.status==='ok'&&token?.uid!=null&&token?.hash){resolve?.({uid:String(token.uid),hash:String(token.hash)});}else reject?.(new Error(String(token?.errmsg||token?.errcode||'auth_token_error')));
-    },
-    // Serialize token acquisition so cloud saves and wallet refreshes cannot steal callbacks.
-    getAuthToken(){
-      const task=(this.authQueue||Promise.resolve()).catch(()=>{}).then(()=>this.getAuthTokenOnce());this.authQueue=task;return task;
-    },
-    getAuthTokenOnce(){
-      if(!this.canOffer()||!this.externalApi?.getAuthToken)return Promise.reject(new Error('vkplay_not_authorized'));
-      if(this.authResolve)return Promise.reject(new Error('auth_token_busy'));
-      return new Promise((resolve,reject)=>{this.authResolve=resolve;this.authReject=reject;this.authTimer=setTimeout(()=>{this.authTimer=0;this.authResolve=null;this.authReject=null;reject(new Error('auth_token_timeout'));},6000);try{this.externalApi.getAuthToken();}catch(err){clearTimeout(this.authTimer);this.authTimer=0;this.authResolve=null;this.authReject=null;reject(err);}});
-    },
-    async request(path,payload){
-      const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),9000);
-      try{const response=await fetch(VKPLAY_BILLING_API+path,{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(payload),cache:'no-store',credentials:'omit',signal:controller.signal});let data=null;try{data=await response.json();}catch(_){}if(!response.ok){const err=new Error(data?.message||data?.error||`billing_http_${response.status}`);err.data=data;throw err;}return data||{};}finally{clearTimeout(timer);}
-    },
-    reconcilePendingSpend(spends){
-      const pending=normalizeVkPendingSpend(save.vkPendingSpend);if(!pending)return false;
-      const hit=(spends||[]).find(x=>String(x?.request_id||'')===pending.requestId);if(!hit)return false;
-      save.coins=Math.max(0,safeInt(save.coins,0,1_000_000_000_000,0)-pending.localPart);
-      const carId=pending.carId;if(carId>=0&&carId<CAR_NAMES.length){save.ownedCars=[...new Set([...ownedStyleIds(),carId])].sort((a,b)=>a-b);save.purchasedCars=[...new Set([...(save.purchasedCars||[]),carId])].sort((a,b)=>a-b);save.favoriteCar=carId;garagePreviewId=carId;}
-      save.vkPendingSpend=null;return true;
-    },
-    applyServerState(data,reason='sync'){
-      const serverWallet=safeInt(data?.coins,0,1_000_000_000_000,0),mirrored=safeInt(save.vkPaidCoinsCredited,0,1_000_000_000_000,0),delta=serverWallet-mirrored;
-      let changed=false;if(delta!==0){save.coins=Math.max(0,safeInt(save.coins,0,1_000_000_000_000,0)+delta);save.vkPaidCoinsCredited=serverWallet;changed=true;}
-      const ent=normalizeVkEntitlements(data?.entitlements),oldEnt=JSON.stringify(normalizeVkEntitlements(save.vkEntitlements));save.vkEntitlements=ent;if(JSON.stringify(ent)!==oldEnt)changed=true;
-      const oldHistory=JSON.stringify([this.serverState.transactions,this.serverState.spends]);
-      this.serverState={coins:serverWallet,entitlements:ent,transactions:Array.isArray(data?.transactions)?data.transactions.slice(0,12):[],spends:Array.isArray(data?.spends)?data.spends.slice(0,20):[]};
-      for(const spend of this.serverState.spends){const m=/^garage_car:([0-9]+)$/.exec(String(spend?.context||''));if(!m)continue;const carId=safeInt(m[1],0,CAR_NAMES.length-1,-1);if(carId>0&&!ownedStyleIds().includes(carId)){save.ownedCars=[...new Set([...ownedStyleIds(),carId])].sort((a,b)=>a-b);save.purchasedCars=[...new Set([...(save.purchasedCars||[]),carId])].sort((a,b)=>a-b);changed=true;}}
-      if(this.reconcilePendingSpend(this.serverState.spends))changed=true;
-      this.applySupporterTheme();
-      if(changed){persist();updateHud();if(delta>0&&reason!=='boot')toast(`${T.vkBillingReceived}: +${delta} ${T.coins}`);}
-      if(changed||oldHistory!==JSON.stringify([this.serverState.transactions,this.serverState.spends])||this.garageDeferred)this.refreshGarage();return changed;
-    },
-    async sync(reason='manual'){
-      if(!this.canOffer())return false;if(this.syncPromise)return this.syncPromise;
-      const now=Date.now();if(!['poll','spend','payment','payment-close','registered','userinfo','boot'].includes(reason)&&now-this.lastSyncAt<900)return false;this.lastSyncAt=now;
-      const task=(async()=>{try{const owner=this.uid,auth=await this.getAuthToken();if(this.uid!==owner||String(auth.uid)!==owner)return false;const data=await this.request('/api/player/state-auth',auth);if(this.uid!==owner||String(data.uid)!==owner)return false;return this.applyServerState(data,reason);}catch(err){YandexAudit.mark('vkplay:billing:sync-error',String(err?.message||err));return false;}})();
-      this.syncPromise=task;try{return await task;}finally{if(this.syncPromise===task)this.syncPromise=null;}
-    },
-    beginPolling(){
-      if(this.pollTimer)clearInterval(this.pollTimer);const serial=++this.pollSerial,started=Date.now();let running=false;
-      this.pollTimer=setInterval(async()=>{
-        if(running)return;running=true;
-        try{await this.sync('poll');if(serial!==this.pollSerial)return;
-          const received=this.pendingOrderId&&this.serverState.transactions.some(x=>String(x?.order_id||'')===this.pendingOrderId);
-          if(!this.paymentOpen&&(received||Date.now()-started>120000)){clearInterval(this.pollTimer);this.pollTimer=0;}
-        }finally{running=false;}
-      },2500);
-    },
-    async handleAuthAction(){
-      if(!this.connected){await this.init();return false;}if(this.loginStatus===0){try{this.externalApi?.authUser();return true;}catch(err){this.error=String(err?.message||err);this.refreshGarage();return false;}}if(this.loginStatus===1){try{this.externalApi?.registerUser();return true;}catch(err){this.error=String(err?.message||err);this.refreshGarage();return false;}}return this.canOffer();
-    },
-    async buyProduct(productId){
-      const product=VKPLAY_PRODUCTS[productId];if(!product||this.busy||this.paymentOpen)return false;if(!this.canOffer()){await this.handleAuthAction();return false;}
-      this.busy=true;this.lastProductId=productId;this.refreshGarage();
-      try{snapshotLocalBeforeExternalTransition();const orderId=(crypto?.randomUUID?.()||`tp-${Date.now()}-${Math.random().toString(16).slice(2)}`);this.pendingOrderId=orderId;this.paymentOpen=true;this.externalApi.paymentFrame({merchant_param:{amount:product.price,currency:'RUB',description:product.description,item_id:product.id,additional_param:orderId}});this.beginPolling();toast(T.vkBillingPending);YandexAudit.mark('vkplay:billing:frame-open',`${product.id}:${orderId}`);return true;}
-      catch(err){this.paymentOpen=false;this.pendingOrderId='';this.error=String(err?.message||err||'payment_frame_error');YandexAudit.mark('vkplay:billing:create-error',this.error);toast(T.vkBillingError);return false;}
-      finally{this.busy=false;this.refreshGarage();}
-    },
-    async spendForGarageCar(carId,cost){
-      const mirrored=safeInt(save.vkPaidCoinsCredited,0,1_000_000_000_000,0),localEarned=Math.max(0,safeInt(save.coins,0,1_000_000_000_000,0)-mirrored),serverPart=Math.max(0,cost-localEarned),localPart=cost-serverPart;
-      if(serverPart<=0)return {localOnly:true,localPart:cost,serverPart:0};
-      if(!this.canOffer()){toast(T.vkBillingSpendError);return null;}
-      const requestId=(crypto?.randomUUID?.()||`spend-${Date.now()}-${Math.random().toString(16).slice(2)}`),context=`garage_car:${carId}`;
-      save.vkPendingSpend={requestId,context,carId,cost,localPart,serverPart,createdAt:Date.now()};persist();
-      try{const auth=await this.getAuthToken();await this.request('/api/wallet/spend-auth',{...auth,request_id:requestId,amount:serverPart,context});await this.sync('spend');if(save.vkPendingSpend){toast(T.vkBillingSpendPending);return false;}return {localOnly:false,localPart,serverPart};}
-      catch(err){YandexAudit.mark('vkplay:billing:spend-error',String(err?.message||err));await this.sync('spend-error');if(save.vkPendingSpend){save.vkPendingSpend=null;persist();toast(T.vkBillingSpendError);}return null;}
-    },
-    onPaymentReceived(data){if(data?.uid!=null&&String(data.uid)!==this.uid)return;YandexAudit.mark('vkplay:billing:received',this.uid||'unknown');toast(T.vkBillingReceived);this.beginPolling();setTimeout(()=>void this.sync('payment'),800);},
-    onPaymentWindowClosed(){this.paymentOpen=false;YandexAudit.mark('vkplay:billing:window-closed');this.beginPolling();this.refreshGarage();setTimeout(()=>void this.sync('payment-close'),900);}
-  };
+  // VK Games deliberately has no VK Play billing/backend transport.
+  // This inert shim only preserves shared UI code paths; it performs no network requests.
+  const VKBilling=Object.freeze({
+    paymentOpen:false,busy:false,connecting:false,lastProductId:'',serverState:{transactions:[],spends:[]},
+    supporterOwned:()=>false,applySupporterTheme:()=>{},refreshGarage:()=>{},canOffer:()=>false,
+    sync:async()=>false,spendForGarageCar:async()=>null,handleAuthAction:async()=>false,
+    statusText:()=>lang==='ru'?'Покупки VK Play отключены в VK Games':'VK Play purchases are disabled in VK Games',
+    actionLabel:()=>lang==='ru'?'Недоступно':'Unavailable',productTitle:()=>'',buyProduct:async()=>false
+  });
 
   function recordVkCloudReward(key,amount){
     if(amount<=0)return;save.vkCloudRewards=save.vkCloudRewards||{};
     if(!save.vkCloudRewards[key])save.vkCloudRewards[key]=amount;
   }
   function vkCloudStatusText(){
-    const states={guest:['Прогресс хранится на устройстве. Войдите в VK Play для переноса.','Progress is stored on this device. Sign in to VK Play to transfer it.'],loading:['Загружаем прогресс аккаунта…','Loading your account progress…'],saving:['Сохраняем прогресс…','Saving progress…'],saved:['Прогресс сохранён в аккаунте VK Play','Progress saved to your VK Play account'],offline:['Нет связи с сохранениями. Прогресс сохранён на устройстве; повторим синхронизацию.','Cannot connect to cloud saves. Progress is stored on this device; sync will retry.']};
-    const vkStates={local:['Прогресс сохраняется только на этом устройстве','Progress is saved only on this device'],loading:['Загружаем сохранение VK…','Loading your VK save…'],saving:['Сохраняем в VK…','Saving to VK…'],saved:['Прогресс сохранён в VK','Progress saved to VK'],offline:['Синхронизация VK недоступна, локальная копия сохранена','VK sync unavailable, local copy kept']};const text=vkStates[VKGames.status()]||vkStates.loading;return text[lang==='ru'?0:1];
+    const states={
+      local:['Прогресс хранится только на этом устройстве','Progress is stored only on this device'],
+      loading:['Проверяем сохранение VK…','Checking your VK save…'],
+      saving:['Сохраняем прогресс в VK…','Saving progress to VK…'],
+      saved:['Прогресс сохранён в аккаунте VK','Progress saved to your VK account'],
+      offline:['VK Storage временно недоступен. Локальная копия сохранена.','VK Storage is temporarily unavailable. A local copy is kept.']
+    };
+    return (states[VKGames.status()]||states.loading)[lang==='ru'?0:1];
   }
-  const VKCloud=TrafficPulseCloud.create({
-    storage:(()=>{try{return window.localStorage;}catch{const cache=new Map();return {getItem:key=>cache.get(key)||null,setItem:(key,value)=>cache.set(key,value)};}})(),getSave:()=>save,
-    setSave:(data,restart)=>{
-      save=normalizeSaveData(data);snapshotLocalBeforeExternalTransition();applyResolvedLanguage();
-      if(restart){closeOverlay();Game.userPaused=false;Game.startLevel(save.level,false,'campaign');syncExternalPauseState();}
-      updateHud();VKBilling.applySupporterTheme();VKBilling.refreshGarage();
-    },
-    authorized:(uid)=>VKBilling.canOffer()&&VKBilling.uid===uid,
-    online:()=>navigator.onLine!==false,auth:()=>VKBilling.getAuthToken(),
-    request:async(path,payload,keepalive)=>{
-      const body=JSON.stringify(payload),controller=new AbortController(),timer=setTimeout(()=>controller.abort(),10000);
-      try{
-        const response=await fetch(VKPLAY_BILLING_API+path,{method:'POST',headers:{'content-type':'application/json'},body,cache:'no-store',credentials:'omit',signal:controller.signal,keepalive:Boolean(keepalive&&new TextEncoder().encode(body).byteLength<60000)});
-        let data;try{data=await response.json();}catch{throw new Error('invalid_cloud_response');}
-        if(!response.ok){const error=new Error(data?.error||`cloud_http_${response.status}`);error.data=data;throw error;}
-        return data;
-      }finally{clearTimeout(timer);}
-    },
-    onStatus:()=>{
-      platform.cloudReady=VKCloud.ready;platform.cloudDirty=VKCloud.dirty;platform.cloudWriting=Boolean(VKCloud.busy);
-      const extra=$('modal-extra');if(overlayVisible()&&$('modal-title')?.textContent===T.paused&&extra?.dataset.cloudStatus==='1')extra.textContent=vkCloudStatusText();
-    },
-    onRead:()=>{YandexAudit.state.cloudRead++;YandexAudit.state.player='ready';},
-    onCommit:()=>{YandexAudit.state.cloudWrite++;YandexAudit.mark('vkplay:cloud:saved');}
-  });
-  // VK Games saves are stored in the player's VK account via VK Bridge Storage.
-  // VK Play's separate billing backend and purchased currency remain isolated.
+
+  // Personal progress is kept in VK Storage. Cloudflare is static hosting only.
   const VKGames=TrafficPulseVKGames.create({
+    storage:(()=>{try{return window.localStorage;}catch{return null;}})(),
     normalize:normalizeSaveData,
-    merge:(local,remote)=>mergeProgress(local,remote),
+    merge:(local,remote,base)=>TrafficPulseProgress.merge(local,remote,base),
     getSave:()=>save,
-    onLoad:(data)=>{
+    onLoad:(data,meta={})=>{
       save=normalizeSaveData(data);
       save.vkPaidCoinsCredited=0;save.vkEntitlements={};save.vkPendingSpend=null;
       snapshotLocalBeforeExternalTransition();applyResolvedLanguage();
-      if(platform.ready){updateHud();if(Game?.state!=='playing')Game.startLevel(save.level,false,'campaign');}
+      if(platform.ready){
+        updateHud();
+        if(meta.accountChanged||Game?.state!=='playing')Game.startLevel(save.level,false,'campaign');
+      }
     },
-    onStatus:(status)=>{
+    onStatus:()=>{
       platform.cloudReady=VKGames.loaded;platform.cloudDirty=VKGames.dirty;platform.cloudWriting=Boolean(VKGames.busy);
       const extra=$('modal-extra');
       if(overlayVisible()&&$('modal-title')?.textContent===T.paused&&extra?.dataset.cloudStatus==='1')extra.textContent=vkCloudStatusText();
     },
     onRead:()=>{YandexAudit.state.cloudRead++;YandexAudit.state.player='ready';},
-    onWrite:()=>{YandexAudit.state.cloudWrite++;YandexAudit.mark('vkgames:cloud:saved');}
+    onWrite:()=>{YandexAudit.state.cloudWrite++;YandexAudit.mark('vkgames:cloud:saved');},
+    onDelete:()=>YandexAudit.mark('vkgames:cloud:deleted')
   });
   cloudSaveHook=()=>VKGames.changed();
 
@@ -5237,8 +5100,39 @@
 
   function showPause(){
     $('modal-kicker').textContent='TRAFFIC PULSE';$('modal-title').textContent=T.paused;$('modal-text').textContent=T.pausedText;$('modal-stars').textContent='';$('modal-reward').classList.add('hidden');$('modal-extra').classList.remove('hidden');$('modal-extra').textContent=vkCloudStatusText();$('modal-extra').dataset.cloudStatus='1';
-    const pauseActions=[{text:T.continue,cls:'primary',fn:()=>Game.resume()},{text:`🎮 ${T.modesHub}`,fn:()=>showModeHub('pause')},{text:`🗺️ ${T.campaignMap}`,fn:()=>showCampaignMap('pause',save.level)},{text:`🚗 ${T.garage}`,fn:()=>showGarage('pause')},{text:`📊 ${T.stats}`,fn:()=>showStats('pause')},{text:`ℹ️ ${T.developer}`,fn:()=>showDeveloperInfo('pause')},{text:`${T.musicLevel}: ${AudioFx.musicLabel()}`,cls:'sound-toggle',fn:(b)=>{AudioFx.cycleMusic();b.textContent=`${T.musicLevel}: ${AudioFx.musicLabel()}`;}},{text:save.sfx?T.effectsOn:T.effectsOff,cls:'sound-toggle',fn:(b)=>{AudioFx.setSfxEnabled(!save.sfx);b.textContent=save.sfx?T.effectsOn:T.effectsOff;}},{text:`${T.language}: ${languageModeLabel()}`,cls:'sound-toggle',fn:()=>{cycleLanguageMode();showPause();}},{text:lang==='ru'?'☁ Сохранить прогресс в аккаунте':'☁ Save progress to your account',fn:async()=>{if(!VKBilling.canOffer()){await VKBilling.handleAuthAction();return;}await VKCloud.sync();toast(vkCloudStatusText());}},{text:T.restart,fn:()=>Game.restart()}];actions(pauseActions);openOverlay();
+    const pauseActions=[{text:T.continue,cls:'primary',fn:()=>Game.resume()},{text:`🎮 ${T.modesHub}`,fn:()=>showModeHub('pause')},{text:`🗺️ ${T.campaignMap}`,fn:()=>showCampaignMap('pause',save.level)},{text:`🚗 ${T.garage}`,fn:()=>showGarage('pause')},{text:`📊 ${T.stats}`,fn:()=>showStats('pause')},{text:`ℹ️ ${T.developer}`,fn:()=>showDeveloperInfo('pause')},{text:`${T.musicLevel}: ${AudioFx.musicLabel()}`,cls:'sound-toggle',fn:(b)=>{AudioFx.cycleMusic();b.textContent=`${T.musicLevel}: ${AudioFx.musicLabel()}`;}},{text:save.sfx?T.effectsOn:T.effectsOff,cls:'sound-toggle',fn:(b)=>{AudioFx.setSfxEnabled(!save.sfx);b.textContent=save.sfx?T.effectsOn:T.effectsOff;}},{text:`${T.language}: ${languageModeLabel()}`,cls:'sound-toggle',fn:()=>{cycleLanguageMode();showPause();}},{text:lang==='ru'?'☁ Синхронизировать VK':'☁ Sync VK',fn:async()=>{await VKGames.sync();toast(vkCloudStatusText());}},{text:lang==='ru'?'🔐 Данные игры':'🔐 Game data',fn:()=>showVkDataPanel('pause')},{text:T.restart,fn:()=>Game.restart()}];actions(pauseActions);openOverlay();
   }
+
+  function showVkDataPanel(origin='pause'){
+    const privacy=VKGames.privacyStatus();
+    $('modal-kicker').textContent='VK GAMES';
+    $('modal-title').textContent=lang==='ru'?'🔐 Данные игры':'🔐 Game data';
+    $('modal-text').textContent=privacy.cloud
+      ?(lang==='ru'?'Игровой прогресс сохраняется в хранилище аккаунта VK. Traffic Pulse не отправляет UID, launch-параметры или сохранение в Cloudflare.':'Game progress is saved in your VK account storage. Traffic Pulse does not send UID, launch parameters, or saves to Cloudflare.')
+      :(lang==='ru'?'VK Storage сейчас недоступен — используется только локальная копия на устройстве.':'VK Storage is currently unavailable — only the local device copy is used.');
+    $('modal-stars').textContent='';$('modal-reward').classList.add('hidden');
+    const extra=$('modal-extra');extra.classList.remove('hidden');extra.textContent='';
+    const state=document.createElement('div');state.className='garage-summary';state.textContent=vkCloudStatusText();extra.appendChild(state);
+    const dataActions=[{text:lang==='ru'?'☁ Синхронизировать':'☁ Sync',cls:'primary',fn:async()=>{await VKGames.sync();showVkDataPanel(origin);}}];
+    if(VKGames.deletionSupported){
+      dataActions.push({text:lang==='ru'?'Удалить прогресс из VK':'Delete VK progress',fn:()=>showVkDeleteConfirm(origin)});
+    }
+    dataActions.push({text:T.close,fn:()=>origin==='pause'?showPause():closeOverlay()});
+    actions(dataActions);openOverlay();
+  }
+  function showVkDeleteConfirm(origin='pause'){
+    $('modal-kicker').textContent='VK GAMES';
+    $('modal-title').textContent=lang==='ru'?'Удалить данные?':'Delete game data?';
+    $('modal-text').textContent=lang==='ru'
+      ?'Будет удалён только прогресс Traffic Pulse из VK Storage и локальная копия этого аккаунта. Действие нельзя отменить. Закрой игру на других устройствах.'
+      :'Only Traffic Pulse progress in VK Storage and this account’s local copy will be removed. This cannot be undone. Close the game on other devices.';
+    $('modal-stars').textContent='';$('modal-reward').classList.add('hidden');$('modal-extra').classList.add('hidden');
+    actions([
+      {text:lang==='ru'?'Подтверждаю удаление':'Confirm deletion',cls:'primary',fn:async()=>{const ok=await VKGames.deleteData();if(ok){toast(lang==='ru'?'Данные Traffic Pulse удалены':'Traffic Pulse data deleted');showVkDataPanel(origin);}else toast(lang==='ru'?'Не удалось удалить данные':'Could not delete data');}},
+      {text:lang==='ru'?'Отмена':'Cancel',fn:()=>showVkDataPanel(origin)}
+    ]);openOverlay();
+  }
+
   // M195 Hotfix03: player-facing About panel contains only studio, support email and public game version.
   function showDeveloperInfo(origin='pause'){
     $('modal-kicker').textContent='TRAFFIC PULSE';$('modal-title').textContent=`ℹ️ ${T.developerTitle}`;$('modal-text').textContent=T.developerDesc;$('modal-stars').textContent='';$('modal-reward').classList.add('hidden');
@@ -5568,7 +5462,7 @@
   }
   function startApp(){save.sessions=(save.sessions||0)+1;persist();Game.startLevel(save.level,false,'campaign');syncExternalPauseState();Game.draw();if(!Game.frameId)Game.frameId=requestAnimationFrame(t=>Game.loop(t));}
 
-  $('coin-btn').addEventListener('click',()=>{void VKBilling.sync('garage');showGarage('game');});$('map-btn').addEventListener('click',()=>showCampaignMap('game',save.level));
+  $('coin-btn').addEventListener('click',()=>showGarage('game'));$('map-btn').addEventListener('click',()=>showCampaignMap('game',save.level));
   $('daily-btn').addEventListener('click',()=>showModeHub('game'));$('record-badge')?.addEventListener('click',()=>PersonalBestService.toggle());
   // M112 Hotfix03: keep a cheap gesture fallback alive for iOS/WebKit. After an ad or app
   // switch the AudioContext may remain `interrupted`/`suspended` even though gameplay resumed.
@@ -5610,7 +5504,7 @@
   // Genuine app/tab departure requires an explicit manual resume after return. Ads are excluded:
   // Yandex ad callbacks own their lifecycle and should not strand the player on an extra pause screen.
   window.addEventListener('blur',()=>{YandexAudit.state.lifecycle.blurs++;YandexAudit.mark('lifecycle:blur');scheduleBlurPause();});
-  window.addEventListener('focus',()=>{YandexAudit.state.lifecycle.focuses++;YandexAudit.mark('lifecycle:focus');restoreBrowserFocus();if(VKBilling.paymentOpen)return;VKBilling.refreshGarage();if(!platform.cloudReady&&navigator.onLine!==false)void platform.recoverCloudAfterReconnect();void VKGames.sync();});
+  window.addEventListener('focus',()=>{YandexAudit.state.lifecycle.focuses++;YandexAudit.mark('lifecycle:focus');restoreBrowserFocus();if(!platform.cloudReady&&navigator.onLine!==false)void platform.recoverCloudAfterReconnect();void VKGames.sync();});
   window.addEventListener('pagehide',()=>{YandexAudit.state.lifecycle.pagehides++;YandexAudit.mark('lifecycle:pagehide');cancelBlurPause();pauseForFocusLoss(true);AudioFx.stopTransientAudio();clearWorldCache();snapshotLocalBeforeExternalTransition();void platform.flushCloud(true);});
   // M136: network-aware cloud recovery also heals an offline boot where initial getPlayer/getData timed out.
   window.addEventListener('offline',()=>{clearTimeout(platform.cloudTimer);platform.cloudTimer=0;platform.cloudDirty=platform.cloudDirty||Boolean(platform.cloudFlushRequested);});
