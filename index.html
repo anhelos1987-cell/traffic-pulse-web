@@ -10,8 +10,8 @@
   <meta name="theme-color" content="#0b1324">
   <meta name="color-scheme" content="dark">
   <title>Traffic Pulse</title>
-  <link rel="stylesheet" href="style.css?v=M197-VK-RC1-HF7-PAYMENT-FOCUS">
-  <!-- VK Play browser release: static HTTPS iframe build; no embedded advertising SDK. -->
+  <link rel="stylesheet" href="style.css?v=M197-VKGAMES-RC1">
+  <!-- VK Games / VK Mini Apps: VK Bridge storage and native ads. -->
 </head>
 <body>
   <main id="app" class="app" aria-label="Traffic Pulse">
@@ -100,9 +100,10 @@
     </div>
   </div>
 
-  <script src="https://vkplay.ru/app/50363/static/mailru.core.js"></script>
+  <script src="https://unpkg.com/@vkontakte/vk-bridge@2.15.0/dist/browser.min.js"></script>
   <script src="progress-core.js?v=HF7"></script>
   <script src="vk-cloud.js?v=HF7"></script>
-  <script src="app.js?v=M197-VK-RC1-HF7-PAYMENT-FOCUS"></script>
+  <script src="vk-games.js?v=1"></script>
+  <script src="app.js?v=M197-VKGAMES-RC1"></script>
 </body>
 </html>
