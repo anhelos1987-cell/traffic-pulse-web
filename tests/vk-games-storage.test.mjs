@@ -46,10 +46,10 @@ function harness(allVk,localMap,initialSave={},opts={}){
   const vk=accountStore(allVk,userId);
   const supported=new Set(opts.unsupported?[
     'VKWebAppGetLaunchParams','VKWebAppStorageGet','VKWebAppStorageSet',
-    'VKWebAppStorageGetKeys','VKWebAppCheckNativeAds','VKWebAppShowNativeAds','VKWebAppCheckBannerAd','VKWebAppShowBannerAd','VKWebAppHideBannerAd','VKWebAppCheckBannerAd','VKWebAppShowBannerAd','VKWebAppHideBannerAd'
+    'VKWebAppStorageGetKeys','VKWebAppCheckNativeAds','VKWebAppShowNativeAds','VKWebAppCheckBannerAd','VKWebAppShowBannerAd','VKWebAppHideBannerAd'
   ].filter(x=>!opts.unsupported.includes(x)):[
     'VKWebAppGetLaunchParams','VKWebAppStorageGet','VKWebAppStorageSet',
-    'VKWebAppStorageGetKeys','VKWebAppCheckNativeAds','VKWebAppShowNativeAds'
+    'VKWebAppStorageGetKeys','VKWebAppCheckNativeAds','VKWebAppShowNativeAds','VKWebAppCheckBannerAd','VKWebAppShowBannerAd','VKWebAppHideBannerAd'
   ]);
   const bridge={
     isEmbedded:()=>Boolean(opts.embedded),
