@@ -3,7 +3,8 @@
  (function(root){
  'use strict';
 
- const PREFIX='trafficpulse_vkg_v2';
+ const EXPECTED_APP_ID=54870403;
+const PREFIX='trafficpulse_vkg_v2';
  const INDEX=PREFIX+'_index';
  const EPOCH=PREFIX+'_reset_epoch';
  const LOCAL_META='traffic_pulse_vkg_local_meta_v2';
@@ -153,6 +154,7 @@
      const appId=Number(launch?.vk_app_id||queryApp||0);
      const launchUser=Number(launch?.vk_user_id||queryUser||0);
      if(!Number.isSafeInteger(appId)||appId<=0)throw new Error('VK application unavailable');
+     if(appId!==EXPECTED_APP_ID)throw new Error('Wrong VK application; reload Traffic Pulse from VK Games');
      if(launchUser&&launchUser!==user.id)throw new Error('VK account mismatch; reload the game');
      if(queryUser&&queryUser!==user.id)throw new Error('VK launch mismatch; reload the game');
      if(queryApp&&queryApp!==appId)throw new Error('VK application mismatch; reload the game');
