@@ -1,0 +1,13 @@
+{
+  "$schema": "https://raw.githubusercontent.com/cloudflare/workers-sdk/main/packages/wrangler/config-schema.json",
+  "name": "traffic-pulse-vkgames-edge",
+  "main": "infra/cloudflare-vkgames-worker.js",
+  "compatibility_date": "2026-10-01",
+  "workers_dev": true,
+  "kv_namespaces": [
+    {
+      "binding": "GAME_ASSETS",
+      "id": "b38ca4565d4646d59141e8f6f027e052"
+    }
+  ]
+}
