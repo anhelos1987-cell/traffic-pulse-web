@@ -46,7 +46,7 @@ function harness(allVk,localMap,initialSave={},opts={}){
   const vk=accountStore(allVk,userId);
   const supported=new Set(opts.unsupported?[
     'VKWebAppGetLaunchParams','VKWebAppStorageGet','VKWebAppStorageSet',
-    'VKWebAppStorageGetKeys','VKWebAppCheckNativeAds','VKWebAppShowNativeAds'
+    'VKWebAppStorageGetKeys','VKWebAppCheckNativeAds','VKWebAppShowNativeAds','VKWebAppCheckBannerAd','VKWebAppShowBannerAd','VKWebAppHideBannerAd','VKWebAppCheckBannerAd','VKWebAppShowBannerAd','VKWebAppHideBannerAd'
   ].filter(x=>!opts.unsupported.includes(x)):[
     'VKWebAppGetLaunchParams','VKWebAppStorageGet','VKWebAppStorageSet',
     'VKWebAppStorageGetKeys','VKWebAppCheckNativeAds','VKWebAppShowNativeAds'
@@ -77,13 +77,16 @@ function harness(allVk,localMap,initialSave={},opts={}){
       }
       if(method==='VKWebAppCheckNativeAds')return {result:opts.adAvailable!==false};
       if(method==='VKWebAppShowNativeAds')return {result:opts.adSuccess!==false};
+      if(method==='VKWebAppCheckBannerAd')return {result:opts.bannerAvailable!==false,banner_width:320,banner_height:50,banner_location:'bottom',layout_type:'resize',height_type:'compact'};
+      if(method==='VKWebAppShowBannerAd'){opts.onBanner?.(payload);return {result:opts.bannerSuccess!==false,banner_width:payload.orientation==='vertical'?160:320,banner_height:payload.orientation==='vertical'?600:50,banner_location:payload.banner_location,banner_align:payload.banner_align,layout_type:payload.layout_type,height_type:payload.height_type,orientation:payload.orientation};}
+      if(method==='VKWebAppHideBannerAd')return {result:true,banner_width:0,banner_height:0,banner_location:'bottom',layout_type:'overlay',height_type:'compact'};
       throw Error('unexpected_bridge_call: '+method);
     }
   };
   const context={
     vkBridge:bridge,
     location:{search:opts.embedded?`?vk_app_id=${appId}&vk_user_id=${userId}&vk_language=ru`:''},
-    navigator:{onLine:opts.online!==false},localStorage:localStore(localMap),
+    navigator:{onLine:opts.online!==false},localStorage:localStore(localMap),innerWidth:opts.innerWidth??1280,innerHeight:opts.innerHeight??720,
     crypto:webcrypto,TextDecoder,TextEncoder,URLSearchParams,
     atob:s=>Buffer.from(s,'base64').toString('latin1'),
     btoa:s=>Buffer.from(s,'latin1').toString('base64'),
@@ -270,6 +273,27 @@ test('native ads require capability + availability and reward only on successful
 
   const c=harness(all,new Map(),{}, {embedded:true,adAvailable:true,adSuccess:true});await c.instance.init();
   assert.equal(await c.instance.showAd('reward'),true);c.cleanup();
+});
+
+test('adaptive banner uses vertical right layout on desktop and compact bottom layout on mobile',async()=>{
+  const all=new Map(),desktopCalls=[];
+  const desktop=harness(all,new Map(),{}, {embedded:true,innerWidth:1280,innerHeight:720,onBanner:p=>desktopCalls.push(p)});
+  await desktop.instance.init();
+  assert.equal(await desktop.instance.showAdaptiveBanner(),true);
+  assert.equal(desktopCalls.at(-1).orientation,'vertical');
+  assert.equal(desktopCalls.at(-1).banner_align,'right');
+  assert.equal(desktop.instance.bannerMode,'desktop-side');
+  assert.equal(await desktop.instance.hideBanner(),true);desktop.cleanup();
+
+  const mobileCalls=[];
+  const mobile=harness(new Map(),new Map(),{}, {embedded:true,innerWidth:390,innerHeight:844,onBanner:p=>mobileCalls.push(p)});
+  await mobile.instance.init();
+  assert.equal(await mobile.instance.showAdaptiveBanner(),true);
+  assert.equal(mobileCalls.at(-1).orientation,'horizontal');
+  assert.equal(mobileCalls.at(-1).banner_location,'bottom');
+  assert.equal(mobileCalls.at(-1).height_type,'compact');
+  assert.equal(mobile.instance.bannerMode,'mobile-bottom');
+  mobile.cleanup();
 });
 
 test('VK Games save strips VK Play paid wallet and adapter has no HTTP backend transport',async()=>{
