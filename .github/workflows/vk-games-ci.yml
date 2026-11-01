@@ -1,0 +1,24 @@
+name: VK Games validation
+on:
+  push:
+    branches: [vk-games]
+  pull_request:
+    branches: [main]
+jobs:
+  vk-games-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Validate all shipping JavaScript
+        run: |
+          node --check app.js
+          node --check progress-core.js
+          node --check vk-cloud.js
+          node --check vk-games.js
+          node --check infra/cloudflare-vkgames-worker.js
+      - name: Validate VK cloud saves and ads
+        run: node --test tests/vk-games-storage.test.mjs
