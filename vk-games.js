@@ -88,6 +88,7 @@ const PREFIX='trafficpulse_vkg_v2';
     ready:false,cloud:false,loaded:false,dirty:false,busy:null,timer:0,error:'',
     appId:0,userId:0,fingerprint:'',epoch:'',head:null,base:null,
     deleting:false,deletionSupported:false,adBusy:false,rewardedStatus:'unknown',
+    bannerVisible:false,bannerMode:'',bannerLastLayout:null,
 
     status(){
      if(!this.ready)return this.error==='outside_vk'||this.error==='vk_bridge_missing'?'local':'loading';
@@ -324,6 +325,41 @@ const PREFIX='trafficpulse_vkg_v2';
        this.deleting=false;this.inform();
      }
     },
+    bannerLayout(){
+     const width=Math.max(0,Number(root.innerWidth)||0),height=Math.max(0,Number(root.innerHeight)||0);
+     const desktop=width>=900&&width>=height*1.1;
+     return desktop
+       ?{mode:'desktop-side',props:{banner_location:'bottom',banner_align:'right',layout_type:'overlay',height_type:'regular',orientation:'vertical',can_close:false}}
+       :{mode:'mobile-bottom',props:{banner_location:'bottom',banner_align:'center',layout_type:'resize',height_type:'compact',orientation:'horizontal',can_close:false}};
+    },
+    async bannerAvailable(){
+     if(!this.ready||this.deleting||this.adBusy)return false;
+     const [check,show]=await Promise.all([this.supported('VKWebAppCheckBannerAd'),this.supported('VKWebAppShowBannerAd')]);
+     if(!check||!show)return false;
+     try{return (await this.call('VKWebAppCheckBannerAd',{},3500))?.result===true;}catch(_){return false;}
+    },
+    async hideBanner(){
+     if(!this.ready)return false;
+     if(!await this.supported('VKWebAppHideBannerAd')){this.bannerVisible=false;this.bannerMode='';return false;}
+     try{
+       const result=await this.call('VKWebAppHideBannerAd',{},5000);
+       this.bannerVisible=false;this.bannerMode='';this.bannerLastLayout=null;
+       return result?.result!==false;
+     }catch(_){this.bannerVisible=false;this.bannerMode='';return false;}
+    },
+    async showAdaptiveBanner(force=false){
+     if(!this.ready||this.deleting||this.adBusy)return false;
+     const layout=this.bannerLayout();
+     if(this.bannerVisible&&this.bannerMode===layout.mode&&!force)return true;
+     if(!await this.bannerAvailable())return false;
+     if(this.bannerVisible)await this.hideBanner();
+     try{
+       const result=await this.call('VKWebAppShowBannerAd',layout.props,6000);
+       const ok=result?.result===true;
+       this.bannerVisible=ok;this.bannerMode=ok?layout.mode:'';this.bannerLastLayout=ok?layout.props:null;
+       return ok;
+     }catch(_){this.bannerVisible=false;this.bannerMode='';this.bannerLastLayout=null;return false;}
+    },
     async adAvailable(format){
      if(!this.ready||this.deleting||!['reward','interstitial'].includes(format))return false;
      const [check,show]=await Promise.all([this.supported('VKWebAppCheckNativeAds'),this.supported('VKWebAppShowNativeAds')]);
@@ -335,12 +371,17 @@ const PREFIX='trafficpulse_vkg_v2';
     },
     async showAd(format){
      if(this.adBusy||!await this.adAvailable(format))return false;
+     const restoreBanner=this.bannerVisible;
      this.adBusy=true;
+     if(restoreBanner)await this.hideBanner();
      try{
        const result=await this.call('VKWebAppShowNativeAds',{ad_format:format},120000);
        return result?.result===true;
      }catch(_){return false;}
-     finally{this.adBusy=false;if(format==='reward')this.rewardedStatus='unknown';}
+     finally{
+       this.adBusy=false;if(format==='reward')this.rewardedStatus='unknown';
+       if(restoreBanner)root.setTimeout(()=>{void this.showAdaptiveBanner(true);},250);
+     }
     },
     async init(){
      if(!bridge?.send){this.error='vk_bridge_missing';this.inform();return false;}
@@ -349,7 +390,9 @@ const PREFIX='trafficpulse_vkg_v2';
      if(!insideVK){this.error='outside_vk';this.inform();return false;}
      try{
        await this.initializeAccount();
-       this.ready=true;this.error='';await this.load();this.inform();return true;
+       this.ready=true;this.error='';await this.load();this.inform();
+       root.setTimeout(()=>{void this.showAdaptiveBanner();},500);
+       return true;
      }catch(error){
        this.error=String(error?.message||error||'vk_init_error');this.ready=false;this.cloud=false;this.loaded=true;this.inform();return false;
      }
@@ -357,6 +400,7 @@ const PREFIX='trafficpulse_vkg_v2';
     privacyStatus(){
      return Object.freeze({
        platform:'vkgames',cloud:this.cloud,loaded:this.loaded,deletionSupported:this.deletionSupported,
+       bannerVisible:this.bannerVisible,bannerMode:this.bannerMode,
        personalDataBackend:false,cloudflarePlayerStorage:false
      });
     }
