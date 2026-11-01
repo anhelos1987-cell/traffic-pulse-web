@@ -50,7 +50,9 @@
     create(deps){
       const bridge=root.vkBridge;
       const state={
-        ready:false,loaded:false,available:!!bridge,dirty:false,busy:null,timer:0,
+        ready:false,loaded:false,available:!!bridge,
+        // Local progress may have advanced during an earlier offline session.
+        dirty:Number(deps.getSave()?.revision||0)>0,busy:null,timer:0,
         head:null,error:'', lastAdAt:0,
         status(){return !this.available?'local':this.error?'offline':!this.loaded?'loading':this.busy||this.dirty?'saving':'saved';},
         inform(){deps.onStatus?.(this.status());},
@@ -86,9 +88,12 @@
           const snapshot=await this.readSnapshot();
           this.head=snapshot.head;
           if(snapshot.progress){
-            // VK Storage is account-scoped. Never merge another platform's paid wallet.
-            if(!this.dirty)deps.onLoad(snapshot.progress);
-            else deps.onLoad(deps.merge(deps.getSave(),snapshot.progress));
+            // The VK copy owns spendable currency; non-economic achievements may merge.
+            // An offline cached balance must not revive coins spent on another device.
+            const reconciled=this.dirty?deps.merge(deps.getSave(),snapshot.progress):snapshot.progress;
+            reconciled.coins=snapshot.progress.coins;
+            deps.onLoad(reconciled);
+            this.dirty=JSON.stringify(cleanProgress(reconciled,deps.normalize))!==JSON.stringify(snapshot.progress);
           }else{
             this.dirty=true; // First launch: migrate this device's progress into VK.
           }
@@ -108,7 +113,11 @@
           if((current.head?.hash||'')!==(this.head?.hash||'')){
             // Another device committed since our last read. Preserve unlocks/records,
             // then save the reconciled snapshot instead of blindly overwriting.
-            if(current.progress)deps.onLoad(deps.merge(deps.getSave(),current.progress));
+            if(current.progress){
+              const reconciled=deps.merge(deps.getSave(),current.progress);
+              reconciled.coins=current.progress.coins;
+              deps.onLoad(reconciled);
+            }
             this.head=current.head;
           }
           const atStart=JSON.stringify(cleanProgress(deps.getSave(),deps.normalize));
