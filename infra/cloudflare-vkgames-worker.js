@@ -1,9 +1,9 @@
 /**
  * Traffic Pulse VK Games: Cloudflare edge host.
- * GitHub is the upstream source while Pages Git integration is unavailable.
- * Only explicitly listed game assets can be served. Never proxy arbitrary URLs.
+ * Static assets are stored in the private Cloudflare Workers KV namespace.
+ * No GitHub runtime fetch and no server-side player save database are needed.
  */
-const ORIGIN = 'https://raw.githubusercontent.com/anhelos1987-cell/traffic-pulse-web/vk-games/';
+const CACHE_VERSION = 'vk-games-rc1-kv-v1';
 const TYPES = Object.freeze({
   'index.html':'text/html; charset=utf-8',
   'app.js':'application/javascript; charset=utf-8',
@@ -23,19 +23,18 @@ export default {
     const u=new URL(request.url);
     const path=(u.pathname==='/'||u.pathname==='/index.html')?'index.html':u.pathname.slice(1);
     if (!Object.prototype.hasOwnProperty.call(TYPES,path)) return new Response('Not found',{status:404,headers:SECURITY});
-    const cacheUrl=new URL('/'+path,u.origin);
+    const cacheUrl=new URL('/'+CACHE_VERSION+'/'+path,u.origin);
     const cache=new Request(cacheUrl.toString(),{method:'GET'});
     const hit=await caches.default.match(cache);
     if (hit) return request.method==='HEAD'?new Response(null,{status:200,headers:hit.headers}):hit;
-    let upstream;
-    try {
-      upstream=await fetch(ORIGIN+path,{headers:{'Accept':'*/*'},cf:{cacheTtl:120,cacheEverything:true}});
-    } catch (_){return new Response('Temporary upstream error',{status:503,headers:SECURITY});}
-    if (!upstream.ok) return new Response('Game asset unavailable',{status:upstream.status>=500?503:404,headers:SECURITY});
+    let bytes;
+    try { bytes=await env.GAME_ASSETS.get(path,{type:'arrayBuffer'}); }
+    catch (_) { return new Response('Temporary storage error',{status:503,headers:SECURITY}); }
+    if (!bytes) return new Response('Game asset unavailable',{status:503,headers:SECURITY});
     const headers=new Headers(SECURITY);
     headers.set('Content-Type',TYPES[path]);
     headers.set('Cache-Control',path==='index.html'?'public, max-age=60':'public, max-age=300');
-    const res=new Response(upstream.body,{status:200,headers});
+    const res=new Response(bytes,{status:200,headers});
     ctx.waitUntil(caches.default.put(cache,res.clone()));
     return request.method==='HEAD'?new Response(null,{status:200,headers}):res;
   }
