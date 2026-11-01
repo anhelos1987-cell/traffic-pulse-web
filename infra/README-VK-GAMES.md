@@ -10,11 +10,17 @@ The original VK Play and billing configuration remains on the main branch.
 - Cloudflare KV (game **assets only**): `traffic-pulse-vkgames-assets`, bound as `GAME_ASSETS`.
 - Production branch in GitHub: `vk-games`.
 
-The edge Worker serves only a fixed allow-list of six game assets from the KV namespace, with correct MIME types and short-lived HTTP caching. No user progress or VK credentials are sent to this Worker or stored in Cloudflare KV.
+The edge Worker serves a fixed allow-list of static game assets from the KV namespace. Cloudflare KV stores **only public game files**. The Worker has no D1/player database, no account API, no analytics endpoint and no code path that accepts or stores VK UID, launch parameters, progress, purchases or profile data. Worker observability and Logpush are disabled; query strings are configured for redaction as an additional safeguard.
+
+The HTML ships a pinned local VK Bridge 3.0.2 bundle. A restrictive CSP uses `connect-src 'none'`, so the client cannot accidentally send account/progress data to a web backend. VK account identifiers are used only in volatile browser memory to validate the VK session. The local device stores a SHA-256 account fingerprint rather than the raw VK UID.
 
 ## Game saves and monetization
 
-The VK Bridge SDK handles `VKWebAppInit`, account-scoped `VKWebAppStorageGet` and `VKWebAppStorageSet`. Save files are normalized, UTF-8/base64 encoded, split into at most 64 chunks of 3500 characters, and committed with a manifest after the data chunks. A second bank protects the previously committed state from interrupted writes. The local browser save remains as an offline fallback. Cloud VK balance is authoritative on an account-sync conflict; level progress/stars/unlocks merge. Concurrent writes from multiple devices are best-effort, **not a transactional CAS**; full VK account / device testing is a release gate.
+The VK Bridge SDK handles `VKWebAppInit`, `VKWebAppGetUserInfo`, `VKWebAppGetLaunchParams`, capability checks, and account-scoped `VKWebAppStorageGet` / `VKWebAppStorageSet`. User info and launch parameters are **not sent to Cloudflare**.
+
+Save files are normalized, UTF-8/base64 encoded, split into 3000-character chunks (below the per-value guard), hashed with SHA-256, and written under a cryptographically random generation. The manifest/pointer is published only after every chunk succeeds. A reset epoch prevents stale sessions from silently republishing data after account-data deletion. Cross-device reconciliation uses a local last-cloud baseline; a different VK account never inherits the previous browser profile. VK Play wallet/entitlements are stripped from the VK Games save.
+
+`VKWebAppStorageGetKeys` is used for a player-facing delete-data flow that erases only Traffic Pulse keys and verifies deletion. VK Storage does not provide a compare-and-swap transaction, so simultaneous multi-device writes remain a last-writer/reconciliation case and require real-device qualification.
 
 Rewarded and interstitial ads use `VKWebAppShowNativeAds` and never grant a reward after a failed ad callback. The VK Play wallet and in-app product purchase endpoints are disabled on this platform. VK Games monetization policy and production ad availability must be verified in the VK dashboard.
 
@@ -44,6 +50,7 @@ CI runs the syntax checks and the Node regression tests but does not automatical
 
 ## Known constraints
 
-- The VK account-scoped storage API's availability, quota, and behavior must be validated in a real VK Mini App session.
+- The VK account-scoped storage API's availability, quota, physical data-location guarantees and behavior must be validated against the production VK application/contract; this repository does not claim legal certification.
+- Cloudflare remains a foreign static-hosting provider. Although this implementation does not store player personal data there, the initial HTTPS request itself can still be processed by Cloudflare infrastructure. For the most conservative Russian data-localization posture, prefer VK-owned hosting/CDN for the production player if the current VK Games cabinet supports it, or obtain legal review of the hosting path.
 - This branch deliberately does **not** reuse VK Play's Cloudflare billing service or its purchased coins.
 - The temporary empty Cloudflare Pages project created during setup was deleted. The active public service is the KV-backed Worker.
