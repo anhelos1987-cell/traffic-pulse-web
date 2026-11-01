@@ -13,9 +13,9 @@
   }catch(_){}
 
   const BUILD_MODE = 'production';
-  const BUILD_VERSION = 'M197-VKPLAY-ROUNDABOUT-TRIAL-RC1-HF7-PAYMENT-FOCUS';
+  const BUILD_VERSION = 'M197-VKGAMES-VKSTORAGE-RC1';
   const IS_DEVELOPMENT = BUILD_MODE === 'development';
-  const PLATFORM_TARGET = 'vkplay'; // browser release target: VK Play iframe
+  const PLATFORM_TARGET = 'vkgames'; // VK Games / VK Mini Apps, not VK Play
   const YANDEX_PUBLIC_LEADERBOARD_NAME = 'TrafficPulseStars';
   const YANDEX_MASTERY_LEADERBOARD_NAME = 'TrafficPulseMastery';
   // M168: public Yandex card uses readable raw stars; the in-game mastery board keeps deterministic tie-breakers.
@@ -234,7 +234,7 @@
   Object.assign(TEXT.en,{vkBillingPack:'500 coins',vkBillingPrice:'99 ₽ · VK Play',vkBillingBuy:'Buy',vkBillingOpening:'Opening…',vkBillingPending:'Payment opened · return to the game after paying',vkBillingUnavailable:'Purchases are available only inside VK Play',vkBillingError:'Could not open payment',vkBillingPopup:'Allow the payment window to open',vkBillingReceived:'Purchase confirmed',vkBillingStore:'VK Play Store',vkBillingHistory:'Recent purchases',vkBillingPaidWallet:'Purchased coins',vkBillingSpendPending:'Confirming purchase with the server…',vkBillingSpendError:'Could not confirm purchased-coin spend',vkBillingRestore:'Purchases restored',vkBillingSupporter:'Supporter Pack',vkBillingSupporterDesc:'Gold Pulse theme + 800 coins + exclusive gold car',vkBillingSupporterOwned:'Gold Pulse active · gold car and Supporter badge unlocked',vkBillingSecure:'Prices and grants are verified by the server'});
 
 
-  const SAVE_KEY = 'traffic_pulse_save_v4';
+  const SAVE_KEY = 'traffic_pulse_vk_games_save_v1';
   const SAVE_SCHEMA_VERSION = 5;
   const SAVE_BACKUP_KEY = 'traffic_pulse_save_v4_backup_m102';
   const OLD_SAVE_KEYS = ['traffic_pulse_save_v3','traffic_pulse_save_v2','traffic_pulse_save_v1'];
@@ -480,23 +480,34 @@
     sessionStartedAt:performance.now(), activeGameplayMs:0, lastFullscreenAttemptAt:-Infinity, lastRewardedExposureAt:-Infinity, campaignCompletionsSinceRewarded:999,
     noteActiveGameplay(ms){if(Number.isFinite(ms)&&ms>0)this.activeGameplayMs=Math.min(86_400_000,this.activeGameplayMs+ms);},
     noteCampaignCompletion(){}, noteRewardedExposure(){},
-    localFallback(reason='vkplay'){
-      this.ready=true;this.booting=false;YandexAudit.state.sdk=reason;YandexAudit.mark(`sdk:${reason}`,this.target);
-      const q=new URLSearchParams(location.search),raw=q.get('lang')||navigator.language;platformLang=normalizePlatformLanguage(raw);applyResolvedLanguage();YandexAudit.state.lang=lang;startApp();void VKBilling.sync('boot');
+    localFallback(reason='vk_games_local'){
+      this.ready=true;this.booting=false;YandexAudit.state.sdk=reason;
+      const q=new URLSearchParams(location.search);
+      platformLang=normalizePlatformLanguage(q.get('vk_language')||q.get('lang')||navigator.language);
+      applyResolvedLanguage();YandexAudit.state.lang=lang;startApp();
     },
-    async init(){this.localFallback('vkplay');
-      setInterval(()=>{if(document.hidden||navigator.onLine===false||VKBilling.paymentOpen)return;if(VKBilling.canOffer())void VKCloud.sync();else if(!VKBilling.connected)void VKBilling.init();},15000);
+    async init(){
+      const q=new URLSearchParams(location.search);
+      platformLang=normalizePlatformLanguage(q.get('vk_language')||q.get('lang')||navigator.language);
+      applyResolvedLanguage();
+      await VKGames.init();
+      this.ready=true;this.booting=false;
+      YandexAudit.state.sdk=VKGames.ready?'vk-bridge-ready':'vk-local-fallback';
+      YandexAudit.state.lang=lang;startApp();
+      setInterval(()=>{if(!document.hidden)void VKGames.sync();},25000);
     },
-    canAcquirePlayer(){return VKBilling.canOffer();}, async acquirePlayer(){return null;},
-    async initCloudSave(){return VKCloud.sync();},
-    async recoverCloudAfterReconnect(){if(!VKBilling.connected)await VKBilling.init();else if(!VKBilling.uid)VKBilling.externalApi?.getLoginStatus();return VKCloud.sync();},
-    queueCloudSave(immediate=false){VKCloud.changed();if(immediate)return VKCloud.sync();return true;},
-    async flushCloud(keepalive=false){return VKCloud.sync(keepalive);},
+    canAcquirePlayer(){return VKGames.ready;}, async acquirePlayer(){return null;},
+    async initCloudSave(){return VKGames.sync();},
+    async recoverCloudAfterReconnect(){return VKGames.sync();},
+    queueCloudSave(immediate=false){VKGames.changed();if(immediate)return VKGames.sync();return true;},
+    async flushCloud(){return VKGames.sync();},
     leaderboardStarsScore(){return safeInt(save?.totalStars,0,999999,0);}, leaderboardMasteryScore(){return encodeLeaderboardScore(save);}, leaderboardAuthorized(){return false;}, leaderboardSupported(){return false;}, queueLeaderboardSync(){return false;}, async submitLeaderboardScores(){return false;}, async getLeaderboardEntries(){return{supported:false,authorized:false,entries:[],userRank:0,error:'unsupported',mode:'mastery'};}, async authorizeForLeaderboard(){return false;},
     now(){const e=YandexAudit.state.environment;e.clockSource='local';e.clockSamples++;return Date.now();},
     gameplayStart(){if(this.gameplayActive)return;this.gameplayActive=true;YandexAudit.state.gameplayStart++;YandexAudit.mark('Gameplay.start');},
     gameplayStop(){if(!this.gameplayActive)return;this.gameplayActive=false;YandexAudit.state.gameplayStop++;YandexAudit.mark('Gameplay.stop');},
-    shouldRequestFullscreen(){return false;}, showFullscreen(){return Promise.resolve(false);}, showRewarded(){return Promise.resolve(false);}
+    shouldRequestFullscreen(level){return level>3&&level%4===0&&Date.now()-this.lastFullscreenAttemptAt>120000;},
+    async showFullscreen(){if(this.adBusy)return false;this.lastFullscreenAttemptAt=Date.now();this.adBusy=true;this.adPaused=true;syncExternalPauseState();try{return await VKGames.showAd('interstitial');}finally{this.adPaused=false;this.adBusy=false;syncExternalPauseState();}},
+    async showRewarded(){if(this.adBusy)return false;this.adBusy=true;this.adPaused=true;syncExternalPauseState();try{return await VKGames.showAd('reward');}finally{this.adPaused=false;this.adBusy=false;syncExternalPauseState();}}
   };
 
   // M195 Hotfix08: VK Play payment hardening.
@@ -639,7 +650,7 @@
   }
   function vkCloudStatusText(){
     const states={guest:['Прогресс хранится на устройстве. Войдите в VK Play для переноса.','Progress is stored on this device. Sign in to VK Play to transfer it.'],loading:['Загружаем прогресс аккаунта…','Loading your account progress…'],saving:['Сохраняем прогресс…','Saving progress…'],saved:['Прогресс сохранён в аккаунте VK Play','Progress saved to your VK Play account'],offline:['Нет связи с сохранениями. Прогресс сохранён на устройстве; повторим синхронизацию.','Cannot connect to cloud saves. Progress is stored on this device; sync will retry.']};
-    const text=states[VKCloud.status()]||states.loading;return text[lang==='ru'?0:1];
+    const vkStates={local:['Прогресс сохраняется только на этом устройстве','Progress is saved only on this device'],loading:['Загружаем сохранение VK…','Loading your VK save…'],saving:['Сохраняем в VK…','Saving to VK…'],saved:['Прогресс сохранён в VK','Progress saved to VK'],offline:['Синхронизация VK недоступна, локальная копия сохранена','VK sync unavailable, local copy kept']};const text=vkStates[VKGames.status()]||vkStates.loading;return text[lang==='ru'?0:1];
   }
   const VKCloud=TrafficPulseCloud.create({
     storage:(()=>{try{return window.localStorage;}catch{const cache=new Map();return {getItem:key=>cache.get(key)||null,setItem:(key,value)=>cache.set(key,value)};}})(),getSave:()=>save,
@@ -666,7 +677,27 @@
     onRead:()=>{YandexAudit.state.cloudRead++;YandexAudit.state.player='ready';},
     onCommit:()=>{YandexAudit.state.cloudWrite++;YandexAudit.mark('vkplay:cloud:saved');}
   });
-  cloudSaveHook=()=>VKCloud.changed();
+  // VK Games saves are stored in the player's VK account via VK Bridge Storage.
+  // VK Play's separate billing backend and purchased currency remain isolated.
+  const VKGames=TrafficPulseVKGames.create({
+    normalize:normalizeSaveData,
+    merge:(local,remote)=>mergeProgress(local,remote),
+    getSave:()=>save,
+    onLoad:(data)=>{
+      save=normalizeSaveData(data);
+      save.vkPaidCoinsCredited=0;save.vkEntitlements={};save.vkPendingSpend=null;
+      snapshotLocalBeforeExternalTransition();applyResolvedLanguage();
+      if(platform.ready){updateHud();if(Game?.state!=='playing')Game.startLevel(save.level,false,'campaign');}
+    },
+    onStatus:(status)=>{
+      platform.cloudReady=VKGames.loaded;platform.cloudDirty=VKGames.dirty;platform.cloudWriting=Boolean(VKGames.busy);
+      const extra=$('modal-extra');
+      if(overlayVisible()&&$('modal-title')?.textContent===T.paused&&extra?.dataset.cloudStatus==='1')extra.textContent=vkCloudStatusText();
+    },
+    onRead:()=>{YandexAudit.state.cloudRead++;YandexAudit.state.player='ready';},
+    onWrite:()=>{YandexAudit.state.cloudWrite++;YandexAudit.mark('vkgames:cloud:saved');}
+  });
+  cloudSaveHook=()=>VKGames.changed();
 
   // M115: compact recorded vehicle audio scene; distinct emergency recordings stay embedded/offline-friendly.
   const EMBEDDED_AUDIO_SAMPLES = Object.freeze({
@@ -5575,11 +5606,11 @@
     // platform-owned pauses all obey the same no-background-catch-up invariant.
     syncExternalPauseState();
   }
-  document.addEventListener('visibilitychange',()=>{YandexAudit.state.lifecycle.visibilityChanges++;YandexAudit.mark('lifecycle:visibility',document.visibilityState||'unknown');if(document.hidden){cancelBlurPause();pauseForFocusLoss(true);AudioFx.stopTransientAudio();snapshotLocalBeforeExternalTransition();void platform.flushCloud(true);}else{restoreBrowserFocus();if(!VKBilling.paymentOpen)void VKCloud.sync();}});
+  document.addEventListener('visibilitychange',()=>{YandexAudit.state.lifecycle.visibilityChanges++;YandexAudit.mark('lifecycle:visibility',document.visibilityState||'unknown');if(document.hidden){cancelBlurPause();pauseForFocusLoss(true);AudioFx.stopTransientAudio();snapshotLocalBeforeExternalTransition();void platform.flushCloud(true);}else{restoreBrowserFocus();void VKGames.sync();}});
   // Genuine app/tab departure requires an explicit manual resume after return. Ads are excluded:
   // Yandex ad callbacks own their lifecycle and should not strand the player on an extra pause screen.
   window.addEventListener('blur',()=>{YandexAudit.state.lifecycle.blurs++;YandexAudit.mark('lifecycle:blur');scheduleBlurPause();});
-  window.addEventListener('focus',()=>{YandexAudit.state.lifecycle.focuses++;YandexAudit.mark('lifecycle:focus');restoreBrowserFocus();if(VKBilling.paymentOpen)return;VKBilling.refreshGarage();if(!platform.cloudReady&&navigator.onLine!==false)void platform.recoverCloudAfterReconnect();void VKCloud.sync().then(()=>VKBilling.sync('focus'));});
+  window.addEventListener('focus',()=>{YandexAudit.state.lifecycle.focuses++;YandexAudit.mark('lifecycle:focus');restoreBrowserFocus();if(VKBilling.paymentOpen)return;VKBilling.refreshGarage();if(!platform.cloudReady&&navigator.onLine!==false)void platform.recoverCloudAfterReconnect();void VKGames.sync();});
   window.addEventListener('pagehide',()=>{YandexAudit.state.lifecycle.pagehides++;YandexAudit.mark('lifecycle:pagehide');cancelBlurPause();pauseForFocusLoss(true);AudioFx.stopTransientAudio();clearWorldCache();snapshotLocalBeforeExternalTransition();void platform.flushCloud(true);});
   // M136: network-aware cloud recovery also heals an offline boot where initial getPlayer/getData timed out.
   window.addEventListener('offline',()=>{clearTimeout(platform.cloudTimer);platform.cloudTimer=0;platform.cloudDirty=platform.cloudDirty||Boolean(platform.cloudFlushRequested);});
@@ -5591,7 +5622,7 @@
   // a few frames after orientation/pageshow. Re-sample only the stable layout viewport at bounded
   // settling points; never bind board geometry to visualViewport chrome animations.
   let layoutSettleTimers=[];function scheduleSettledLayoutRefresh(){for(const id of layoutSettleTimers)clearTimeout(id);layoutSettleTimers=[];scheduleLayoutRefresh();for(const delay of [120,360])layoutSettleTimers.push(setTimeout(scheduleLayoutRefresh,delay));}
-  window.addEventListener('pageshow',()=>{YandexAudit.state.lifecycle.pageshows++;YandexAudit.mark('lifecycle:pageshow');Game.lastTs=performance.now();restoreBrowserFocus();if(!platform.cloudReady&&navigator.onLine!==false)void platform.recoverCloudAfterReconnect();if(!VKBilling.paymentOpen)void VKCloud.sync().then(()=>VKBilling.sync('pageshow'));scheduleSettledLayoutRefresh();});
+  window.addEventListener('pageshow',()=>{YandexAudit.state.lifecycle.pageshows++;YandexAudit.mark('lifecycle:pageshow');Game.lastTs=performance.now();restoreBrowserFocus();if(!platform.cloudReady&&navigator.onLine!==false)void platform.recoverCloudAfterReconnect();void VKGames.sync();scheduleSettledLayoutRefresh();});
   window.addEventListener('resize',scheduleLayoutRefresh,{passive:true});window.addEventListener('orientationchange',scheduleSettledLayoutRefresh,{passive:true});
   // visualViewport scroll/resize is deliberately not a layout trigger: the layout viewport is the
   // stable authority for the game board. Real window/orientation changes still refresh immediately.
@@ -5602,5 +5633,5 @@
 
   // M195 Hotfix04 VK Play browser release: production diagnostics stripped.
 
-  applyLanguage(); void VKBilling.init(); platform.init();
+  applyLanguage(); void platform.init();
 })();
