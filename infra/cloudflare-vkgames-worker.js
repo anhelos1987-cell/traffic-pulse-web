@@ -3,23 +3,26 @@
  * Static assets are stored in the private Cloudflare Workers KV namespace.
  * No GitHub runtime fetch and no server-side player save database are needed.
  */
-const CACHE_VERSION = 'vk-games-rc1-kv-v2';
+const CACHE_VERSION = 'vk-games-privacy-rc2-kv-v1';
 const TYPES = Object.freeze({
   'index.html':'text/html; charset=utf-8',
   'app.js':'application/javascript; charset=utf-8',
   'progress-core.js':'application/javascript; charset=utf-8',
-  'vk-cloud.js':'application/javascript; charset=utf-8',
   'vk-games.js':'application/javascript; charset=utf-8',
+  'vkbridge.min.js':'application/javascript; charset=utf-8',
   'style.css':'text/css; charset=utf-8'
 });
 const SECURITY = {
   'X-Content-Type-Options':'nosniff',
   'Referrer-Policy':'no-referrer',
-  'Cross-Origin-Resource-Policy':'cross-origin'
+  'Cross-Origin-Resource-Policy':'cross-origin',
+  'Permissions-Policy':'geolocation=(), microphone=(), camera=(), payment=(), usb=(), serial=(), bluetooth=()',
+  'Content-Security-Policy':"default-src 'self' data: blob:; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; media-src 'self' data: blob:; font-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'"
 };
 export default {
   async fetch(request, env, ctx) {
     if (request.method !== 'GET' && request.method !== 'HEAD') return new Response('Method not allowed',{status:405});
+    // URL query values (including VK launch parameters) are never logged, cached, copied to KV, or used as player identity.
     const u=new URL(request.url);
     const path=(u.pathname==='/'||u.pathname==='/index.html')?'index.html':u.pathname.slice(1);
     if (!Object.prototype.hasOwnProperty.call(TYPES,path)) return new Response('Not found',{status:404,headers:SECURITY});
