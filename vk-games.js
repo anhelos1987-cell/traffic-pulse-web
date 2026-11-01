@@ -152,6 +152,12 @@
         },
         async init(){
           if(!this.available){this.error='vk_bridge_missing';this.inform();return false;}
+          // A normal browser test is not a VK account session. Never pretend
+          // it has platform cloud storage; start the standalone game immediately.
+          const params=new URLSearchParams(root.location?.search||'');
+          const insideVK=params.has('vk_app_id')||params.has('vk_user_id')||
+            bridge.isEmbedded?.()===true||bridge.isWebView?.()===true;
+          if(!insideVK){this.error='outside_vk';this.inform();return false;}
           try{
             await this.command('VKWebAppInit',{});
             this.ready=true;
