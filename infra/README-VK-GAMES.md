@@ -46,4 +46,4 @@ CI runs the syntax checks and the Node regression tests but does not automatical
 
 - The VK account-scoped storage API's availability, quota, and behavior must be validated in a real VK Mini App session.
 - This branch deliberately does **not** reuse VK Play's Cloudflare billing service or its purchased coins.
-- The Cloudflare Pages project named `traffic-pulse-vkgames` was reserved during setup but has no Git integration or deployed assets; the active deployment is the Worker.
+- The temporary empty Cloudflare Pages project created during setup was deleted. The active public service is the KV-backed Worker.
