@@ -13,7 +13,7 @@
   }catch(_){}
 
   const BUILD_MODE = 'production';
-  const BUILD_VERSION = 'M197-VKGAMES-PRIVACY-HARDENED-RC2';
+  const BUILD_VERSION = 'M198-VKGAMES-ADS-RC1';
   const IS_DEVELOPMENT = BUILD_MODE === 'development';
   const PLATFORM_TARGET = 'vkgames'; // VK Games / VK Mini Apps, not VK Play
   const YANDEX_PUBLIC_LEADERBOARD_NAME = 'TrafficPulseStars';
@@ -200,7 +200,7 @@
       level:'Уровень', goal:'Пропусти весь транспорт', restart:'Заново', hint:'Совет', switchLight:'Сменить свет', pauseAction:'Пауза',
       jam:'Пробка', switches:'Переключения', tapSignal:'Нажми на светофор', paused:'Пауза', pausedText:'Движение остановлено.',
       continue:'Продолжить', complete:'Отличный поток!', completeText:'Перекрёсток свободен.', next:'Следующий уровень', coins:'монет',
-      rewardAdCoins:'Дополнительный бонус', crash:'Столкновение!', crashText:'Не открывай встречный поток, пока перекрёсток занят.',
+      rewardAdCoins:'Дополнительный бонус', adDoubleCoins:'🎬 Получить ещё', adCoinsAdded:'Бонус за рекламу начислен', adUnlockCar:'🎬 Открыть за рекламу', adCarUnlocked:'Машина открыта за просмотр рекламы', crash:'Столкновение!', crashText:'Не открывай встречный поток, пока перекрёсток занят.',
       trafficJam:'Город встал!', jamText:'Очередь стала слишком длинной.', tryAgain:'Повторить', rescueCrashAd:'Продолжение недоступно', rescueJamAd:'Продолжение недоступно',
       hintHorizontal:'Открой горизонтальное движение.', hintVertical:'Открой вертикальное движение.', hintWait:'Подожди, пока машины покинут перекрёсток.',
       adUnavailable:'Функция сейчас недоступна', demoReward:'Тестовый бонус получен', perfect:'Идеально!', good:'Хорошо!', survived:'Пройдено!',
@@ -215,7 +215,7 @@
       level:'Level', goal:'Clear all traffic', restart:'Restart', hint:'Hint', switchLight:'Switch light', pauseAction:'Pause',
       jam:'Jam', switches:'Switches', tapSignal:'Tap the traffic light', paused:'Paused', pausedText:'Traffic is stopped.',
       continue:'Continue', complete:'Perfect flow!', completeText:'The intersection is clear.', next:'Next level', coins:'coins',
-      rewardAdCoins:'Extra bonus', crash:'Collision!', crashText:'Do not open the crossing flow while the intersection is occupied.',
+      rewardAdCoins:'Extra bonus', adDoubleCoins:'🎬 Get extra', adCoinsAdded:'Ad bonus added', adUnlockCar:'🎬 Unlock with ad', adCarUnlocked:'Car unlocked after watching an ad', crash:'Collision!', crashText:'Do not open the crossing flow while the intersection is occupied.',
       trafficJam:'Traffic jam!', jamText:'The queue became too long.', tryAgain:'Try again', rescueCrashAd:'Continue unavailable', rescueJamAd:'Continue unavailable',
       hintHorizontal:'Open horizontal traffic.', hintVertical:'Open vertical traffic.', hintWait:'Wait until the cars leave the intersection.',
       adUnavailable:'Feature is unavailable now', demoReward:'Test reward granted', perfect:'Perfect!', good:'Good!', survived:'Cleared!',
@@ -477,9 +477,9 @@
   const normalizePlatformLanguage=(raw)=>/^ru(?:[_-]|$)/i.test(String(raw||''))?'ru':'en';
   const platform = {
     target:PLATFORM_TARGET, ready:false, booting:true, pausedByPlatform:false, browserPaused:Boolean(document.hidden), adPaused:false, adBusy:false, adKind:'', gameplayActive:false, cloudReady:false, cloudTimer:0, cloudWriting:false, cloudWriteAwaitingSettlement:false, cloudDirty:false, cloudFlushRequested:false, cloudFailureStreak:0, cloudNextRetryAt:0, cloudInitInFlight:false, cloudInitNextRetryAt:0, cloudInitFailureStreak:0, leaderboardTimer:0, leaderboardBusy:false, leaderboardLastSubmittedStars:-1, leaderboardLastSubmittedMastery:-1, leaderboardLastError:'', leaderboardLastErrors:{}, player:null,
-    sessionStartedAt:performance.now(), activeGameplayMs:0, lastFullscreenAttemptAt:-Infinity, lastRewardedExposureAt:-Infinity, campaignCompletionsSinceRewarded:999,
+    sessionStartedAt:performance.now(), activeGameplayMs:0, lastFullscreenAttemptAt:-Infinity, lastRewardedExposureAt:-Infinity, campaignCompletionsSinceRewarded:0, lastCampaignFirstClear:false,
     noteActiveGameplay(ms){if(Number.isFinite(ms)&&ms>0)this.activeGameplayMs=Math.min(86_400_000,this.activeGameplayMs+ms);},
-    noteCampaignCompletion(){}, noteRewardedExposure(){},
+    noteCampaignCompletion(firstClear=false){this.lastCampaignFirstClear=Boolean(firstClear);if(firstClear)this.campaignCompletionsSinceRewarded++;}, noteRewardedExposure(){this.lastRewardedExposureAt=Date.now();},
     localFallback(reason='vk_games_local'){
       this.ready=true;this.booting=false;YandexAudit.state.sdk=reason;
       const q=new URLSearchParams(location.search);
@@ -494,6 +494,7 @@
       this.ready=true;this.booting=false;
       YandexAudit.state.sdk=VKGames.ready?'vk-bridge-ready':'vk-local-fallback';
       YandexAudit.state.lang=lang;startApp();
+      setTimeout(()=>{void VKGames.showAdaptiveBanner();},700);
       setInterval(()=>{if(!document.hidden)void VKGames.sync();},25000);
     },
     canAcquirePlayer(){return VKGames.ready;}, async acquirePlayer(){return null;},
@@ -505,9 +506,10 @@
     now(){const e=YandexAudit.state.environment;e.clockSource='local';e.clockSamples++;return Date.now();},
     gameplayStart(){if(this.gameplayActive)return;this.gameplayActive=true;YandexAudit.state.gameplayStart++;YandexAudit.mark('Gameplay.start');},
     gameplayStop(){if(!this.gameplayActive)return;this.gameplayActive=false;YandexAudit.state.gameplayStop++;YandexAudit.mark('Gameplay.stop');},
-    shouldRequestFullscreen(level){return level>3&&level%4===0&&Date.now()-this.lastFullscreenAttemptAt>120000;},
+    shouldRequestFullscreen(level){return this.lastCampaignFirstClear&&level>=2&&level%2===0;},
     async showFullscreen(){if(this.adBusy)return false;this.lastFullscreenAttemptAt=Date.now();this.adBusy=true;this.adPaused=true;syncExternalPauseState();try{return await VKGames.showAd('interstitial');}finally{this.adPaused=false;this.adBusy=false;syncExternalPauseState();}},
-    async showRewarded(){if(this.adBusy)return false;this.adBusy=true;this.adPaused=true;syncExternalPauseState();try{return await VKGames.showAd('reward');}finally{this.adPaused=false;this.adBusy=false;syncExternalPauseState();}}
+    async showRewarded(){if(this.adBusy)return false;this.adBusy=true;this.adPaused=true;syncExternalPauseState();try{const ok=await VKGames.showAd('reward');if(ok)this.noteRewardedExposure();return ok;}finally{this.adPaused=false;this.adBusy=false;syncExternalPauseState();}},
+    async showBanner(){return VKGames.showAdaptiveBanner();}, async hideBanner(){return VKGames.hideBanner();}
   };
 
 
@@ -1986,7 +1988,7 @@
   const Game = {
     state:'boot', mode:'campaign', dailyKey:'', weeklyKey:'', scenarioId:'', scenarioDirector:null, incidentDirector:null, greenWaveId:'', greenWaveDirector:null, signalMode:'shared', signalControllers:null, greenWaveStats:null, level:save.level, config:null, cars:[], spawned:0, exited:0, phase:'H', pendingPhase:null, transitionTimer:0, endlessWave:0, endlessScore:0, endlessSessionSeed:0,
     switches:0, spawnTimer:0, maxObservedQueue:0, elapsed:0, externalPaused:false, userPaused:false, rescueUsed:false, assistActive:false,
-    firstInput:false, tutorialCueTimer:0, noticeTimers:[], failureUiTimer:0, coachFlags:{}, crashPair:null, crashFx:null, cameraKick:0, turnOwnerId:null, roundaboutOwnerId:null, rng:Math.random, lastTs:0, lastDrawTs:0, lastHudTs:0, hudDirty:true, hudRefreshCount:0, frameId:0, accumulator:0, renderAlpha:1, particles:[], pedestrians:[], pedestrianSerial:0, pedestrianSpawnTimer:.4, pedestrianHold:false, phaseElapsed:0, emergencyPriorityId:null, flowStreak:0, maxFlowStreak:0, syncStreak:0, maxSyncStreak:0, prioritySaved:0, mission:null, lastMedalResult:null, lastPassAt:-99, failureReplayFrames:[], failureReplayClock:0, replayPlayback:null, replayTimer:0, lastFailType:'',
+    firstInput:false, tutorialCueTimer:0, noticeTimers:[], failureUiTimer:0, coachFlags:{}, crashPair:null, crashFx:null, cameraKick:0, turnOwnerId:null, roundaboutOwnerId:null, rng:Math.random, lastTs:0, lastDrawTs:0, lastHudTs:0, hudDirty:true, hudRefreshCount:0, frameId:0, accumulator:0, renderAlpha:1, particles:[], pedestrians:[], pedestrianSerial:0, pedestrianSpawnTimer:.4, pedestrianHold:false, phaseElapsed:0, emergencyPriorityId:null, flowStreak:0, maxFlowStreak:0, syncStreak:0, maxSyncStreak:0, prioritySaved:0, mission:null, lastMedalResult:null, lastPassAt:-99, failureReplayFrames:[], failureReplayClock:0, replayPlayback:null, replayTimer:0, lastFailType:'', lastCampaignFirstClear:false, rewardedWinClaimed:false, rewardedWinClaiming:false, rewardedWinBonus:0,
 
     clearNoticeTimers(){for(const id of this.noticeTimers||[])clearTimeout(id);this.noticeTimers=[];},
     scheduleNotice(fn,delay=0){const id=setTimeout(()=>{const i=this.noticeTimers.indexOf(id);if(i>=0)this.noticeTimers.splice(i,1);fn();},Math.max(0,Number(delay)||0));this.noticeTimers.push(id);return id;},
@@ -2006,7 +2008,7 @@
       this.rng=seeded(this.config.seed); this.cars=[]; this.spawned=0; this.exited=0;
       this.phase=this.config.startPhase; this.pendingPhase=null; this.transitionTimer=0; this.switches=0; this.spawnTimer=.42; this.phaseElapsed=0; this.pedestrians=[]; this.pedestrianSerial=0; this.pedestrianSpawnTimer=.38; this.pedestrianHold=false; this.emergencyPriorityId=null; AudioFx.stopTransientAudio();AudioFx.refreshMusicTheme();
       this.maxObservedQueue=0; this.elapsed=0; this.accumulator=0; this.renderAlpha=1; this.state='playing'; this.externalPaused=Boolean(platform.pausedByPlatform||platform.browserPaused||platform.adPaused); this.userPaused=false;
-      this.rescueUsed=rescued; this.crashPair=null; this.crashFx=null; this.cameraKick=0; this.turnOwnerId=null; this.particles=[]; this.flowStreak=0; this.maxFlowStreak=0; this.prioritySaved=0; this.lastPassAt=-99; this.failureReplayFrames=[];this.failureReplayClock=0;this.replayPlayback=null;clearTimeout(this.replayTimer);this.lastFailType=''; this.firstInput=this.mode!=='campaign'||this.level>1; this.coachFlags={};
+      this.rescueUsed=rescued; this.crashPair=null; this.crashFx=null; this.cameraKick=0; this.turnOwnerId=null; this.particles=[]; this.flowStreak=0; this.maxFlowStreak=0; this.prioritySaved=0; this.lastPassAt=-99; this.failureReplayFrames=[];this.failureReplayClock=0;this.replayPlayback=null;clearTimeout(this.replayTimer);this.lastFailType=''; this.lastCampaignFirstClear=false;this.rewardedWinClaimed=false;this.rewardedWinClaiming=false;this.rewardedWinBonus=0; this.firstInput=this.mode!=='campaign'||this.level>1; this.coachFlags={};
       if(typeof PersonalBestService!=='undefined')PersonalBestService.begin(this.mode,this.mode==='daily'?this.dailyKey:this.mode==='weekly'?this.weeklyKey:'',this.config,this);
       clearTimeout(this.tutorialCueTimer);this.tutorialCueTimer=0;
       const cue=this.mode==='campaign'?tutorialCueForLevel(this.level):'',hint=$('tap-hint');
@@ -2651,9 +2653,8 @@
         if(firstReward){save.dailyRewards[key]=true;save.coins+=reward;recordVkCloudReward(`daily:${key}`,reward);}
         persist(); showDailyWin(stars,reward,improved,streak,streakBonus,pb.comparison); return;
       }
-      platform.noteCampaignCompletion();
       const old=Number(save.starsByLevel[this.level]||0),starImprovement=Math.max(0,stars-old); if(stars>old){save.totalStars+=stars-old;save.starsByLevel[this.level]=stars;}
-      const firstClear=this.level>Number(save.campaignRewardedThrough||0);
+      const firstClear=this.level>Number(save.campaignRewardedThrough||0);platform.noteCampaignCompletion(firstClear);this.lastCampaignFirstClear=firstClear;
       const flowBonus=firstClear?Math.min(60,Math.max(0,(this.maxFlowStreak||0)-2)*4):0,priorityBonus=firstClear?(this.prioritySaved||0)*12:0,syncBonus=firstClear?Math.min(60,Math.max(0,this.maxSyncStreak||0)*8):0;
       const missionSuccess=missionSucceeded(this.mission),missionKey=String(this.level),missionFirst=missionSuccess&&!save.missionCompleted?.[missionKey];
       const missionBonus=missionFirst?90:0;if(missionFirst){save.missionCompleted=save.missionCompleted||{};save.missionCompleted[missionKey]=true;}
@@ -2665,7 +2666,7 @@
       const baseCore=50+Math.min(220,this.level*3),starReward=(firstClear?stars:starImprovement)*15,baseReward=firstClear?baseCore+starReward:starReward;
       // M112: rewarded bonus may duplicate ordinary clear/skill earnings, never one-time
       // mission milestones or achievement/progression awards.
-      const rewardedBonus=baseReward+flowBonus+priorityBonus+syncBonus;
+      const rewardedBonus=baseReward+flowBonus+priorityBonus+syncBonus;this.rewardedWinBonus=rewardedBonus;this.rewardedWinClaimed=false;this.rewardedWinClaiming=false;
       const reward=rewardedBonus+missionBonus+missionMilestoneBonus+achievementBonus; save.coins+=reward;
       if(firstClear)recordVkCloudReward(`clear:${this.level}`,baseCore+flowBonus+priorityBonus+syncBonus);
       for(let n=(firstClear?1:old+1);n<=stars;n++)recordVkCloudReward(`star:${this.level}:${n}`,15);
@@ -2683,7 +2684,7 @@
     async next(){
       if(this.mode==='daily'||this.mode==='weekly'||this.mode==='endless'||this.mode==='scenario'||this.mode==='greenwave'){this.startLevel(save.level,false,'campaign');return;}
       const completed=this.level;
-      if(platform.shouldRequestFullscreen(completed)) await platform.showFullscreen();
+      if(this.lastCampaignFirstClear&&platform.shouldRequestFullscreen(completed)) await platform.showFullscreen();
       this.startLevel(completed+1,false,'campaign');
     },
     draw(){
@@ -5198,6 +5199,16 @@
   }
   function garageSetPreview(id,fromPause=false){garagePreviewId=safeInt(id,0,CAR_NAMES.length-1,0);showGarage(fromPause?'pause':'rerender');}
 
+  async function unlockGarageCarByAd(i,fromPause=false){
+    const id=safeInt(i,1,CAR_NAMES.length-1,-1);if(id<1||ownedStyleIds().includes(id))return false;
+    const available=save.level>CAR_REQUIREMENTS[id];if(!available){toast(T.locked);return false;}
+    const rewarded=await platform.showRewarded();if(!rewarded){toast(T.adUnavailable);return false;}
+    if(ownedStyleIds().includes(id))return true;
+    save.ownedCars=[...new Set([...ownedStyleIds(),id])].sort((a,b)=>a-b);
+    save.favoriteCar=id;garagePreviewId=id;persist();updateHud();toast(T.adCarUnlocked);
+    showGarage(fromPause?'pause':'rerender');return true;
+  }
+
   async function purchaseGarageCar(i,fromPause=false){
     const cost=CAR_COSTS[i]||0;if(save.coins<cost){toast(T.notEnough);return false;}
     if(PLATFORM_TARGET==='vkplay'&&safeInt(save.vkPaidCoinsCredited,0,1_000_000_000_000,0)>0){
@@ -5249,15 +5260,18 @@
       const available=i===0||save.level>CAR_REQUIREMENTS[i],selected=owned&&save.favoriteCar===i;
       const shortfall=Math.max(0,(CAR_COSTS[i]||0)-save.coins);
       meta.textContent=(selected?T.selected:owned?T.owned:available?(shortfall>0?`${CAR_COSTS[i]} 🪙 · ${T.needCoins} ${shortfall}`:`${CAR_COSTS[i]} 🪙 · ${T.readyToBuy}`):`${T.locked} ${CAR_REQUIREMENTS[i]}`)+(supporterSkin?' · ✦ Gold Pulse':'')+(i>=7?` · ✦ ${T.rare}`:'');copy.append(name,meta);
-      const b=document.createElement('button');b.type='button';
+      const action=document.createElement('div');action.className='garage-row-actions';
       if(owned){
-        b.textContent=selected?`★ ${T.selected}`:T.select;b.disabled=selected;
-        b.onclick=()=>{if(selected)return;save.favoriteCar=i;garagePreviewId=i;persist();updateHud();showGarage(fromPause?'pause':'rerender');};
-      }else if(!available){b.textContent='🔒';b.disabled=true;}else{
-        b.textContent=`${T.buy} ${CAR_COSTS[i]}`;b.disabled=save.coins<CAR_COSTS[i];b.title=b.disabled?T.notEnough:'';
-        b.onclick=()=>void purchaseGarageCar(i,fromPause);
+        const b=document.createElement('button');b.type='button';b.textContent=selected?`★ ${T.selected}`:T.select;b.disabled=selected;
+        b.onclick=()=>{if(selected)return;save.favoriteCar=i;garagePreviewId=i;persist();updateHud();showGarage(fromPause?'pause':'rerender');};action.appendChild(b);
+      }else if(!available){
+        const b=document.createElement('button');b.type='button';b.textContent='🔒';b.disabled=true;action.appendChild(b);
+      }else{
+        const buy=document.createElement('button');buy.type='button';buy.textContent=`${T.buy} ${CAR_COSTS[i]}`;buy.disabled=save.coins<CAR_COSTS[i];buy.title=buy.disabled?T.notEnough:'';buy.onclick=()=>void purchaseGarageCar(i,fromPause);
+        const ad=document.createElement('button');ad.type='button';ad.className='rewarded-action';ad.textContent=T.adUnlockCar;ad.onclick=()=>void unlockGarageCarByAd(i,fromPause);
+        action.append(buy,ad);
       }
-      row.append(preview,copy,b);list.appendChild(row);
+      row.append(preview,copy,action);list.appendChild(row);
     });
     extra.appendChild(list);
     actions([{text:T.close,cls:'primary',fn:()=>{if(fromPause){showPause();return;}closeOverlay();if(resumeAfter){resumePausedGameplay();}}}]);openOverlay();
@@ -5414,11 +5428,25 @@
     $('modal-kicker').textContent='TRAFFIC PULSE';$('modal-title').textContent=type==='crash'?T.crash:T.trafficJam;const baseText=type==='crash'?T.crashText:T.jamText;const willAssist=Game.mode==='campaign'&&(sessionFailCounts.get(Game.level)||0)>=2;$('modal-text').textContent=willAssist?`${baseText} ${T.assistNext}`:baseText;$('modal-stars').textContent='';$('modal-reward').classList.add('hidden');const failExtra=$('modal-extra');failExtra.classList.remove('hidden');failExtra.textContent=type==='crash'?`🎬 ${T.failureReplayCrash}`:`🎬 ${T.failureReplayJam}`;
     const failActions=[{text:T.tryAgain,cls:'primary',fn:()=>Game.restart()}];if(Game.mode!=='greenwave'&&(Game.failureReplayFrames?.length||0)>=2)failActions.push({text:`🎬 ${T.failureReplay}`,fn:()=>Game.playFailureReplay()});actions(failActions);openOverlay('fail');
   }
+  async function claimWinRewardedCoins(bonus,baseReward,button){
+    const amount=Math.max(0,safeInt(bonus,0,100000,0));if(!amount||Game.rewardedWinClaimed||Game.rewardedWinClaiming)return false;
+    Game.rewardedWinClaiming=true;if(button)button.disabled=true;
+    try{
+      const rewarded=await platform.showRewarded();if(!rewarded){toast(T.adUnavailable);return false;}
+      if(Game.rewardedWinClaimed)return true;
+      Game.rewardedWinClaimed=true;save.coins+=amount;persist();updateHud();
+      const rw=$('modal-reward');if(rw){rw.textContent=`+${Math.max(0,baseReward)+amount} ${T.coins}`;rw.classList.remove('hidden');}
+      if(button){button.textContent=`✓ +${amount} ${T.coins}`;button.disabled=true;}
+      toast(`${T.adCoinsAdded}: +${amount} ${T.coins}`);return true;
+    }finally{
+      Game.rewardedWinClaiming=false;if(button&&!Game.rewardedWinClaimed)button.disabled=false;
+    }
+  }
   function showWin(stars,reward,unlocked,district,starBonus=0,flowBonus=0,priorityBonus=0,newFlowRecord=false,missionSuccess=false,missionBonus=0,missionMilestoneBonus=0,unlockedAchievements=[],achievementBonus=0,syncBonus=0,firstClear=true,starImprovement=0,rewardedBonus=0){
     $('modal-kicker').textContent='TRAFFIC PULSE';$('modal-title').textContent=stars===3?T.perfect:stars===2?T.good:T.survived;$('modal-text').textContent=T.completeText;$('modal-stars').textContent='⭐'.repeat(stars)+'☆'.repeat(3-stars);
     const rw=$('modal-reward');if(reward>0){rw.textContent=`+${reward} ${T.coins}`;rw.classList.remove('hidden');}else{rw.textContent='';rw.classList.add('hidden');}
     const extra=$('modal-extra');const extras=[`🚦 ${T.queueShort}: ${Game.maxObservedQueue} · ${T.switchesShort}: ${Game.switches}`];if(firstClear)extras.push(`🪙 ${T.campaignFirstClear}`);else extras.push(`↻ ${T.campaignBaseAlreadyPaid}`);if(!firstClear&&starImprovement)extras.push(`⭐ ${T.campaignStarImprove}: +${starImprovement*15} ${T.coins}`);if(starBonus)extras.push(`⭐ ${T.starBonus}: +${starBonus} ${T.coins}`);if(flowBonus)extras.push(`⚡ ${T.flowBonus}: +${flowBonus} ${T.coins}`);if(priorityBonus)extras.push(`🚑 ${T.priorityBonus}: +${priorityBonus} ${T.coins}`);if(syncBonus)extras.push(`⚡ ${T.syncBonus}: +${syncBonus} ${T.coins}`);if(newFlowRecord)extras.push(`⚡ ${T.newFlowRecord}: ×${save.bestFlow}`);if(missionSuccess)extras.push(`🎯 ${T.missionDone}${missionBonus?`: +${missionBonus} ${T.coins}`:''}`);if(missionMilestoneBonus)extras.push(`🏆 ${T.missionMilestone}: +${missionMilestoneBonus} ${T.coins}`);if(Game.lastMedalResult){extras.push(`🏅 ${T.medals}: ${Game.lastMedalResult.count}/3`);if(Game.lastMedalResult.newCount)extras.push(`✨ ${T.medalNew}: ${Game.lastMedalResult.newLabels.join(', ')}`);}if(unlockedAchievements.length)extras.push(`🏅 ${T.achievement}: ${unlockedAchievements.map(a=>a.label).join(', ')}${achievementBonus?` · +${achievementBonus} ${T.coins}`:''}`);if(unlocked)extras.push(`🚗 ${T.newCar} ${unlocked}`);if(district)extras.push(`🌆 ${T.newDistrict} ${district}`);if(Game.mode==='campaign'){const cityNow=districtGrowthSummaryForLevel(Game.level),cityBefore=firstClear?districtGrowthSummaryForLevel(Game.level,-1):cityNow;if(firstClear&&cityNow.stage>cityBefore.stage)extras.push(`🏙️ ${T.cityGrowthWin}: ${T[cityNow.labelKey]}`);else extras.push(`🏙️ ${T.cityGrowth}: ${cityNow.completed}/${cityNow.total} · ${T[cityNow.labelKey]}`);extras.push(`🗺️ ${T.campaignNextReward}: ${campaignNextGoalText()}`);}extra.textContent=extras.join('  •  ');extra.classList.toggle('hidden',extras.length===0);
-    const winActions=[{text:T.next,cls:'primary',fn:()=>Game.next()},{text:`🗺️ ${T.campaignMap}`,fn:()=>showCampaignMap('result',save.level)}];actions(winActions);openOverlay('win');
+    const winActions=[{text:T.next,cls:'primary',fn:()=>Game.next()}];if(rewardedBonus>0&&!Game.rewardedWinClaimed)winActions.push({text:`${T.adDoubleCoins} +${rewardedBonus} ${T.coins}`,cls:'rewarded-action',fn:(b)=>void claimWinRewardedCoins(rewardedBonus,reward,b)});winActions.push({text:`🗺️ ${T.campaignMap}`,fn:()=>showCampaignMap('result',save.level)});actions(winActions);openOverlay('win');
   }
   function actions(items){const box=$('modal-actions');box.innerHTML='';items.forEach(it=>{const b=document.createElement('button');b.type='button';b.textContent=it.text;b.className=it.cls||'';b.onclick=()=>it.fn?.(b);box.appendChild(b);});}
   let overlayReturnFocus=null;
@@ -5505,6 +5533,7 @@
   // Yandex ad callbacks own their lifecycle and should not strand the player on an extra pause screen.
   window.addEventListener('blur',()=>{YandexAudit.state.lifecycle.blurs++;YandexAudit.mark('lifecycle:blur');scheduleBlurPause();});
   window.addEventListener('focus',()=>{YandexAudit.state.lifecycle.focuses++;YandexAudit.mark('lifecycle:focus');restoreBrowserFocus();if(!platform.cloudReady&&navigator.onLine!==false)void platform.recoverCloudAfterReconnect();void VKGames.sync();});
+  window.addEventListener('resize',()=>{if(platform.ready)void VKGames.showAdaptiveBanner();},{passive:true});
   window.addEventListener('pagehide',()=>{YandexAudit.state.lifecycle.pagehides++;YandexAudit.mark('lifecycle:pagehide');cancelBlurPause();pauseForFocusLoss(true);AudioFx.stopTransientAudio();clearWorldCache();snapshotLocalBeforeExternalTransition();void platform.flushCloud(true);});
   // M136: network-aware cloud recovery also heals an offline boot where initial getPlayer/getData timed out.
   window.addEventListener('offline',()=>{clearTimeout(platform.cloudTimer);platform.cloudTimer=0;platform.cloudDirty=platform.cloudDirty||Boolean(platform.cloudFlushRequested);});
