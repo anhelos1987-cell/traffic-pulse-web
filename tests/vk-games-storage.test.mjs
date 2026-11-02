@@ -6,6 +6,8 @@ import { TextDecoder, TextEncoder } from 'node:util';
 import { webcrypto } from 'node:crypto';
 
 const source = readFileSync(new URL('../vk-games.js', import.meta.url), 'utf8');
+const coreContext={};runInNewContext(readFileSync(new URL('../progress-core.js',import.meta.url),'utf8'),coreContext);
+const production=coreContext.TrafficPulseProgress;
 const manifestKey = 'trafficpulse_vkg_v2_index';
 const epochKey = 'trafficpulse_vkg_v2_reset_epoch';
 const prefix = 'trafficpulse_vkg_v2_';
@@ -57,12 +59,13 @@ function harness(allVk,localMap,initialSave={},opts={}){
     supportsAsync:async method=>supported.has(method),
     async send(method,payload={}){
       operations.push(method);
+      if(opts.onCall)await opts.onCall(method,payload);
       if(method==='VKWebAppInit')return {result:true};
       if(method==='VKWebAppGetUserInfo')return {id:opts.infoUserId??userId};
       if(method==='VKWebAppGetLaunchParams')return {
         vk_app_id:opts.launchAppId??appId,
         vk_user_id:opts.launchUserId??userId,
-        vk_language:'ru'
+        vk_language:'ru',vk_platform:opts.clientPlatform||''
       };
       if(method==='VKWebAppStorageGet')return {
         keys:payload.keys.map(key=>({key,value:vk.get(key)||''}))
@@ -79,7 +82,7 @@ function harness(allVk,localMap,initialSave={},opts={}){
       if(method==='VKWebAppShowNativeAds')return {result:opts.adSuccess!==false};
       if(method==='VKWebAppCheckBannerAd')return {result:opts.bannerAvailable!==false,banner_width:320,banner_height:50,banner_location:'bottom',layout_type:'resize',height_type:'compact'};
       if(method==='VKWebAppShowBannerAd'){opts.onBanner?.(payload);return {result:opts.bannerSuccess!==false,banner_width:payload.orientation==='vertical'?160:320,banner_height:payload.orientation==='vertical'?600:50,banner_location:payload.banner_location,banner_align:payload.banner_align,layout_type:payload.layout_type,height_type:payload.height_type,orientation:payload.orientation};}
-      if(method==='VKWebAppHideBannerAd')return {result:true,banner_width:0,banner_height:0,banner_location:'bottom',layout_type:'overlay',height_type:'compact'};
+      if(method==='VKWebAppHideBannerAd')return {result:opts.hideSuccess!==false,banner_width:0,banner_height:0,banner_location:'bottom',layout_type:'overlay',height_type:'compact'};
       throw Error('unexpected_bridge_call: '+method);
     }
   };
@@ -96,7 +99,7 @@ function harness(allVk,localMap,initialSave={},opts={}){
   context.globalThis=context;
   runInNewContext(source,context,{filename:'vk-games.js'});
   const instance=context.TrafficPulseVKGames.create({
-    storage:context.localStorage,getSave:()=>data,normalize,merge,
+    storage:context.localStorage,getSave:()=>data,normalize,merge:opts.productionMerge?production.merge:merge,
     onLoad:value=>{data=normalize(value)},onRead(){},onWrite(){},onDelete(){}
   });
   return {
@@ -308,4 +311,62 @@ test('VK Games save strips VK Play paid wallet and adapter has no HTTP backend t
   assert.deepEqual(JSON.parse(JSON.stringify(b.getSave().vkEntitlements)),{});
   assert.equal(b.instance.privacyStatus().personalDataBackend,false);
   a.cleanup();b.cleanup();
+});
+
+
+test('simultaneous ad requests open only one native ad',async()=>{
+ const h=harness(new Map(),new Map(),{}, {embedded:true});await h.instance.init();
+ const results=await Promise.all([h.instance.showAd('reward'),h.instance.showAd('reward')]);
+ assert.equal(results.filter(Boolean).length,1);
+ assert.equal(h.operations.filter(m=>m==='VKWebAppShowNativeAds').length,1);h.cleanup();
+});
+test('concurrent banner requests are coalesced and desktop uses reserved layout space',async()=>{
+ const h=harness(new Map(),new Map(),{}, {embedded:true,onBanner:p=>assert.equal(p.layout_type,'resize')});await h.instance.init();
+ await Promise.all([h.instance.showAdaptiveBanner(),h.instance.showAdaptiveBanner()]);
+ assert.equal(h.operations.filter(m=>m==='VKWebAppShowBannerAd').length,1);h.cleanup();
+});
+test('native ad waits for an in-flight banner then hides it before showing',async()=>{
+ let release,entered;const started=new Promise(r=>entered=r),hold=new Promise(r=>release=r);
+ const h=harness(new Map(),new Map(),{}, {embedded:true,onCall:async m=>{if(m==='VKWebAppShowBannerAd'){entered();await hold;}}});
+ await h.instance.init();const banner=h.instance.showAdaptiveBanner();await started;
+ const ad=h.instance.showAd('reward');release();await banner;assert.equal(await ad,true);
+ const show=h.operations.indexOf('VKWebAppShowNativeAds'),hide=h.operations.indexOf('VKWebAppHideBannerAd');
+ assert.ok(hide>=0&&hide<show);h.cleanup();
+});
+test('failed banner hide prevents native ads from overlapping it',async()=>{
+ const h=harness(new Map(),new Map(),{}, {embedded:true,hideSuccess:false});await h.instance.init();
+ await h.instance.showAdaptiveBanner();assert.equal(await h.instance.showAd('reward'),false);
+ assert.ok(!h.operations.includes('VKWebAppShowNativeAds'));h.cleanup();
+});
+test('account switch stays isolated when VK Storage is unsupported',async()=>{
+ const all=new Map(),local=new Map(),a=harness(all,local,{}, {embedded:true});await a.instance.init();
+ a.setSave({revision:1,level:12,coins:500});a.instance.changed();await a.instance.sync();a.cleanup();
+ const b=harness(all,local,{revision:1,level:12,coins:500},{embedded:true,userId:77,unsupported:['VKWebAppStorageGet']});
+ await b.instance.init();assert.equal(b.getSave().level,1);assert.equal(b.getSave().coins,0);b.cleanup();
+});
+test('account switch stays isolated when the first cloud read fails',async()=>{
+ const all=new Map(),local=new Map(),a=harness(all,local,{}, {embedded:true});await a.instance.init();
+ a.setSave({revision:1,level:12,coins:500});a.instance.changed();await a.instance.sync();a.cleanup();
+ const b=harness(all,local,{revision:1,level:12,coins:500},{embedded:true,userId:77,onCall:m=>{if(m==='VKWebAppStorageGet')throw Error('offline')}});
+ assert.equal(await b.instance.init(),false);assert.equal(b.getSave().coins,0);b.cleanup();
+});
+test('production merge preserves offline car spending when another device earns coins',async()=>{
+ const all=new Map(),local=new Map(),a=harness(all,local,{}, {embedded:true,productionMerge:true});await a.instance.init();
+ a.setSave({revision:1,level:10,coins:500,ownedCars:[0],purchasedCars:[]});a.instance.changed();await a.instance.sync();a.cleanup();
+ const b=harness(all,new Map(),{}, {embedded:true,productionMerge:true});await b.instance.init();
+ b.setSave({...b.getSave(),revision:2,coins:550});b.instance.changed();await b.instance.sync();b.cleanup();
+ const c=harness(all,local,{revision:2,level:10,coins:400,ownedCars:[0,1],purchasedCars:[1]},{embedded:true,productionMerge:true});
+ await c.instance.init();assert.equal(c.getSave().coins,450);assert.ok(c.getSave().ownedCars.includes(1));c.cleanup();
+});
+test('stale device cannot republish its save after deletion on another device',async()=>{
+ const all=new Map(),a=harness(all,new Map(),{}, {embedded:true});await a.instance.init();
+ a.setSave({revision:1,level:5,coins:50});a.instance.changed();await a.instance.sync();a.cleanup();
+ const b=harness(all,new Map(),{}, {embedded:true});await b.instance.init();await b.instance.deleteData();
+ a.setSave({revision:2,level:8,coins:100});a.instance.changed();assert.equal(await a.instance.sync(),false);
+ assert.equal(a.vk.get(manifestKey),'');a.cleanup();b.cleanup();
+});
+
+test('desktop host keeps the side banner when VK resizes the iframe below 900px',async()=>{
+ const h=harness(new Map(),new Map(),{}, {embedded:true,clientPlatform:'desktop_web',innerWidth:800,innerHeight:720});
+ await h.instance.init();assert.equal(h.instance.bannerLayout().mode,'desktop-side');h.cleanup();
 });

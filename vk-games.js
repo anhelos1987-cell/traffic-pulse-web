@@ -86,9 +86,9 @@ const PREFIX='trafficpulse_vkg_v2';
    const storage=deps.storage||safeStorage();
    const state={
     ready:false,cloud:false,loaded:false,dirty:false,busy:null,timer:0,error:'',
-    appId:0,userId:0,fingerprint:'',epoch:'',head:null,base:null,
+    appId:0,userId:0,clientPlatform:'',fingerprint:'',epoch:'',head:null,base:null,
     deleting:false,deletionSupported:false,adBusy:false,rewardedStatus:'unknown',
-    bannerVisible:false,bannerMode:'',bannerLastLayout:null,
+    bannerVisible:false,bannerMode:'',bannerLastLayout:null,bannerJob:null,
 
     status(){
      if(!this.ready)return this.error==='outside_vk'||this.error==='vk_bridge_missing'?'local':'loading';
@@ -165,8 +165,13 @@ const PREFIX='trafficpulse_vkg_v2';
        this.supported('VKWebAppStorageSet'),
        this.supported('VKWebAppStorageGetKeys')
      ]);
-     this.appId=appId;this.userId=user.id;this.cloud=canGet&&canSet;this.deletionSupported=this.cloud&&canKeys;
+     this.appId=appId;this.userId=user.id;this.clientPlatform=String(launch?.vk_platform||query.get('vk_platform')||'');this.cloud=canGet&&canSet;this.deletionSupported=this.cloud&&canKeys;
      this.fingerprint=await this.accountFingerprint(appId,user.id);
+     // Isolate the local profile before any cloud read can fail or be unsupported.
+     if(this.localMeta()?.fingerprint!==this.fingerprint){
+       deps.onLoad(cleanProgress({},deps.normalize),{accountChanged:true});
+       this.base=null;this.head=null;
+     }
 
      if(this.cloud){
        const deadline=Date.now()+5000;
@@ -327,9 +332,9 @@ const PREFIX='trafficpulse_vkg_v2';
     },
     bannerLayout(){
      const width=Math.max(0,Number(root.innerWidth)||0),height=Math.max(0,Number(root.innerHeight)||0);
-     const desktop=width>=900&&width>=height*1.1;
+     const desktop=this.clientPlatform==='desktop_web'||(!this.clientPlatform&&width>=900&&width>=height*1.1);
      return desktop
-       ?{mode:'desktop-side',props:{banner_location:'bottom',banner_align:'right',layout_type:'overlay',height_type:'regular',orientation:'vertical',can_close:false}}
+       ?{mode:'desktop-side',props:{banner_location:'bottom',banner_align:'right',layout_type:'resize',height_type:'regular',orientation:'vertical',can_close:false}}
        :{mode:'mobile-bottom',props:{banner_location:'bottom',banner_align:'center',layout_type:'resize',height_type:'compact',orientation:'horizontal',can_close:false}};
     },
     async bannerAvailable(){
@@ -339,26 +344,32 @@ const PREFIX='trafficpulse_vkg_v2';
      try{return (await this.call('VKWebAppCheckBannerAd',{},3500))?.result===true;}catch(_){return false;}
     },
     async hideBanner(){
-     if(!this.ready)return false;
-     if(!await this.supported('VKWebAppHideBannerAd')){this.bannerVisible=false;this.bannerMode='';return false;}
+     if(!this.ready||!await this.supported('VKWebAppHideBannerAd'))return false;
      try{
        const result=await this.call('VKWebAppHideBannerAd',{},5000);
+       if(result?.result!==true)return false;
        this.bannerVisible=false;this.bannerMode='';this.bannerLastLayout=null;
-       return result?.result!==false;
-     }catch(_){this.bannerVisible=false;this.bannerMode='';return false;}
+       return true;
+     }catch(_){return false;}
     },
     async showAdaptiveBanner(force=false){
      if(!this.ready||this.deleting||this.adBusy)return false;
-     const layout=this.bannerLayout();
-     if(this.bannerVisible&&this.bannerMode===layout.mode&&!force)return true;
-     if(!await this.bannerAvailable())return false;
-     if(this.bannerVisible)await this.hideBanner();
-     try{
-       const result=await this.call('VKWebAppShowBannerAd',layout.props,6000);
-       const ok=result?.result===true;
-       this.bannerVisible=ok;this.bannerMode=ok?layout.mode:'';this.bannerLastLayout=ok?layout.props:null;
-       return ok;
-     }catch(_){this.bannerVisible=false;this.bannerMode='';this.bannerLastLayout=null;return false;}
+     if(this.bannerJob)return this.bannerJob;
+     const job=(async()=>{
+       const layout=this.bannerLayout();
+       if(this.bannerVisible&&this.bannerMode===layout.mode&&!force)return true;
+       if(!await this.bannerAvailable()||this.adBusy||this.deleting)return false;
+       if(this.bannerVisible&&!await this.hideBanner())return false;
+       if(this.adBusy||this.deleting)return false;
+       try{
+         const result=await this.call('VKWebAppShowBannerAd',layout.props,6000);
+         const ok=result?.result===true;
+         this.bannerVisible=ok;this.bannerMode=ok?layout.mode:'';this.bannerLastLayout=ok?layout.props:null;
+         return ok;
+       }catch(_){this.bannerVisible=false;this.bannerMode='';this.bannerLastLayout=null;return false;}
+     })();
+     this.bannerJob=job;
+     try{return await job;}finally{if(this.bannerJob===job)this.bannerJob=null;}
     },
     async adAvailable(format){
      if(!this.ready||this.deleting||!['reward','interstitial'].includes(format))return false;
@@ -370,11 +381,15 @@ const PREFIX='trafficpulse_vkg_v2';
      }catch(_){if(format==='reward')this.rewardedStatus='check-failed';return false;}
     },
     async showAd(format){
-     if(this.adBusy||!await this.adAvailable(format))return false;
-     const restoreBanner=this.bannerVisible;
+     if(this.adBusy)return false;
+     // Acquire before the first await: two availability checks must not open two ads.
      this.adBusy=true;
-     if(restoreBanner)await this.hideBanner();
+     let restoreBanner=false;
      try{
+       if(!await this.adAvailable(format))return false;
+       if(this.bannerJob)await this.bannerJob;
+       restoreBanner=this.bannerVisible;
+       if(restoreBanner&&!await this.hideBanner())return false;
        const result=await this.call('VKWebAppShowNativeAds',{ad_format:format},120000);
        return result?.result===true;
      }catch(_){return false;}

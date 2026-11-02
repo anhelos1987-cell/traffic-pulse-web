@@ -16,11 +16,13 @@ The HTML ships a pinned local VK Bridge 3.0.2 bundle. A restrictive CSP uses `co
 
 ## Game saves and monetization
 
-The VK Bridge SDK handles `VKWebAppInit`, `VKWebAppGetUserInfo`, `VKWebAppGetLaunchParams`, capability checks, and account-scoped `VKWebAppStorageGet` / `VKWebAppStorageSet`. User info and launch parameters are **not sent to Cloudflare**.
+The VK Bridge SDK handles `VKWebAppInit`, `VKWebAppGetUserInfo`, `VKWebAppGetLaunchParams`, capability checks, and account-scoped `VKWebAppStorageGet` / `VKWebAppStorageSet`. The adapter does not send user info or launch parameters to a Cloudflare API. The initial hosting request may still contain launch parameters in its URL; the Worker does not persist them.
 
 Save files are normalized, UTF-8/base64 encoded, split into 3000-character chunks (below the per-value guard), hashed with SHA-256, and written under a cryptographically random generation. The manifest/pointer is published only after every chunk succeeds. A reset epoch prevents stale sessions from silently republishing data after account-data deletion. Cross-device reconciliation uses a local last-cloud baseline; a different VK account never inherits the previous browser profile. VK Play wallet/entitlements are stripped from the VK Games save.
 
 `VKWebAppStorageGetKeys` is used for a player-facing delete-data flow that erases only Traffic Pulse keys and verifies deletion. VK Storage does not provide a compare-and-swap transaction, so simultaneous multi-device writes remain a last-writer/reconciliation case and require real-device qualification.
+
+M198 Ads RC2: campaign interstitials are requested after two successful campaign completions in the current session, including replays, at the Next transition. Failed runs do not count. A rewarded success suppresses interstitials for 60 seconds so ads do not run back-to-back. A due slot is consumed even when inventory is unavailable. The VK host controls actual ad delivery. Desktop uses a right vertical resize banner; mobile uses a bottom compact resize banner. Host platform identity keeps iframe resizing from changing banner orientation. Concurrent ad/banner requests are serialized and run transitions are blocked while an ad is active.
 
 Rewarded and interstitial ads use `VKWebAppShowNativeAds` and never grant a reward after a failed ad callback. The VK Play wallet and in-app product purchase endpoints are disabled on this platform. VK Games monetization policy and production ad availability must be verified in the VK dashboard.
 

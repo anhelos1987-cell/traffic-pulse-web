@@ -477,9 +477,9 @@
   const normalizePlatformLanguage=(raw)=>/^ru(?:[_-]|$)/i.test(String(raw||''))?'ru':'en';
   const platform = {
     target:PLATFORM_TARGET, ready:false, booting:true, pausedByPlatform:false, browserPaused:Boolean(document.hidden), adPaused:false, adBusy:false, adKind:'', gameplayActive:false, cloudReady:false, cloudTimer:0, cloudWriting:false, cloudWriteAwaitingSettlement:false, cloudDirty:false, cloudFlushRequested:false, cloudFailureStreak:0, cloudNextRetryAt:0, cloudInitInFlight:false, cloudInitNextRetryAt:0, cloudInitFailureStreak:0, leaderboardTimer:0, leaderboardBusy:false, leaderboardLastSubmittedStars:-1, leaderboardLastSubmittedMastery:-1, leaderboardLastError:'', leaderboardLastErrors:{}, player:null,
-    sessionStartedAt:performance.now(), activeGameplayMs:0, lastFullscreenAttemptAt:-Infinity, lastRewardedExposureAt:-Infinity, campaignCompletionsSinceRewarded:0, lastCampaignFirstClear:false,
+    sessionStartedAt:performance.now(), activeGameplayMs:0, lastFullscreenAttemptAt:-Infinity, lastRewardedExposureAt:-Infinity, campaignCompletionsSinceRewarded:0, campaignCompletionsSinceFullscreen:0, lastCampaignFirstClear:false,
     noteActiveGameplay(ms){if(Number.isFinite(ms)&&ms>0)this.activeGameplayMs=Math.min(86_400_000,this.activeGameplayMs+ms);},
-    noteCampaignCompletion(firstClear=false){this.lastCampaignFirstClear=Boolean(firstClear);if(firstClear)this.campaignCompletionsSinceRewarded++;}, noteRewardedExposure(){this.lastRewardedExposureAt=Date.now();},
+    noteCampaignCompletion(firstClear=false){this.lastCampaignFirstClear=Boolean(firstClear);this.campaignCompletionsSinceRewarded++;this.campaignCompletionsSinceFullscreen++;}, noteRewardedExposure(){this.lastRewardedExposureAt=Date.now();},
     localFallback(reason='vk_games_local'){
       this.ready=true;this.booting=false;YandexAudit.state.sdk=reason;
       const q=new URLSearchParams(location.search);
@@ -506,8 +506,8 @@
     now(){const e=YandexAudit.state.environment;e.clockSource='local';e.clockSamples++;return Date.now();},
     gameplayStart(){if(this.gameplayActive)return;this.gameplayActive=true;YandexAudit.state.gameplayStart++;YandexAudit.mark('Gameplay.start');},
     gameplayStop(){if(!this.gameplayActive)return;this.gameplayActive=false;YandexAudit.state.gameplayStop++;YandexAudit.mark('Gameplay.stop');},
-    shouldRequestFullscreen(level){return this.lastCampaignFirstClear&&level>=2&&level%2===0;},
-    async showFullscreen(){if(this.adBusy)return false;this.lastFullscreenAttemptAt=Date.now();this.adBusy=true;this.adPaused=true;syncExternalPauseState();try{return await VKGames.showAd('interstitial');}finally{this.adPaused=false;this.adBusy=false;syncExternalPauseState();}},
+    shouldRequestFullscreen(){return this.campaignCompletionsSinceFullscreen>=2;},
+    async showFullscreen(){if(this.adBusy)return false;this.campaignCompletionsSinceFullscreen=0;if(Date.now()-this.lastRewardedExposureAt<60000)return false;this.lastFullscreenAttemptAt=Date.now();this.adBusy=true;this.adPaused=true;syncExternalPauseState();try{return await VKGames.showAd('interstitial');}finally{this.adPaused=false;this.adBusy=false;syncExternalPauseState();}},
     async showRewarded(){if(this.adBusy)return false;this.adBusy=true;this.adPaused=true;syncExternalPauseState();try{const ok=await VKGames.showAd('reward');if(ok)this.noteRewardedExposure();return ok;}finally{this.adPaused=false;this.adBusy=false;syncExternalPauseState();}},
     async showBanner(){return VKGames.showAdaptiveBanner();}, async hideBanner(){return VKGames.hideBanner();}
   };
@@ -1995,6 +1995,7 @@
     clearFailureUiTimer(){if(this.failureUiTimer){clearTimeout(this.failureUiTimer);this.failureUiTimer=0;}},
     scheduleFailureUi(fn,delay=0){this.clearFailureUiTimer();this.failureUiTimer=setTimeout(()=>{this.failureUiTimer=0;fn();},Math.max(0,Number(delay)||0));return this.failureUiTimer;},
     startLevel(n,rescued=false,mode='campaign'){
+      if(platform.adBusy)return false;
       if(mode==='scenario'){this.startScenario(this.scenarioId||'after_school',rescued);return;}
       this.clearNoticeTimers();this.clearFailureUiTimer();
       this.mode=mode==='daily'?'daily':mode==='weekly'?'weekly':mode==='endless'?'endless':'campaign'; this.dailyKey=this.mode==='daily'?todayDailyKey():''; this.weeklyKey=this.mode==='weekly'?weekStartKey():''; this.scenarioId='';this.scenarioDirector=null;this.incidentDirector=null;this.greenWaveId='';this.greenWaveDirector=null;this.signalMode='shared';this.signalControllers=null;this.greenWaveStats=null;this.level=Math.max(1,n);
@@ -2023,6 +2024,7 @@
       if(!this.externalPaused && !platform.booting){platform.gameplayStart();AudioFx.recoverAfterExternalResume();}
     },
     startScenario(id='after_school',rescued=false){
+      if(platform.adBusy)return false;
       this.clearNoticeTimers();this.clearFailureUiTimer();
       const def=scenarioDefinition(id);if(!def){toast(T.scenarioMode);return false;}if(!scenarioUnlocked(def)){toast(T.scenarioLocked);return false;}
       this.mode='scenario';this.scenarioId=def.id;this.incidentDirector=null;this.greenWaveId='';this.greenWaveDirector=null;this.signalMode='shared';this.signalControllers=null;this.greenWaveStats=null;this.dailyKey='';this.weeklyKey='';this.level=def.board.level;this.config=scenarioConfig(def);this.scenarioDirector=createScenarioDirector(def);this.assistActive=false;this.mission=null;
@@ -2031,6 +2033,7 @@
       clearTimeout(this.tutorialCueTimer);this.tutorialCueTimer=0;$('tap-hint').style.display='none';closeOverlay();applyDistrictTheme();this.scenarioDirector.update(0,this);updateHud();this.primeTraffic();toast(`${def.icon||'🎒'} ${T[def.nameKey]}`);this.scheduleNotice(()=>{if(this.state==='playing'&&this.mode==='scenario'&&this.scenarioId===def.id)toast(`⚙️ ${T[def.ruleKey]||T.scenarioRule}`);},1450);if(!this.externalPaused&&!platform.booting){platform.gameplayStart();AudioFx.recoverAfterExternalResume();}return true;
     },
     startGreenWave(id='catch_wave'){
+      if(platform.adBusy)return false;
       this.clearNoticeTimers();this.clearFailureUiTimer();
       const def=greenWaveDefinition(id);if(!def){toast(T.greenWaveMode);return false;}if(!greenWaveUnlocked(def)){toast(T.greenWaveLocked);return false;}
       this.mode='greenwave';this.greenWaveId=def.id;this.greenWaveDirector=createGreenWaveDirector(def);this.scenarioId='';this.scenarioDirector=null;this.incidentDirector=null;this.dailyKey='';this.weeklyKey='';this.level=def.board.level;this.config=greenWaveConfig(def);this.assistActive=false;this.mission=null;
@@ -2682,10 +2685,14 @@
       const district=firstClear?nextDistrictUnlock(this.level):''; persist(); showWin(stars,reward,unlocked,district,starBonus,flowBonus,priorityBonus,newFlowRecord,missionSuccess,missionBonus,missionMilestoneBonus,unlockedAchievements,achievementBonus,syncBonus,firstClear,starImprovement,rewardedBonus);
     },
     async next(){
-      if(this.mode==='daily'||this.mode==='weekly'||this.mode==='endless'||this.mode==='scenario'||this.mode==='greenwave'){this.startLevel(save.level,false,'campaign');return;}
-      const completed=this.level;
-      if(this.lastCampaignFirstClear&&platform.shouldRequestFullscreen(completed)) await platform.showFullscreen();
-      this.startLevel(completed+1,false,'campaign');
+      if(this.nextPending||platform.adBusy)return false;
+      this.nextPending=true;
+      try{
+        if(this.mode==='daily'||this.mode==='weekly'||this.mode==='endless'||this.mode==='scenario'||this.mode==='greenwave'){this.startLevel(save.level,false,'campaign');return;}
+        const completed=this.level;
+        if(platform.shouldRequestFullscreen())await platform.showFullscreen();
+        this.startLevel(completed+1,false,'campaign');
+      }finally{this.nextPending=false;}
     },
     draw(){
       this.presentationDrawCount=(this.presentationDrawCount||0)+1;
@@ -5429,7 +5436,7 @@
     const failActions=[{text:T.tryAgain,cls:'primary',fn:()=>Game.restart()}];if(Game.mode!=='greenwave'&&(Game.failureReplayFrames?.length||0)>=2)failActions.push({text:`🎬 ${T.failureReplay}`,fn:()=>Game.playFailureReplay()});actions(failActions);openOverlay('fail');
   }
   async function claimWinRewardedCoins(bonus,baseReward,button){
-    const amount=Math.max(0,safeInt(bonus,0,100000,0));if(!amount||Game.rewardedWinClaimed||Game.rewardedWinClaiming)return false;
+    const amount=Math.max(0,safeInt(bonus,0,100000,0));if(Game.state!=='won'||Game.mode!=='campaign'||!amount||Game.rewardedWinClaimed||Game.rewardedWinClaiming)return false;
     Game.rewardedWinClaiming=true;if(button)button.disabled=true;
     try{
       const rewarded=await platform.showRewarded();if(!rewarded){toast(T.adUnavailable);return false;}
