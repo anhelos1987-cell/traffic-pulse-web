@@ -5116,7 +5116,7 @@
     $('modal-kicker').textContent='VK GAMES';
     $('modal-title').textContent=lang==='ru'?'🔐 Данные игры':'🔐 Game data';
     $('modal-text').textContent=privacy.cloud
-      ?(lang==='ru'?'Игровой прогресс сохраняется в хранилище аккаунта VK. Traffic Pulse не отправляет UID, launch-параметры или сохранение в Cloudflare.':'Game progress is saved in your VK account storage. Traffic Pulse does not send UID, launch parameters, or saves to Cloudflare.')
+      ?(lang==='ru'?'Игровой прогресс сохраняется в хранилище аккаунта VK.':'Game progress is saved in your VK account storage.')
       :(lang==='ru'?'VK Storage сейчас недоступен — используется только локальная копия на устройстве.':'VK Storage is currently unavailable — only the local device copy is used.');
     $('modal-stars').textContent='';$('modal-reward').classList.add('hidden');
     const extra=$('modal-extra');extra.classList.remove('hidden');extra.textContent='';
