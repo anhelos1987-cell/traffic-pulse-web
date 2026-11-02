@@ -31,5 +31,7 @@ jobs:
           grep -q "connect-src 'none'" index.html
           ! grep -Eq "\\bfetch\\s*\\(" vk-games.js
           grep -q "cloudflarePlayerStorage:false" vk-games.js
+      - name: Validate Russian payment handler
+        run: python3 -m unittest discover -s tests -p 'test_*.py'
       - name: Validate VK cloud saves, account isolation, deletion and ads
         run: node --test tests/*.test.mjs

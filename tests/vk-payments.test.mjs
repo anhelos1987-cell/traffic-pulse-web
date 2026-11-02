@@ -96,3 +96,21 @@ test('a receipt for another account and account switching during the dialog cann
  const a=client({confirmed:true,replyUser:43});assert.equal(await a.state.purchase(),false);assert.equal(a.state.hasAllMaps(),false);
  let h;h=client({confirmed:true,onNative:()=>h.switchAccount()});assert.equal(await h.state.purchase(),false);assert.equal(h.state.hasAllMaps(),false);
 });
+
+test('map checks reuse verified memory for five minutes while explicit checks stay fresh',async()=>{
+ let time=1000000,requests=0;
+ const context={URL,AbortController,setTimeout,clearTimeout};runInNewContext(purchaseSource,context);
+ const state=context.TrafficPulseVKPurchases.create({config:{enabled:true,endpoint:'https://billing.example.test',appId:APP_ID,item:ITEM,priceVotes:10},account:()=>({ready:true,appId:APP_ID,userId:42,launchQuery:launch()}),now:()=>time,
+ fetch:async()=>{requests++;return {ok:true,json:async()=>({app_id:APP_ID,user_id:42,item:ITEM,price_votes:10,purchasable:true,all_maps:false})};}});
+ await Promise.all([state.refresh({force:false}),state.refresh({force:false})]);assert.equal(requests,1);
+ for(let n=0;n<20;n++)await state.refresh({force:false});assert.equal(requests,1);
+ await state.refresh();assert.equal(requests,2);
+ time+=300001;await state.refresh({force:false});assert.equal(requests,3);
+});
+test('old account checks cannot clobber a new account verification or leave it stuck',async()=>{
+ let user=42,release;
+ const context={URL,AbortController,setTimeout,clearTimeout};runInNewContext(purchaseSource,context);
+ const state=context.TrafficPulseVKPurchases.create({config:{enabled:true,endpoint:'https://billing.example.test',appId:APP_ID,item:ITEM,priceVotes:10},account:()=>({ready:true,appId:APP_ID,userId:user,launchQuery:launch(user)}),
+ fetch:async()=>{const replyUser=user;if(replyUser===42)await new Promise(r=>release=r);return {ok:true,json:async()=>({app_id:APP_ID,user_id:replyUser,item:ITEM,price_votes:10,purchasable:true,all_maps:true})};}});
+ const old=state.refresh();user=43;state.reset();await state.refresh();assert.equal(state.hasAllMaps(),true);release();await old;assert.equal(state.hasAllMaps(),true);assert.equal(state.checking,false);
+});
