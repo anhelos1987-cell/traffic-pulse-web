@@ -70,13 +70,13 @@ test('entitlement endpoint rejects unsigned requests, disallowed origins, and du
 });
 
 const purchaseSource=readFileSync(new URL('../vk-purchases.js',import.meta.url),'utf8');
-function client({enabled=true,confirmed=false,nativeResult={success:true},replyUser=42,onNative,fetchError=false}={}){
+function client({enabled=true,confirmed=false,confirmAfterRequests=0,nativeResult={success:true},replyUser=42,onNative,fetchError=false}={}){
  let user=42,nativeCalls=0,requests=0;
  const context={URL,AbortController,setTimeout,clearTimeout};runInNewContext(purchaseSource,context);
  const state=context.TrafficPulseVKPurchases.create({config:{enabled,endpoint:'https://billing.example.test',appId:APP_ID,item:ITEM,priceVotes:10},
   account:()=>({ready:true,appId:APP_ID,userId:user,launchQuery:launch(user)}),supported:async()=>true,sleep:async()=>{},
   call:async()=>{nativeCalls++;await onNative?.();return nativeResult;},
-  fetch:async()=>{requests++;if(fetchError)throw Error('offline');return {ok:true,json:async()=>({app_id:APP_ID,user_id:replyUser,item:ITEM,price_votes:10,purchasable:true,all_maps:confirmed&&nativeCalls>0})};}
+  fetch:async()=>{requests++;if(fetchError)throw Error('offline');return {ok:true,json:async()=>({app_id:APP_ID,user_id:replyUser,item:ITEM,price_votes:10,purchasable:true,all_maps:confirmed&&nativeCalls>0&&requests>=confirmAfterRequests})};}
  });
  return {state,calls:()=>({nativeCalls,requests}),switchAccount:()=>{user=43;}};
 }
@@ -86,6 +86,12 @@ test('disabled integration never queries a backend or opens a payment dialog',as
 test('native success without confirmed server payment grants nothing; verification failure never opens dialog',async()=>{
  const a=client();assert.equal(await a.state.purchase(),false);assert.equal(a.state.hasAllMaps(),false);
  const b=client({fetchError:true});assert.equal(await b.state.purchase(),false);assert.equal(b.calls().nativeCalls,0);
+});
+test('ambiguous native failure still restores a signed callback that arrives shortly after',async()=>{
+ const h=client({confirmed:true,confirmAfterRequests:3,nativeResult:{status:'fail'}});
+ assert.equal(await h.state.purchase(),true);
+ assert.equal(h.state.hasAllMaps(),true);
+ assert.equal(h.calls().requests,3);
 });
 test('concurrent purchase clicks open one dialog and access requires server confirmation',async()=>{
  let release;const h=client({confirmed:true,onNative:()=>new Promise(r=>release=r)});

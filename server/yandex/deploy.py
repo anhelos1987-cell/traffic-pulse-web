@@ -46,6 +46,7 @@ def main():
     mode = p.add_mutually_exclusive_group(required=True)
     mode.add_argument('--synthetic-test', action='store_true')
     mode.add_argument('--public-disabled', action='store_true')
+    mode.add_argument('--private-disabled', action='store_true')
     args = p.parse_args()
     account = yc('iam', 'service-account', 'get', '--name', NAME)['id']
     function = yc('serverless', 'function', 'get', '--name', NAME)['id']
@@ -65,10 +66,11 @@ def main():
                 session.delete()
         print(json.dumps({'schema_ready': True}))
     synthetic_user = ''
-    if args.synthetic_test:
+    if args.synthetic_test or args.private_disabled:
         # Function access bindings persist across versions. Revoke public access
-        # before publishing a version whose synthetic key is intentionally known.
+        # before publishing a known synthetic key or a deliberately private version.
         yc('serverless', 'function', 'deny-unauthenticated-invoke', function)
+    if args.synthetic_test:
         synthetic_user = str(900_000_000_000_000 + secrets.randbelow(99_999_999_999_999))
         v = version(function, account, 'synthetic-cloud-check-not-a-vk-secret', synthetic_user)
     else:
@@ -76,7 +78,7 @@ def main():
     yc('serverless', 'function', 'set-scaling-policy', function, '--tag', '$latest', '--zone-instances-limit', '1', '--zone-requests-limit', '2')
     if args.public_disabled:
         yc('serverless', 'function', 'allow-unauthenticated-invoke', function)
-    print(json.dumps({'function_id': function, 'service_account_id': account, 'version_id': v['id'], 'endpoint': 'https://functions.yandexcloud.net/' + function, 'live': False, 'synthetic_test': args.synthetic_test, 'synthetic_user': synthetic_user or None}))
+    print(json.dumps({'function_id': function, 'service_account_id': account, 'version_id': v['id'], 'endpoint': 'https://functions.yandexcloud.net/' + function, 'live': False, 'synthetic_test': args.synthetic_test, 'public_invocation': args.public_disabled, 'synthetic_user': synthetic_user or None}))
 
 
 if __name__ == '__main__':

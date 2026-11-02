@@ -49,7 +49,7 @@
      let result;try{result=await deps.call('VKWebAppShowOrderBox',{type:'item',item:'unlock_all_maps'},120000);}catch(_){this.error='purchase_cancelled';}
      if(this.account()?.key!==owner){this.reset();return false;}
      // Even success/status/order_id from Bridge is only a hint to query the signed callback ledger.
-     for(const delay of (result?.success===true||result?.status==='success'?[0,350,800,1500,2500]:[0])){
+     for(const delay of (result?.success===true||result?.status==='success'?[0,350,800,1500,2500]:[0,800,2000])){
       if(delay)await sleep(delay);
       if(this.account()?.key!==owner){this.reset();return false;}
       await this.refresh();if(this.hasAllMaps())return true;

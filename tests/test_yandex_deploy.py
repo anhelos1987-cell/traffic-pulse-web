@@ -35,7 +35,7 @@ class DeploySafetyTests(unittest.TestCase):
         return events, json.loads(output.getvalue())
 
     def test_requires_exactly_one_publish_mode(self):
-        for args in [(), ('--synthetic-test', '--public-disabled')]:
+        for args in [(), ('--synthetic-test', '--public-disabled'), ('--private-disabled', '--public-disabled')]:
             with self.subTest(args=args), patch.object(sys, 'argv', ['deploy.py', *args]), \
                  patch('sys.stderr', io.StringIO()), self.assertRaises(SystemExit):
                 deploy.main()
@@ -48,6 +48,14 @@ class DeploySafetyTests(unittest.TestCase):
         self.assertLess(events.index(deny), events.index(version))
         self.assertNotIn(('serverless', 'function', 'allow-unauthenticated-invoke', 'function-id'), events)
         self.assertEqual(result['synthetic_user'], '900000000000007')
+
+    def test_private_disabled_revokes_access_before_deploy(self):
+        events, result = self.run_main('--private-disabled')
+        deny = ('serverless', 'function', 'deny-unauthenticated-invoke', 'function-id')
+        version = ('version', 'function-id', 'service-account-id', '', '', False)
+        self.assertLess(events.index(deny), events.index(version))
+        self.assertNotIn(('serverless', 'function', 'allow-unauthenticated-invoke', 'function-id'), events)
+        self.assertFalse(result['public_invocation'])
 
     def test_only_secretless_disabled_version_becomes_public(self):
         events, result = self.run_main('--public-disabled')
