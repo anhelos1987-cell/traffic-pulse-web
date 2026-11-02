@@ -830,3 +830,7 @@ body.vk-supporter .garage-showcase strong{background:linear-gradient(180deg,#fff
 /* M197 experimental roundabout scenario. */
 .roundabout-experimental{margin:0 0 8px;padding:7px 9px;border-radius:10px;border:1px solid rgba(255,209,102,.28);background:linear-gradient(135deg,rgba(255,209,102,.10),rgba(85,213,255,.06));color:#ffe29a;font-size:9px;font-weight:950;letter-spacing:.025em}
 .mode-card.scenario strong{line-height:1.15}.mode-card.scenario small{line-height:1.25}
+
+/* M199: permanent map access offer, separate from earned campaign progress. */
+.campaign-purchase{display:grid;gap:8px;padding:14px;border:1px solid rgba(85,213,255,.35);border-radius:16px;background:linear-gradient(145deg,rgba(28,77,105,.6),rgba(9,25,44,.8));text-align:left}
+.campaign-purchase>strong{font-size:16px}.campaign-purchase>p{margin:0;font-size:12px;line-height:1.45;color:#c2d9e7}.campaign-purchase>button{min-height:44px;padding:10px 12px;border:1px solid rgba(255,255,255,.18);border-radius:12px;background:#17354b;cursor:pointer;font-weight:800}.campaign-purchase>button.primary{color:#061423;background:linear-gradient(110deg,#37c8ed,#3b8ef4)}.campaign-purchase>button:disabled{opacity:.65;cursor:default}.campaign-purchase>small{color:#ffd166;line-height:1.4}

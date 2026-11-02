@@ -12,6 +12,8 @@ The original VK Play and billing configuration remains on the main branch.
 
 The edge Worker serves a fixed allow-list of static game assets from the KV namespace. Cloudflare KV stores **only public game files**. The Worker has no D1/player database, no account API, no analytics endpoint and no code path that accepts or stores VK UID, launch parameters, progress, purchases or profile data. Worker observability and Logpush are disabled; query strings are configured for redaction as an additional safeguard.
 
+The static asset allow-list now includes `campaign-access.js`, `payments-config.js` and `vk-purchases.js`. Map purchases are prepared but **disabled** until a separate Russian-hosted callback and the VK payment cabinet are configured. See `server/README-RU.md`. No payment journal is hosted on Cloudflare.
+
 The HTML ships a pinned local VK Bridge 3.0.2 bundle. A restrictive CSP uses `connect-src 'none'`, so the client cannot accidentally send account/progress data to a web backend. VK account identifiers are used only in volatile browser memory to validate the VK session. The local device stores a SHA-256 account fingerprint rather than the raw VK UID.
 
 ## Game saves and monetization

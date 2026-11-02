@@ -19,6 +19,10 @@ jobs:
           node --check progress-core.js
           node --check vkbridge.min.js
           node --check vk-games.js
+          node --check campaign-access.js
+          node --check payments-config.js
+          node --check vk-purchases.js
+          node --check server/vk-payments.mjs
           node --check infra/cloudflare-vkgames-worker.js
       - name: Enforce VK Games privacy boundary
         run: |
@@ -28,4 +32,4 @@ jobs:
           ! grep -Eq "\\bfetch\\s*\\(" vk-games.js
           grep -q "cloudflarePlayerStorage:false" vk-games.js
       - name: Validate VK cloud saves, account isolation, deletion and ads
-        run: node --test tests/vk-games-storage.test.mjs tests/vk-games-monetization.test.mjs
+        run: node --test tests/*.test.mjs

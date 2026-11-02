@@ -3,11 +3,14 @@
  * Static assets are stored in the private Cloudflare Workers KV namespace.
  * No GitHub runtime fetch and no server-side player save database are needed.
  */
-const CACHE_VERSION = 'vk-games-m198-ads-rc2-ui1';
+const CACHE_VERSION = 'vk-games-m199-all-maps';
 const TYPES = Object.freeze({
   'index.html':'text/html; charset=utf-8',
   'app.js':'application/javascript; charset=utf-8',
   'progress-core.js':'application/javascript; charset=utf-8',
+  'campaign-access.js':'application/javascript; charset=utf-8',
+  'payments-config.js':'application/javascript; charset=utf-8',
+  'vk-purchases.js':'application/javascript; charset=utf-8',
   'vk-games.js':'application/javascript; charset=utf-8',
   'vkbridge.min.js':'application/javascript; charset=utf-8',
   'style.css':'text/css; charset=utf-8'

@@ -86,7 +86,7 @@ const PREFIX='trafficpulse_vkg_v2';
    const storage=deps.storage||safeStorage();
    const state={
     ready:false,cloud:false,loaded:false,dirty:false,busy:null,timer:0,error:'',
-    appId:0,userId:0,clientPlatform:'',fingerprint:'',epoch:'',head:null,base:null,
+    appId:0,userId:0,clientPlatform:'',launchQuery:'',fingerprint:'',epoch:'',head:null,base:null,
     deleting:false,deletionSupported:false,adBusy:false,rewardedStatus:'unknown',
     bannerVisible:false,bannerMode:'',bannerLastLayout:null,bannerJob:null,
 
@@ -166,6 +166,9 @@ const PREFIX='trafficpulse_vkg_v2';
        this.supported('VKWebAppStorageGetKeys')
      ]);
      this.appId=appId;this.userId=user.id;this.clientPlatform=String(launch?.vk_platform||query.get('vk_platform')||'');this.cloud=canGet&&canSet;this.deletionSupported=this.cloud&&canKeys;
+     const signed=new URLSearchParams();
+     for(const [key,value] of (launch?.sign?Object.entries(launch):query.entries()))if(key==='sign'||key.startsWith('vk_'))signed.append(key,String(value));
+     this.launchQuery=signed.has('sign')?signed.toString():'';
      this.fingerprint=await this.accountFingerprint(appId,user.id);
      // Isolate the local profile before any cloud read can fail or be unsupported.
      if(this.localMeta()?.fingerprint!==this.fingerprint){

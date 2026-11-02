@@ -13,7 +13,7 @@
   }catch(_){}
 
   const BUILD_MODE = 'production';
-  const BUILD_VERSION = 'M198-VKGAMES-ADS-RC1';
+  const BUILD_VERSION = 'M199-VKGAMES-ALL-MAPS';
   const IS_DEVELOPMENT = BUILD_MODE === 'development';
   const PLATFORM_TARGET = 'vkgames'; // VK Games / VK Mini Apps, not VK Play
   const YANDEX_PUBLIC_LEADERBOARD_NAME = 'TrafficPulseStars';
@@ -235,7 +235,7 @@
 
 
   const SAVE_KEY = 'traffic_pulse_vk_games_save_v1';
-  const SAVE_SCHEMA_VERSION = 5;
+  const SAVE_SCHEMA_VERSION = 6;
   const SAVE_BACKUP_KEY = 'traffic_pulse_save_v4_backup_m102';
   const OLD_SAVE_KEYS = ['traffic_pulse_save_v3','traffic_pulse_save_v2','traffic_pulse_save_v1'];
   const CLOUD_SAVE_KEY = 'trafficPulseSave';
@@ -384,14 +384,14 @@
     const migratedOwned=Array.isArray(data.ownedCars)?data.ownedCars.map(Number).filter(v=>Number.isInteger(v)&&v>=0&&v<10):Array.from({length:legacyCount},(_,i)=>i);
     const ownedCars=[...new Set([0,...migratedOwned])].sort((a,b)=>a-b);
     const purchasedCars=Array.isArray(data.purchasedCars)?[...new Set(data.purchasedCars.map(Number).filter(v=>Number.isInteger(v)&&v>0&&v<10&&ownedCars.includes(v)))].sort((a,b)=>a-b):[];
-    const starsByLevel=normalizeStarsMap(data.starsByLevel,level),starsSum=Object.values(starsByLevel).reduce((n,v)=>n+v,0);
-    const reportedStars=Math.min(safeInt(data.totalStars,0,3_000_000,0),level*3),totalStars=Math.max(starsSum,reportedStars);
+    const starsByLevel=normalizeStarsMap(data.starsByLevel,1_000_000),starsSum=Object.values(starsByLevel).reduce((n,v)=>n+v,0);
+    const reportedStars=safeInt(data.totalStars,0,3_000_000,0),totalStars=Math.max(starsSum,reportedStars);
     const maxClaimed=Math.floor(totalStars/15),claimedRaw=Number(data.starMilestonesClaimed),claimed=Number.isFinite(claimedRaw)?Math.min(safeInt(claimedRaw,0,200_000,0),maxClaimed):maxClaimed;
     return {
       schemaVersion:SAVE_SCHEMA_VERSION, vkCloudRewards:TrafficPulseProgress.normalizeRewardReceipts(data.vkCloudRewards), level, coins:safeInt(data.coins,0,1_000_000_000_000,0), vkPaidCoinsCredited:safeInt(data.vkPaidCoinsCredited,0,1_000_000_000_000,0), vkEntitlements:normalizeVkEntitlements(data.vkEntitlements), vkPendingSpend:normalizeVkPendingSpend(data.vkPendingSpend), totalStars, starsByLevel,
       sound:data.sound!==false, sfx:data.sfx===undefined?data.sound!==false:data.sfx!==false, musicLevel:data.musicLevel===undefined?(data.sound===false?0:3):safeInt(data.musicLevel,0,3,3), langMode:normalizeLanguageMode(data.langMode), ownedCars, purchasedCars, favoriteCar:ownedCars.includes(safeInt(data.favoriteCar,0,9,0))?safeInt(data.favoriteCar,0,9,0):0, sessions:safeInt(data.sessions,0,1_000_000_000,0),
       dailyBest:normalizeDailyBest(data.dailyBest), dailyBestCompat:normalizeChallengeCompatMap(data.dailyBestCompat), dailyRewards:normalizeDailyRewards(data.dailyRewards),
-      starMilestonesClaimed:claimed, bestFlow:safeInt(data.bestFlow,0,9999,0), missionCompleted:normalizeMissionMap(data.missionCompleted,level), medalsByLevel:normalizeMedalMap(data.medalsByLevel,level), achievements:normalizeAchievements(data.achievements), weeklyBest:normalizeDailyBest(data.weeklyBest), weeklyBestCompat:normalizeChallengeCompatMap(data.weeklyBestCompat), weeklyRewards:normalizeDailyRewards(data.weeklyRewards), endlessBestScore:safeInt(data.endlessBestScore,0,1_000_000_000,0), endlessBestWave:safeInt(data.endlessBestWave,0,1_000_000,0), scenarioProgress:normalizeScenarioProgress(data.scenarioProgress), greenWaveProgress:normalizeGreenWaveProgress(data.greenWaveProgress), campaignRewardedThrough:(()=>{const raw=Number(data.campaignRewardedThrough);if(Number.isFinite(raw))return safeInt(raw,0,level,0);const currentPaid=Number(starsByLevel[String(level)]||0)>0?level:Math.max(0,level-1);return currentPaid;})(), revision:safeInt(data.revision,0,9_000_000_000_000_000,0), updatedAt:safeInt(data.updatedAt,0,9_000_000_000_000_000,0)
+      starMilestonesClaimed:claimed, bestFlow:safeInt(data.bestFlow,0,9999,0), missionCompleted:normalizeMissionMap(data.missionCompleted,1_000_000), medalsByLevel:normalizeMedalMap(data.medalsByLevel,1_000_000), achievements:normalizeAchievements(data.achievements), weeklyBest:normalizeDailyBest(data.weeklyBest), weeklyBestCompat:normalizeChallengeCompatMap(data.weeklyBestCompat), weeklyRewards:normalizeDailyRewards(data.weeklyRewards), endlessBestScore:safeInt(data.endlessBestScore,0,1_000_000_000,0), endlessBestWave:safeInt(data.endlessBestWave,0,1_000_000,0), scenarioProgress:normalizeScenarioProgress(data.scenarioProgress), greenWaveProgress:normalizeGreenWaveProgress(data.greenWaveProgress), campaignRewardedThrough:(()=>{const raw=Number(data.campaignRewardedThrough);if(Number.isFinite(raw))return safeInt(raw,0,level,0);const currentPaid=Number(starsByLevel[String(level)]||0)>0?level:Math.max(0,level-1);return currentPaid;})(), revision:safeInt(data.revision,0,9_000_000_000_000_000,0), updatedAt:safeInt(data.updatedAt,0,9_000_000_000_000_000,0)
     };
   }
   function backupSaveRaw(raw){
@@ -449,7 +449,7 @@
     return normalizeSaveData({ ...a, level:Math.max(a.level,b.level), coins, vkPaidCoinsCredited:Math.max(a.vkPaidCoinsCredited||0,b.vkPaidCoinsCredited||0), vkEntitlements:{...a.vkEntitlements,...b.vkEntitlements}, vkPendingSpend:balanceNewer.vkPendingSpend||balanceOlder.vkPendingSpend||null, totalStars, starsByLevel:stars, ownedCars, purchasedCars, favoriteCar, sessions:Math.max(a.sessions,b.sessions), dailyBest, dailyBestCompat, dailyRewards, starMilestonesClaimed:Math.max(a.starMilestonesClaimed||0,b.starMilestonesClaimed||0), bestFlow:Math.max(a.bestFlow||0,b.bestFlow||0), missionCompleted, medalsByLevel, achievements, weeklyBest, weeklyBestCompat, weeklyRewards, endlessBestScore:Math.max(a.endlessBestScore||0,b.endlessBestScore||0), endlessBestWave:Math.max(a.endlessBestWave||0,b.endlessBestWave||0), scenarioProgress, greenWaveProgress, campaignRewardedThrough:Math.max(a.campaignRewardedThrough||0,b.campaignRewardedThrough||0), sound:preferenceNewer.sound, sfx:preferenceNewer.sfx, musicLevel:preferenceNewer.musicLevel, langMode:preferenceNewer.langMode, revision:Math.max(a.revision||0,b.revision||0), updatedAt:Math.max(a.updatedAt||0,b.updatedAt||0) });
   }
   function persist(){
-    save.dailyBest=normalizeDailyBest(save.dailyBest); save.dailyBestCompat=normalizeChallengeCompatMap(save.dailyBestCompat); save.dailyRewards=normalizeDailyRewards(save.dailyRewards); save.missionCompleted=normalizeMissionMap(save.missionCompleted,save.level||1); save.medalsByLevel=normalizeMedalMap(save.medalsByLevel,save.level||1); save.achievements=normalizeAchievements(save.achievements); save.weeklyBest=normalizeDailyBest(save.weeklyBest); save.weeklyBestCompat=normalizeChallengeCompatMap(save.weeklyBestCompat); save.weeklyRewards=normalizeDailyRewards(save.weeklyRewards); save.scenarioProgress=normalizeScenarioProgress(save.scenarioProgress); save.greenWaveProgress=normalizeGreenWaveProgress(save.greenWaveProgress);
+    save.dailyBest=normalizeDailyBest(save.dailyBest); save.dailyBestCompat=normalizeChallengeCompatMap(save.dailyBestCompat); save.dailyRewards=normalizeDailyRewards(save.dailyRewards); save.missionCompleted=normalizeMissionMap(save.missionCompleted,1_000_000); save.medalsByLevel=normalizeMedalMap(save.medalsByLevel,1_000_000); save.achievements=normalizeAchievements(save.achievements); save.weeklyBest=normalizeDailyBest(save.weeklyBest); save.weeklyBestCompat=normalizeChallengeCompatMap(save.weeklyBestCompat); save.weeklyRewards=normalizeDailyRewards(save.weeklyRewards); save.scenarioProgress=normalizeScenarioProgress(save.scenarioProgress); save.greenWaveProgress=normalizeGreenWaveProgress(save.greenWaveProgress);
     save.revision=safeInt((save.revision||0)+1,0,9_000_000_000_000_000,0);
     save.updatedAt=(typeof platform!=='undefined'&&platform?.now)?platform.now():Date.now();
     try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (_) {}
@@ -507,8 +507,8 @@
     gameplayStart(){if(this.gameplayActive)return;this.gameplayActive=true;YandexAudit.state.gameplayStart++;YandexAudit.mark('Gameplay.start');},
     gameplayStop(){if(!this.gameplayActive)return;this.gameplayActive=false;YandexAudit.state.gameplayStop++;YandexAudit.mark('Gameplay.stop');},
     shouldRequestFullscreen(){return this.campaignCompletionsSinceFullscreen>=2;},
-    async showFullscreen(){if(this.adBusy)return false;this.campaignCompletionsSinceFullscreen=0;if(Date.now()-this.lastRewardedExposureAt<60000)return false;this.lastFullscreenAttemptAt=Date.now();this.adBusy=true;this.adPaused=true;syncExternalPauseState();try{return await VKGames.showAd('interstitial');}finally{this.adPaused=false;this.adBusy=false;syncExternalPauseState();}},
-    async showRewarded(){if(this.adBusy)return false;this.adBusy=true;this.adPaused=true;syncExternalPauseState();try{const ok=await VKGames.showAd('reward');if(ok)this.noteRewardedExposure();return ok;}finally{this.adPaused=false;this.adBusy=false;syncExternalPauseState();}},
+    async showFullscreen(){if(this.adBusy||this.purchaseBusy)return false;this.campaignCompletionsSinceFullscreen=0;if(Date.now()-this.lastRewardedExposureAt<60000)return false;this.lastFullscreenAttemptAt=Date.now();this.adBusy=true;this.adPaused=true;syncExternalPauseState();try{return await VKGames.showAd('interstitial');}finally{this.adPaused=false;this.adBusy=false;syncExternalPauseState();}},
+    async showRewarded(){if(this.adBusy||this.purchaseBusy)return false;this.adBusy=true;this.adPaused=true;syncExternalPauseState();try{const ok=await VKGames.showAd('reward');if(ok)this.noteRewardedExposure();return ok;}finally{this.adPaused=false;this.adBusy=false;syncExternalPauseState();}},
     async showBanner(){return VKGames.showAdaptiveBanner();}, async hideBanner(){return VKGames.hideBanner();}
   };
 
@@ -547,6 +547,7 @@
     onLoad:(data,meta={})=>{
       save=normalizeSaveData(data);
       save.vkPaidCoinsCredited=0;save.vkEntitlements={};save.vkPendingSpend=null;
+      if(meta.accountChanged)VKPurchases.reset();
       snapshotLocalBeforeExternalTransition();applyResolvedLanguage();
       if(platform.ready){
         updateHud();
@@ -563,6 +564,12 @@
     onDelete:()=>YandexAudit.mark('vkgames:cloud:deleted')
   });
   cloudSaveHook=()=>VKGames.changed();
+  const VKPurchases=TrafficPulseVKPurchases.create({
+    account:()=>({ready:VKGames.ready,appId:VKGames.appId,userId:VKGames.userId,launchQuery:VKGames.launchQuery}),
+    supported:method=>VKGames.supported(method),call:(method,props,ms)=>VKGames.call(method,props,ms),
+    onBusy:busy=>{platform.purchaseBusy=busy;platform.paymentPaused=busy;syncExternalPauseState();},
+    onChange:()=>{if(overlayVisible()&&document.querySelector('.modal')?.classList.contains('campaign-map-modal'))showCampaignMap('page',campaignMapContext.chapter?.start||save.level);}
+  });
 
   // M115: compact recorded vehicle audio scene; distinct emergency recordings stay embedded/offline-friendly.
   const EMBEDDED_AUDIO_SAMPLES = Object.freeze({
@@ -572,7 +579,7 @@
 
   const AudioFx = {
     ctx:null, enabled:Boolean(save.sfx||save.musicLevel>0), failed:false,
-    playbackBlocked(){return Boolean(platform.pausedByPlatform||platform.browserPaused||platform.adPaused||(typeof Game!=='undefined'&&(Game.userPaused||Game.externalPaused)));},
+    playbackBlocked(){return Boolean(platform.pausedByPlatform||platform.browserPaused||platform.adPaused||platform.paymentPaused||(typeof Game!=='undefined'&&(Game.userPaused||Game.externalPaused)));},
     musicGain:null, sfxGain:null, musicTimer:null, musicStarted:false, musicStep:0, nextMusicAt:0, musicNodes:new Set(), musicThemeBand:-1, musicTheme:null,
     sampleBuffers:Object.create(null), sampleLoadPromise:null, sampleDecodeFailures:0, lastEmergencyCueAt:-99, lastEmergencyByKind:Object.create(null), lastHornAt:-99, vehicleSamplePlays:0, stereoPanPlays:0, vehicleVoices:new Set(), vehicleSampleCounts:Object.create(null), dangerSwitchWarnings:0, emergencyApproachPlays:0,
     generatedBuffers:Object.create(null), transientVoices:new Set(), roadBedSource:null, roadBedGain:null, roadBedFilter:null, roadBedStarts:0, roadBedUpdates:0, lastRoadBedLevel:0,
@@ -721,7 +728,7 @@
       else {this.externalRecoveryBatches++;void this.tryResume('external');}
       this.externalResumeTimer=setTimeout(()=>{
         this.externalResumeTimer=0;
-        if(!this.enabled||this.failed||platform.pausedByPlatform||platform.browserPaused||platform.adPaused)return;
+        if(!this.enabled||this.failed||platform.pausedByPlatform||platform.browserPaused||platform.adPaused||platform.paymentPaused)return;
         const state=String(this.ctx?.state||'');
         if(state!=='running')void this.tryResume('settle');
       },160);
@@ -1604,8 +1611,8 @@
   }
   function campaignPrevChapter(ch){if(ch.start<=1)return null;return campaignChapterForLevel(ch.start-1);}
   function campaignNextChapter(ch){return campaignChapterForLevel(ch.end+1);}
-  function campaignLevelUnlocked(level){const n=safeInt(level,1,1_000_000,1);return n<=save.level;}
-  function campaignLevelCompleted(level){const n=safeInt(level,1,1_000_000,1);return n<save.level||Number(save.starsByLevel?.[String(n)]||0)>0;}
+  function campaignLevelUnlocked(level){return TrafficPulseCampaign.unlocked(level,save,VKPurchases.hasAllMaps());}
+  function campaignLevelCompleted(level){return TrafficPulseCampaign.completed(level,save);}
   function campaignChapterTitle(ch){const base=T[ch.key]||ch.key;return ch.cycle>1?`${base} • ${T.campaignCycle} ${ch.cycle}`:base;}
   function campaignCatalog(chapter=campaignChapterForLevel(save.level)){
     const levels=[];for(let n=chapter.start;n<=chapter.end;n++){const config=levelConfig(n),mission=missionForLevel(n,config);levels.push({level:n,unlocked:campaignLevelUnlocked(n),completed:campaignLevelCompleted(n),current:n===save.level,stars:Number(save.starsByLevel?.[String(n)]||0),mission:Boolean(mission),missionDone:Boolean(save.missionCompleted?.[String(n)]),medals:medalCount(save.medalsByLevel?.[String(n)]),variant:config.variant,lanes:config.lanes});}
@@ -1995,11 +2002,11 @@
     clearFailureUiTimer(){if(this.failureUiTimer){clearTimeout(this.failureUiTimer);this.failureUiTimer=0;}},
     scheduleFailureUi(fn,delay=0){this.clearFailureUiTimer();this.failureUiTimer=setTimeout(()=>{this.failureUiTimer=0;fn();},Math.max(0,Number(delay)||0));return this.failureUiTimer;},
     startLevel(n,rescued=false,mode='campaign'){
-      if(platform.adBusy)return false;
+      if(platform.adBusy||platform.purchaseBusy)return false;
       if(mode==='scenario'){this.startScenario(this.scenarioId||'after_school',rescued);return;}
       this.clearNoticeTimers();this.clearFailureUiTimer();
       this.mode=mode==='daily'?'daily':mode==='weekly'?'weekly':mode==='endless'?'endless':'campaign'; this.dailyKey=this.mode==='daily'?todayDailyKey():''; this.weeklyKey=this.mode==='weekly'?weekStartKey():''; this.scenarioId='';this.scenarioDirector=null;this.incidentDirector=null;this.greenWaveId='';this.greenWaveDirector=null;this.signalMode='shared';this.signalControllers=null;this.greenWaveStats=null;this.level=Math.max(1,n);
-      if(this.mode==='campaign'){save.level=Math.max(save.level,this.level);persist();}
+      if(this.mode==='campaign')persist();
       if(this.mode==='endless'){if(!this.endlessWave)this.endlessWave=1;if(!this.endlessSessionSeed)this.endlessSessionSeed=hashText(`endless:${platform.now()}:${save.sessions}`);this.level=Math.min(130,20+this.endlessWave*8);}
       this.config=this.mode==='daily'?dailyConfig(this.dailyKey):this.mode==='weekly'?weeklyConfig(this.weeklyKey):this.mode==='endless'?endlessConfig(this.endlessWave,this.endlessSessionSeed):levelConfig(this.level);
       this.incidentDirector=this.mode==='campaign'?createRoadIncidentDirector(campaignRoadIncidentDefinition(this.level,this.config)):null;
@@ -2008,7 +2015,7 @@
       this.mission=this.mode==='campaign'?missionForLevel(this.level,this.config):null;this.lastMedalResult=null;
       this.rng=seeded(this.config.seed); this.cars=[]; this.spawned=0; this.exited=0;
       this.phase=this.config.startPhase; this.pendingPhase=null; this.transitionTimer=0; this.switches=0; this.spawnTimer=.42; this.phaseElapsed=0; this.pedestrians=[]; this.pedestrianSerial=0; this.pedestrianSpawnTimer=.38; this.pedestrianHold=false; this.emergencyPriorityId=null; AudioFx.stopTransientAudio();AudioFx.refreshMusicTheme();
-      this.maxObservedQueue=0; this.elapsed=0; this.accumulator=0; this.renderAlpha=1; this.state='playing'; this.externalPaused=Boolean(platform.pausedByPlatform||platform.browserPaused||platform.adPaused); this.userPaused=false;
+      this.maxObservedQueue=0; this.elapsed=0; this.accumulator=0; this.renderAlpha=1; this.state='playing'; this.externalPaused=Boolean(platform.pausedByPlatform||platform.browserPaused||platform.adPaused||platform.paymentPaused); this.userPaused=false;
       this.rescueUsed=rescued; this.crashPair=null; this.crashFx=null; this.cameraKick=0; this.turnOwnerId=null; this.particles=[]; this.flowStreak=0; this.maxFlowStreak=0; this.prioritySaved=0; this.lastPassAt=-99; this.failureReplayFrames=[];this.failureReplayClock=0;this.replayPlayback=null;clearTimeout(this.replayTimer);this.lastFailType=''; this.lastCampaignFirstClear=false;this.rewardedWinClaimed=false;this.rewardedWinClaiming=false;this.rewardedWinBonus=0; this.firstInput=this.mode!=='campaign'||this.level>1; this.coachFlags={};
       if(typeof PersonalBestService!=='undefined')PersonalBestService.begin(this.mode,this.mode==='daily'?this.dailyKey:this.mode==='weekly'?this.weeklyKey:'',this.config,this);
       clearTimeout(this.tutorialCueTimer);this.tutorialCueTimer=0;
@@ -2024,23 +2031,23 @@
       if(!this.externalPaused && !platform.booting){platform.gameplayStart();AudioFx.recoverAfterExternalResume();}
     },
     startScenario(id='after_school',rescued=false){
-      if(platform.adBusy)return false;
+      if(platform.adBusy||platform.purchaseBusy)return false;
       this.clearNoticeTimers();this.clearFailureUiTimer();
       const def=scenarioDefinition(id);if(!def){toast(T.scenarioMode);return false;}if(!scenarioUnlocked(def)){toast(T.scenarioLocked);return false;}
       this.mode='scenario';this.scenarioId=def.id;this.incidentDirector=null;this.greenWaveId='';this.greenWaveDirector=null;this.signalMode='shared';this.signalControllers=null;this.greenWaveStats=null;this.dailyKey='';this.weeklyKey='';this.level=def.board.level;this.config=scenarioConfig(def);this.scenarioDirector=createScenarioDirector(def);this.assistActive=false;this.mission=null;
       this.rng=seeded(def.seed);this.cars=[];this.spawned=0;this.exited=0;this.phase=this.config.startPhase;this.pendingPhase=null;this.transitionTimer=0;this.switches=0;this.spawnTimer=.42;this.phaseElapsed=0;this.pedestrians=[];this.pedestrianSerial=0;this.pedestrianSpawnTimer=99;this.pedestrianHold=false;this.emergencyPriorityId=null;this.roundaboutOwnerId=null;AudioFx.stopTransientAudio();AudioFx.refreshMusicTheme();
-      this.maxObservedQueue=0;this.elapsed=0;this.accumulator=0;this.renderAlpha=1;this.state='playing';this.externalPaused=Boolean(platform.pausedByPlatform||platform.browserPaused||platform.adPaused);this.userPaused=false;this.rescueUsed=rescued;this.crashPair=null;this.crashFx=null;this.cameraKick=0;this.turnOwnerId=null;this.particles=[];this.flowStreak=0;this.maxFlowStreak=0;this.syncStreak=0;this.maxSyncStreak=0;this.prioritySaved=0;this.lastPassAt=-99;this.failureReplayFrames=[];this.failureReplayClock=0;this.replayPlayback=null;clearTimeout(this.replayTimer);this.lastFailType='';this.firstInput=true;if(typeof PersonalBestService!=='undefined')PersonalBestService.clear();
+      this.maxObservedQueue=0;this.elapsed=0;this.accumulator=0;this.renderAlpha=1;this.state='playing';this.externalPaused=Boolean(platform.pausedByPlatform||platform.browserPaused||platform.adPaused||platform.paymentPaused);this.userPaused=false;this.rescueUsed=rescued;this.crashPair=null;this.crashFx=null;this.cameraKick=0;this.turnOwnerId=null;this.particles=[];this.flowStreak=0;this.maxFlowStreak=0;this.syncStreak=0;this.maxSyncStreak=0;this.prioritySaved=0;this.lastPassAt=-99;this.failureReplayFrames=[];this.failureReplayClock=0;this.replayPlayback=null;clearTimeout(this.replayTimer);this.lastFailType='';this.firstInput=true;if(typeof PersonalBestService!=='undefined')PersonalBestService.clear();
       clearTimeout(this.tutorialCueTimer);this.tutorialCueTimer=0;$('tap-hint').style.display='none';closeOverlay();applyDistrictTheme();this.scenarioDirector.update(0,this);updateHud();this.primeTraffic();toast(`${def.icon||'🎒'} ${T[def.nameKey]}`);this.scheduleNotice(()=>{if(this.state==='playing'&&this.mode==='scenario'&&this.scenarioId===def.id)toast(`⚙️ ${T[def.ruleKey]||T.scenarioRule}`);},1450);if(!this.externalPaused&&!platform.booting){platform.gameplayStart();AudioFx.recoverAfterExternalResume();}return true;
     },
     startGreenWave(id='catch_wave'){
-      if(platform.adBusy)return false;
+      if(platform.adBusy||platform.purchaseBusy)return false;
       this.clearNoticeTimers();this.clearFailureUiTimer();
       const def=greenWaveDefinition(id);if(!def){toast(T.greenWaveMode);return false;}if(!greenWaveUnlocked(def)){toast(T.greenWaveLocked);return false;}
       this.mode='greenwave';this.greenWaveId=def.id;this.greenWaveDirector=createGreenWaveDirector(def);this.scenarioId='';this.scenarioDirector=null;this.incidentDirector=null;this.dailyKey='';this.weeklyKey='';this.level=def.board.level;this.config=greenWaveConfig(def);this.assistActive=false;this.mission=null;
       this.signalMode='independent';this.signalControllers={J0:createSignalController(def.board.startPhases?.J0||'H'),J1:createSignalController(def.board.startPhases?.J1||'V')};this.phase=this.signalControllers.J0.phase;this.pendingPhase=null;this.transitionTimer=0;this.phaseElapsed=0;this.pedestrianHold=false;
       this.rng=seeded(def.seed);this.cars=[];this.spawned=0;this.exited=0;this.switches=0;this.spawnTimer=.48;this.pedestrians=[];this.pedestrianSerial=0;this.pedestrianSpawnTimer=99;this.emergencyPriorityId=null;this.roundaboutOwnerId=null;AudioFx.stopTransientAudio();AudioFx.refreshMusicTheme();
       const throughTotal=def.plan.filter(x=>(linkedRouteSpec(x)?.junctions||[]).length>1).length;this.greenWaveStats={throughTotal,throughCompleted:0,throughNoStop:0,maxSideQueue:0,blockEvents:0,switches:{J0:0,J1:0}};
-      this.maxObservedQueue=0;this.elapsed=0;this.accumulator=0;this.renderAlpha=1;this.state='playing';this.externalPaused=Boolean(platform.pausedByPlatform||platform.browserPaused||platform.adPaused);this.userPaused=false;this.rescueUsed=false;this.crashPair=null;this.crashFx=null;this.cameraKick=0;this.turnOwnerId=null;this.particles=[];this.flowStreak=0;this.maxFlowStreak=0;this.syncStreak=0;this.maxSyncStreak=0;this.prioritySaved=0;this.lastPassAt=-99;this.failureReplayFrames=[];this.failureReplayClock=0;this.replayPlayback=null;clearTimeout(this.replayTimer);this.lastFailType='';this.firstInput=true;if(typeof PersonalBestService!=='undefined')PersonalBestService.clear();
+      this.maxObservedQueue=0;this.elapsed=0;this.accumulator=0;this.renderAlpha=1;this.state='playing';this.externalPaused=Boolean(platform.pausedByPlatform||platform.browserPaused||platform.adPaused||platform.paymentPaused);this.userPaused=false;this.rescueUsed=false;this.crashPair=null;this.crashFx=null;this.cameraKick=0;this.turnOwnerId=null;this.particles=[];this.flowStreak=0;this.maxFlowStreak=0;this.syncStreak=0;this.maxSyncStreak=0;this.prioritySaved=0;this.lastPassAt=-99;this.failureReplayFrames=[];this.failureReplayClock=0;this.replayPlayback=null;clearTimeout(this.replayTimer);this.lastFailType='';this.firstInput=true;if(typeof PersonalBestService!=='undefined')PersonalBestService.clear();
       clearTimeout(this.tutorialCueTimer);this.tutorialCueTimer=0;$('tap-hint').style.display='none';closeOverlay();applyDistrictTheme();updateHud();this.primeTraffic();toast(`${def.icon||'🟢'} ${T[def.nameKey]}`);if(!this.externalPaused&&!platform.booting){platform.gameplayStart();AudioFx.recoverAfterExternalResume();}return true;
     },
     primeTraffic(){
@@ -2657,7 +2664,7 @@
         persist(); showDailyWin(stars,reward,improved,streak,streakBonus,pb.comparison); return;
       }
       const old=Number(save.starsByLevel[this.level]||0),starImprovement=Math.max(0,stars-old); if(stars>old){save.totalStars+=stars-old;save.starsByLevel[this.level]=stars;}
-      const firstClear=this.level>Number(save.campaignRewardedThrough||0);platform.noteCampaignCompletion(firstClear);this.lastCampaignFirstClear=firstClear;
+      const firstClear=TrafficPulseCampaign.firstClear(this.level,old,save);platform.noteCampaignCompletion(firstClear);this.lastCampaignFirstClear=firstClear;
       const flowBonus=firstClear?Math.min(60,Math.max(0,(this.maxFlowStreak||0)-2)*4):0,priorityBonus=firstClear?(this.prioritySaved||0)*12:0,syncBonus=firstClear?Math.min(60,Math.max(0,this.maxSyncStreak||0)*8):0;
       const missionSuccess=missionSucceeded(this.mission),missionKey=String(this.level),missionFirst=missionSuccess&&!save.missionCompleted?.[missionKey];
       const missionBonus=missionFirst?90:0;if(missionFirst){save.missionCompleted=save.missionCompleted||{};save.missionCompleted[missionKey]=true;}
@@ -2675,17 +2682,17 @@
       for(let n=(firstClear?1:old+1);n<=stars;n++)recordVkCloudReward(`star:${this.level}:${n}`,15);
       if(missionBonus)recordVkCloudReward(`mission:${this.level}`,missionBonus);
       if(missionMilestoneBonus)recordVkCloudReward(`mission-bonus:${missionCount/5}`,missionMilestoneBonus);
-      for(const ach of unlockedAchievements)recordVkCloudReward(`achievement:${ach.key}`,125);if(firstClear)save.campaignRewardedThrough=Math.max(save.campaignRewardedThrough||0,this.level); save.level=Math.max(save.level,this.level+1);
+      for(const ach of unlockedAchievements)recordVkCloudReward(`achievement:${ach.key}`,125);TrafficPulseCampaign.advance(save);
       sessionFailCounts.delete(this.level);
       const milestoneNow=Math.floor(save.totalStars/15),newMilestones=Math.max(0,milestoneNow-(save.starMilestonesClaimed||0));
       const starBonus=newMilestones*120;if(newMilestones){for(let n=(save.starMilestonesClaimed||0)+1;n<=milestoneNow;n++)recordVkCloudReward(`star-bonus:${n}`,120);save.starMilestonesClaimed=milestoneNow;save.coins+=starBonus;}
       let unlocked='';
       const availableIndex=CAR_REQUIREMENTS.findIndex((req,i)=>i>0&&req===this.level);
-      if(firstClear&&availableIndex>0&&!ownedStyleIds().includes(availableIndex))unlocked=T[CAR_NAMES[availableIndex]];
-      const district=firstClear?nextDistrictUnlock(this.level):''; persist(); showWin(stars,reward,unlocked,district,starBonus,flowBonus,priorityBonus,newFlowRecord,missionSuccess,missionBonus,missionMilestoneBonus,unlockedAchievements,achievementBonus,syncBonus,firstClear,starImprovement,rewardedBonus);
+      if(firstClear&&availableIndex>0&&save.level>CAR_REQUIREMENTS[availableIndex]&&!ownedStyleIds().includes(availableIndex))unlocked=T[CAR_NAMES[availableIndex]];
+      const district=firstClear&&save.level>this.level?nextDistrictUnlock(this.level):''; persist(); showWin(stars,reward,unlocked,district,starBonus,flowBonus,priorityBonus,newFlowRecord,missionSuccess,missionBonus,missionMilestoneBonus,unlockedAchievements,achievementBonus,syncBonus,firstClear,starImprovement,rewardedBonus);
     },
     async next(){
-      if(this.nextPending||platform.adBusy)return false;
+      if(this.nextPending||platform.adBusy||platform.purchaseBusy)return false;
       this.nextPending=true;
       try{
         if(this.mode==='daily'||this.mode==='weekly'||this.mode==='endless'||this.mode==='scenario'||this.mode==='greenwave'){this.startLevel(save.level,false,'campaign');return;}
@@ -5317,15 +5324,29 @@
   function startCampaignLevelFromMap(level){
     const n=safeInt(level,1,1_000_000,1);if(!campaignLevelUnlocked(n)){toast(T.campaignLocked);return false;}Game.userPaused=false;Game.startLevel(n,false,'campaign');return true;
   }
+  function appendMapsPurchase(parent){
+    if(!VKPurchases.enabled)return;
+    const card=document.createElement('section');card.className='campaign-purchase';
+    const title=document.createElement('strong');title.textContent=lang==='ru'?'🗺️ Все карты кампании':'🗺️ All campaign maps';
+    const desc=document.createElement('p');desc.textContent=lang==='ru'?'Разовая покупка: выбирай любые районы и уровни. Звёзды и награды зарабатываются прохождением.':'One-time purchase: choose any district and level. Earn stars and rewards by playing.';
+    const button=document.createElement('button');button.type='button';button.className='primary';
+    const owned=VKPurchases.hasAllMaps();button.disabled=owned||VKPurchases.busy||VKPurchases.checking||!VKPurchases.checked||!VKPurchases.purchasable||Boolean(VKPurchases.error);
+    button.textContent=owned?(lang==='ru'?'✓ Все карты открыты':'✓ All maps unlocked'):VKPurchases.busy?(lang==='ru'?'Проверяем оплату…':'Verifying payment…'):VKPurchases.checking?(lang==='ru'?'Проверяем покупку…':'Checking purchase…'):(lang==='ru'?'Открыть все карты — 10 голосов':'Unlock all maps — 10 votes');
+    button.onclick=async()=>{if(platform.adBusy||VKPurchases.busy)return;const ok=await VKPurchases.purchase();toast(ok?(lang==='ru'?'Все карты открыты':'All maps unlocked'):(lang==='ru'?'Покупка не подтверждена. Нажми «Восстановить покупку».':'Purchase not confirmed. Try restoring the purchase.'));};
+    const restore=document.createElement('button');restore.type='button';restore.textContent=lang==='ru'?'Восстановить покупку':'Restore purchase';restore.disabled=VKPurchases.busy||VKPurchases.checking;
+    restore.onclick=async()=>{await VKPurchases.refresh();toast(VKPurchases.hasAllMaps()?(lang==='ru'?'Покупка восстановлена':'Purchase restored'):(lang==='ru'?'Покупка не найдена или проверка недоступна':'No purchase found or verification unavailable'));};
+    card.append(title,desc,button,restore);if(VKPurchases.error){const note=document.createElement('small');note.textContent=lang==='ru'?'Проверка покупки сейчас недоступна. Попробуй восстановить её позже.':'Purchase verification is unavailable. Try restoring later.';card.appendChild(note);}parent.appendChild(card);
+  }
   function showCampaignMap(origin='game',targetLevel=save.level){
     if(origin!=='page'){
       const resumeAfter=origin==='game'&&Game.state==='playing'&&!Game.userPaused;campaignMapContext={origin,resumeAfter,chapter:campaignChapterForLevel(targetLevel)};if(resumeAfter){Game.userPaused=true;platform.gameplayStop();}
     }else campaignMapContext.chapter=campaignChapterForLevel(targetLevel);
     const catalog=campaignCatalog(campaignMapContext.chapter||campaignChapterForLevel(save.level)),ch=catalog.chapter,modal=document.querySelector('.modal');modal?.classList.add('campaign-map-modal');
-    $('modal-kicker').textContent=T.campaignChapter;$('modal-title').textContent=`🗺️ ${ch.title}`;$('modal-text').textContent=T.campaignMapDesc;$('modal-stars').textContent=`⭐ ${save.totalStars}`;$('modal-reward').classList.add('hidden');
+    $('modal-kicker').textContent=T.campaignChapter;$('modal-title').textContent=`🗺️ ${ch.title}`;$('modal-text').textContent=VKPurchases.hasAllMaps()?(lang==='ru'?'Все карты открыты. Выбирай любой уровень и зарабатывай звёзды прохождением.':'All maps are unlocked. Choose any level and earn stars by playing.'):T.campaignMapDesc;$('modal-stars').textContent=`⭐ ${save.totalStars}`;$('modal-reward').classList.add('hidden');
     const extra=$('modal-extra');extra.classList.remove('hidden');extra.textContent='';extra.className='modal-extra campaign-map-extra';
     const progress=campaignProgressSummary(ch);
     const summary=document.createElement('div');summary.className='campaign-map-summary';summary.textContent=`${T.level} ${ch.start}–${ch.end} · ${T.campaignCompleted}: ${progress.completed}/${progress.total}`;extra.appendChild(summary);
+    appendMapsPurchase(extra);
     appendCityGrowthPanel(extra,ch.start);
     const progressPanel=document.createElement('section');progressPanel.className='campaign-progress-panel';progressPanel.setAttribute('aria-label',T.campaignProgress);
     const progressHead=document.createElement('div');progressHead.className='campaign-progress-head';const progressTitle=document.createElement('strong');progressTitle.textContent=T.campaignProgress;const progressStars=document.createElement('span');progressStars.textContent=`${T.campaignStars}: ${progress.chapterStars}/${progress.chapterStarsMax}★ · ${T.campaignMedals}: ${progress.chapterMedals}/${progress.chapterMedalsMax}🏅`;progressHead.append(progressTitle,progressStars);
@@ -5338,9 +5359,9 @@
     rewardCard('🌆',T.campaignNextDistrictGoal,progress.nextDistrict.remaining>0?`${progress.nextDistrict.title} · ${progress.nextDistrict.remaining} ${T.campaignLevelsToGo}`:`${progress.nextDistrict.title} · ${T.campaignReady}`,progress.nextDistrict.remaining===0?'ready':'');
     progressPanel.appendChild(rewards);extra.appendChild(progressPanel);
     const grid=document.createElement('div');grid.className='campaign-level-grid';
-    for(const item of catalog.levels){const b=document.createElement('button');b.type='button';b.className=`campaign-level${item.completed?' completed':''}${item.current?' current':''}${item.unlocked?'':' locked'}`;b.disabled=!item.unlocked;b.dataset.level=String(item.level);const top=document.createElement('span');top.className='campaign-level-top';top.textContent=`${item.level}`;const stars=document.createElement('span');stars.className='campaign-level-stars';stars.textContent=item.stars?'⭐'.repeat(item.stars)+'☆'.repeat(3-item.stars):(item.completed?'☆☆☆':'');const meta=document.createElement('small');meta.textContent=`${item.current?T.campaignCurrent:item.missionDone?`🎯 ${T.campaignMissionDone}`:item.mission?`🎯 ${T.campaignMissionOpen}`:item.completed?T.campaignCompleted:T.campaignLocked}${item.unlocked?` · 🏅${item.medals}/3`:''}`;const status=item.current?T.campaignCurrent:item.completed?T.campaignCompleted:T.campaignLocked;b.setAttribute('aria-label',`${T.level} ${item.level}. ${status}. ${item.stars}/3 ⭐. ${T.medals}: ${item.medals}/3${item.missionDone?`. ${T.campaignMissionDone}`:item.mission?`. ${T.campaignMissionOpen}`:''}`);b.append(top,stars,meta);if(item.unlocked)b.onclick=()=>startCampaignLevelFromMap(item.level);grid.appendChild(b);}extra.appendChild(grid);
-    const next=catalog.next,peek=document.createElement('div');peek.className='campaign-next-peek';peek.textContent=`${T.campaignNextChapter}: ${campaignChapterTitle(next)} · ${T.level} ${next.start}`;peek.classList.toggle('locked',next.start>save.level);extra.appendChild(peek);
-    const mapActions=[];if(catalog.prev)mapActions.push({text:`← ${T.campaignPrevChapter}`,fn:()=>showCampaignMap('page',catalog.prev.start)});mapActions.push({text:`▶ ${T.campaignContinue}`,cls:'primary',fn:()=>startCampaignLevelFromMap(save.level)});if(next.start<=save.level)mapActions.push({text:`${T.campaignNextChapter} →`,fn:()=>showCampaignMap('page',next.start)});mapActions.push({text:`🎮 ${T.campaignModes}`,fn:()=>{modal?.classList.remove('campaign-map-modal');extra.className='modal-extra';modeHubContext={origin:campaignMapContext.origin==='pause'?'pause':'game',resumeAfter:Boolean(campaignMapContext.resumeAfter)};showModeHub('return');}});mapActions.push({text:T.close,fn:()=>{modal?.classList.remove('campaign-map-modal');extra.className='modal-extra';if(campaignMapContext.origin==='hub'){showModeHub('return');return;}if(campaignMapContext.origin==='pause'){showPause();return;}if(campaignMapContext.origin==='result'){Game.startLevel(save.level,false,'campaign');return;}closeOverlay();if(campaignMapContext.resumeAfter&&Game.state==='playing'){resumePausedGameplay();}}});actions(mapActions);openOverlay();
+    for(const item of catalog.levels){const b=document.createElement('button');b.type='button';b.className=`campaign-level${item.completed?' completed':''}${item.current?' current':''}${item.unlocked?'':' locked'}`;b.disabled=!item.unlocked;b.dataset.level=String(item.level);const top=document.createElement('span');top.className='campaign-level-top';top.textContent=`${item.level}`;const stars=document.createElement('span');stars.className='campaign-level-stars';stars.textContent=item.stars?'⭐'.repeat(item.stars)+'☆'.repeat(3-item.stars):(item.completed?'☆☆☆':'');const meta=document.createElement('small');meta.textContent=`${item.current?T.campaignCurrent:item.missionDone?`🎯 ${T.campaignMissionDone}`:item.mission?`🎯 ${T.campaignMissionOpen}`:item.completed?T.campaignCompleted:item.unlocked?(lang==='ru'?'Доступен':'Available'):T.campaignLocked}${item.unlocked?` · 🏅${item.medals}/3`:''}`;const status=item.current?T.campaignCurrent:item.completed?T.campaignCompleted:item.unlocked?(lang==='ru'?'Доступен':'Available'):T.campaignLocked;b.setAttribute('aria-label',`${T.level} ${item.level}. ${status}. ${item.stars}/3 ⭐. ${T.medals}: ${item.medals}/3${item.missionDone?`. ${T.campaignMissionDone}`:item.mission?`. ${T.campaignMissionOpen}`:''}`);b.append(top,stars,meta);if(item.unlocked)b.onclick=()=>startCampaignLevelFromMap(item.level);grid.appendChild(b);}extra.appendChild(grid);
+    const next=catalog.next,peek=document.createElement('div');peek.className='campaign-next-peek';peek.textContent=`${T.campaignNextChapter}: ${campaignChapterTitle(next)} · ${T.level} ${next.start}`;peek.classList.toggle('locked',!campaignLevelUnlocked(next.start));extra.appendChild(peek);
+    const mapActions=[];if(catalog.prev)mapActions.push({text:`← ${T.campaignPrevChapter}`,fn:()=>showCampaignMap('page',catalog.prev.start)});mapActions.push({text:`▶ ${T.campaignContinue}`,cls:'primary',fn:()=>startCampaignLevelFromMap(save.level)});if(campaignLevelUnlocked(next.start))mapActions.push({text:`${T.campaignNextChapter} →`,fn:()=>showCampaignMap('page',next.start)});mapActions.push({text:`🎮 ${T.campaignModes}`,fn:()=>{modal?.classList.remove('campaign-map-modal');extra.className='modal-extra';modeHubContext={origin:campaignMapContext.origin==='pause'?'pause':'game',resumeAfter:Boolean(campaignMapContext.resumeAfter)};showModeHub('return');}});mapActions.push({text:T.close,fn:()=>{modal?.classList.remove('campaign-map-modal');extra.className='modal-extra';if(campaignMapContext.origin==='hub'){showModeHub('return');return;}if(campaignMapContext.origin==='pause'){showPause();return;}if(campaignMapContext.origin==='result'){Game.startLevel(save.level,false,'campaign');return;}closeOverlay();if(campaignMapContext.resumeAfter&&Game.state==='playing'){resumePausedGameplay();}}});actions(mapActions);openOverlay();if(origin!=='page'&&VKPurchases.enabled)void VKPurchases.refresh();
   }
   let modeHubContext={origin:'game',resumeAfter:false};
   function showModeHub(origin='game'){
@@ -5459,7 +5480,7 @@
   let overlayReturnFocus=null;
   function overlayVisible(){return !$('overlay').classList.contains('hidden');}
   function overlayFocusable(){return [...$('overlay').querySelectorAll('button:not([disabled]),[href],[tabindex]:not([tabindex="-1"])')].filter(el=>el.getClientRects().length>0);}
-  function focusOverlay(){if(VKBilling.paymentOpen||!document.hasFocus()||!overlayVisible())return;const list=overlayFocusable();(list.find(el=>el.classList.contains('primary'))||list[0]||document.querySelector('.modal'))?.focus?.({preventScroll:true});}
+  function focusOverlay(){if(VKBilling.paymentOpen||VKPurchases.busy||!document.hasFocus()||!overlayVisible())return;const list=overlayFocusable();(list.find(el=>el.classList.contains('primary'))||list[0]||document.querySelector('.modal'))?.focus?.({preventScroll:true});}
   let overlayOpenSerial=0;
   function openOverlay(tone='neutral'){
     const o=$('overlay'),app=$('app'),wasHidden=o.classList.contains('hidden'),toneClass=tone==='win'?'win-glow':tone==='fail'?'fail-glow':'';
@@ -5476,12 +5497,12 @@
     }
     if(wasHidden)requestAnimationFrame(focusOverlay);
   }
-  function closeOverlay(){const o=$('overlay'),app=$('app'),wasOpen=!o.classList.contains('hidden');overlayOpenSerial++;o.classList.add('hidden');o.setAttribute('aria-hidden','true');o.classList.remove('win-glow','fail-glow','overlay-opening');document.querySelector('.modal')?.classList.remove('campaign-map-modal');if(app)app.inert=false;$('modal-stars').style.display='';$('modal-extra').className='modal-extra';$('modal-extra').replaceChildren();$('modal-actions').replaceChildren();if(wasOpen){const target=overlayReturnFocus;overlayReturnFocus=null;requestAnimationFrame(()=>{if(VKBilling.paymentOpen||!document.hasFocus())return;const fallback=$('signal-btn');if(target?.isConnected&&!target.closest?.('[inert]'))target.focus?.({preventScroll:true});else fallback?.focus?.({preventScroll:true});});}}
+  function closeOverlay(){const o=$('overlay'),app=$('app'),wasOpen=!o.classList.contains('hidden');overlayOpenSerial++;o.classList.add('hidden');o.setAttribute('aria-hidden','true');o.classList.remove('win-glow','fail-glow','overlay-opening');document.querySelector('.modal')?.classList.remove('campaign-map-modal');if(app)app.inert=false;$('modal-stars').style.display='';$('modal-extra').className='modal-extra';$('modal-extra').replaceChildren();$('modal-actions').replaceChildren();if(wasOpen){const target=overlayReturnFocus;overlayReturnFocus=null;requestAnimationFrame(()=>{if(VKBilling.paymentOpen||VKPurchases.busy||!document.hasFocus())return;const fallback=$('signal-btn');if(target?.isConnected&&!target.closest?.('[inert]'))target.focus?.({preventScroll:true});else fallback?.focus?.({preventScroll:true});});}}
   function resumePausedGameplay(){Game.userPaused=false;if(!Game.externalPaused){platform.gameplayStart();AudioFx.recoverAfterExternalResume();}}
-  function trapOverlayFocus(e){if(e.key!=='Tab'||!overlayVisible()||VKBilling.paymentOpen||!document.hasFocus())return false;const list=overlayFocusable();if(!list.length){e.preventDefault();document.querySelector('.modal')?.focus?.({preventScroll:true});return true;}const first=list[0],last=list[list.length-1],active=document.activeElement;if(e.shiftKey&&(active===first||!$('overlay').contains(active))){e.preventDefault();last.focus();return true;}if(!e.shiftKey&&(active===last||!$('overlay').contains(active))){e.preventDefault();first.focus();return true;}return false;}
+  function trapOverlayFocus(e){if(e.key!=='Tab'||!overlayVisible()||VKBilling.paymentOpen||VKPurchases.busy||!document.hasFocus())return false;const list=overlayFocusable();if(!list.length){e.preventDefault();document.querySelector('.modal')?.focus?.({preventScroll:true});return true;}const first=list[0],last=list[list.length-1],active=document.activeElement;if(e.shiftKey&&(active===first||!$('overlay').contains(active))){e.preventDefault();last.focus();return true;}if(!e.shiftKey&&(active===last||!$('overlay').contains(active))){e.preventDefault();first.focus();return true;}return false;}
 
   function syncExternalPauseState(){
-    const paused=Boolean(platform.pausedByPlatform||platform.browserPaused||platform.adPaused),wasPaused=Boolean(Game.externalPaused);
+    const paused=Boolean(platform.pausedByPlatform||platform.browserPaused||platform.adPaused||platform.paymentPaused),wasPaused=Boolean(Game.externalPaused);
     if(paused!==wasPaused)YandexAudit.mark(paused?'external:pause':'external:resume',`platform=${Number(platform.pausedByPlatform)} browser=${Number(platform.browserPaused)} ad=${Number(platform.adPaused)}`);
     Game.setExternalPause(paused);
     // M107: every authoritative external-pause release (browser, Yandex platform or ad) must

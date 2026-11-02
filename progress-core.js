@@ -1,7 +1,7 @@
 // Traffic Pulse VK Play progress format; identical validation in client and Worker.
 (function(root){
 'use strict';
-const SAVE_SCHEMA_VERSION=5, DAILY_HISTORY_LIMIT=180;
+const SAVE_SCHEMA_VERSION=6, DAILY_HISTORY_LIMIT=180;
 const ACHIEVEMENT_KEYS=['perfect','flow','priority','roadwork','missions'];
 const CAR_COSTS=[0,180,330,580,850,1200,1750,2500,3500,5000];
 const SCENARIO_SAVE_KEYS=new Set(['after_school@1','after_school@2','green_corridor@1','stadium_exit@1','airport_priority@1','roadworks_detour@1','freight_port@1','roundabout_trial@1']);
@@ -104,14 +104,14 @@ const GREEN_WAVE_SAVE_KEYS=new Set(['catch_wave@1','both_sides@1','side_streets@
     const migratedOwned=Array.isArray(data.ownedCars)?data.ownedCars.map(Number).filter(v=>Number.isInteger(v)&&v>=0&&v<10):Array.from({length:legacyCount},(_,i)=>i);
     const ownedCars=[...new Set([0,...migratedOwned])].sort((a,b)=>a-b);
     const purchasedCars=Array.isArray(data.purchasedCars)?[...new Set(data.purchasedCars.map(Number).filter(v=>Number.isInteger(v)&&v>0&&v<10&&ownedCars.includes(v)))].sort((a,b)=>a-b):[];
-    const starsByLevel=normalizeStarsMap(data.starsByLevel,level),starsSum=Object.values(starsByLevel).reduce((n,v)=>n+v,0);
-    const reportedStars=Math.min(safeInt(data.totalStars,0,3_000_000,0),level*3),totalStars=Math.max(starsSum,reportedStars);
+    const starsByLevel=normalizeStarsMap(data.starsByLevel,1_000_000),starsSum=Object.values(starsByLevel).reduce((n,v)=>n+v,0);
+    const reportedStars=safeInt(data.totalStars,0,3_000_000,0),totalStars=Math.max(starsSum,reportedStars);
     const maxClaimed=Math.floor(totalStars/15),claimedRaw=Number(data.starMilestonesClaimed),claimed=Number.isFinite(claimedRaw)?Math.min(safeInt(claimedRaw,0,200_000,0),maxClaimed):maxClaimed;
     return {
       schemaVersion:SAVE_SCHEMA_VERSION, vkCloudRewards:normalizeRewardReceipts(data.vkCloudRewards), level, coins:safeInt(data.coins,0,1_000_000_000_000,0), vkPaidCoinsCredited:safeInt(data.vkPaidCoinsCredited,0,1_000_000_000_000,0), vkEntitlements:normalizeVkEntitlements(data.vkEntitlements), vkPendingSpend:normalizeVkPendingSpend(data.vkPendingSpend), totalStars, starsByLevel,
       sound:data.sound!==false, sfx:data.sfx===undefined?data.sound!==false:data.sfx!==false, musicLevel:data.musicLevel===undefined?(data.sound===false?0:3):safeInt(data.musicLevel,0,3,3), langMode:normalizeLanguageMode(data.langMode), ownedCars, purchasedCars, favoriteCar:ownedCars.includes(safeInt(data.favoriteCar,0,9,0))?safeInt(data.favoriteCar,0,9,0):0, sessions:safeInt(data.sessions,0,1_000_000_000,0),
       dailyBest:normalizeDailyBest(data.dailyBest), dailyBestCompat:normalizeChallengeCompatMap(data.dailyBestCompat), dailyRewards:normalizeDailyRewards(data.dailyRewards),
-      starMilestonesClaimed:claimed, bestFlow:safeInt(data.bestFlow,0,9999,0), missionCompleted:normalizeMissionMap(data.missionCompleted,level), medalsByLevel:normalizeMedalMap(data.medalsByLevel,level), achievements:normalizeAchievements(data.achievements), weeklyBest:normalizeDailyBest(data.weeklyBest), weeklyBestCompat:normalizeChallengeCompatMap(data.weeklyBestCompat), weeklyRewards:normalizeDailyRewards(data.weeklyRewards), endlessBestScore:safeInt(data.endlessBestScore,0,1_000_000_000,0), endlessBestWave:safeInt(data.endlessBestWave,0,1_000_000,0), scenarioProgress:normalizeScenarioProgress(data.scenarioProgress), greenWaveProgress:normalizeGreenWaveProgress(data.greenWaveProgress), campaignRewardedThrough:(()=>{const raw=Number(data.campaignRewardedThrough);if(Number.isFinite(raw))return safeInt(raw,0,level,0);const currentPaid=Number(starsByLevel[String(level)]||0)>0?level:Math.max(0,level-1);return currentPaid;})(), revision:safeInt(data.revision,0,9_000_000_000_000_000,0), updatedAt:safeInt(data.updatedAt,0,9_000_000_000_000_000,0)
+      starMilestonesClaimed:claimed, bestFlow:safeInt(data.bestFlow,0,9999,0), missionCompleted:normalizeMissionMap(data.missionCompleted,1_000_000), medalsByLevel:normalizeMedalMap(data.medalsByLevel,1_000_000), achievements:normalizeAchievements(data.achievements), weeklyBest:normalizeDailyBest(data.weeklyBest), weeklyBestCompat:normalizeChallengeCompatMap(data.weeklyBestCompat), weeklyRewards:normalizeDailyRewards(data.weeklyRewards), endlessBestScore:safeInt(data.endlessBestScore,0,1_000_000_000,0), endlessBestWave:safeInt(data.endlessBestWave,0,1_000_000,0), scenarioProgress:normalizeScenarioProgress(data.scenarioProgress), greenWaveProgress:normalizeGreenWaveProgress(data.greenWaveProgress), campaignRewardedThrough:(()=>{const raw=Number(data.campaignRewardedThrough);if(Number.isFinite(raw))return safeInt(raw,0,level,0);const currentPaid=Number(starsByLevel[String(level)]||0)>0?level:Math.max(0,level-1);return currentPaid;})(), revision:safeInt(data.revision,0,9_000_000_000_000_000,0), updatedAt:safeInt(data.updatedAt,0,9_000_000_000_000_000,0)
     };
   }
 

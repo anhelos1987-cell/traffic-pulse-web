@@ -7,7 +7,7 @@ set -euo pipefail
 : "${CLOUDFLARE_API_TOKEN:?Set CLOUDFLARE_API_TOKEN}"
 
 KV_NAMESPACE_ID="b38ca4565d4646d59141e8f6f027e052"
-for file in index.html app.js progress-core.js vk-games.js vkbridge.min.js style.css; do
+for file in index.html app.js progress-core.js campaign-access.js payments-config.js vk-purchases.js vk-games.js vkbridge.min.js style.css; do
   echo "Uploading $file to Cloudflare KV"
   npx --yes wrangler@4 kv key put "$file" \
     --path "$file" --namespace-id "$KV_NAMESPACE_ID" --remote
