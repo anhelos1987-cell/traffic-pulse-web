@@ -12,9 +12,9 @@ The original VK Play and billing configuration remains on the main branch.
 
 The edge Worker serves a fixed allow-list of static game assets from the KV namespace. Cloudflare KV stores **only public game files**. The Worker has no D1/player database, no account API, no analytics endpoint and no code path that accepts or stores VK UID, launch parameters, progress, purchases or profile data. Worker observability and Logpush are disabled; query strings are configured for redaction as an additional safeguard.
 
-The static asset allow-list now includes `campaign-access.js`, `payments-config.js` and `vk-purchases.js`. Map purchases are prepared but **disabled** until a separate Russian-hosted callback and the VK payment cabinet are configured. See `server/README-RU.md`. No payment journal is hosted on Cloudflare.
+The static asset allow-list includes `campaign-access.js`, `payments-config.js`, `vk-purchases.js` and `all-maps.png`. The Russian Yandex Cloud callback is deployed but anonymous invocation is disabled until the VK payment setup starts; map purchases stay hidden until the VK secret and a real test callback cycle are configured. See `server/README-RU.md`. No payment journal is hosted on Cloudflare.
 
-The HTML ships a pinned local VK Bridge 3.0.2 bundle. A restrictive CSP uses `connect-src 'none'`, so the client cannot accidentally send account/progress data to a web backend. VK account identifiers are used only in volatile browser memory to validate the VK session. The local device stores a SHA-256 account fingerprint rather than the raw VK UID.
+The HTML ships a pinned local VK Bridge 3.0.2 bundle. A restrictive CSP allows `connect-src` only to the exact Yandex Function endpoint used for entitlement verification. The payment client sends launch parameters only to that Russian endpoint and never to Cloudflare. VK account identifiers otherwise stay in volatile browser memory; the local device stores a SHA-256 account fingerprint rather than the raw VK UID.
 
 ## Game saves and monetization
 
@@ -50,7 +50,7 @@ export CLOUDFLARE_API_TOKEN="<your API token>"
 bash infra/deploy-vkgames.sh
 ```
 
-CI runs the syntax checks and the Node regression tests but does not automatically deploy without Cloudflare credentials. `infra/wrangler.vkgames.jsonc` is the repeatable Worker and KV binding definition. When updating JS/CSS during an active release, bump `CACHE_VERSION` in the Worker to invalidate old edge cache immediately.
+CI runs JavaScript, Python and Yandex payment regression tests but does not automatically deploy without cloud credentials. `infra/wrangler.vkgames.jsonc` is the repeatable Worker and KV binding definition. When updating JS/CSS during an active release, bump `CACHE_VERSION` in the Worker to invalidate old edge cache immediately.
 
 ## Known constraints
 

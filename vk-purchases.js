@@ -10,15 +10,16 @@
   let endpoint='';
   try{const u=new URL(config.endpoint);if(u.protocol==='https:'&&!u.username&&!u.password&&!u.search&&!u.hash&&!/(^|\.)workers\.dev$/.test(u.hostname))endpoint=u.origin+u.pathname.replace(/\/$/,'');}catch(_){}
   const state={enabled:config.enabled===true&&config.appId===54870403&&config.item==='unlock_all_maps'&&config.priceVotes===10&&Boolean(endpoint&&request),
-   owned:false,purchasable:false,checked:false,checking:false,busy:false,error:'',owner:'',checkJob:null,checkedAt:0,generation:0,
+   owned:false,purchasable:false,checked:false,checking:false,busy:false,error:'',owner:'',checkJob:null,checkedAt:0,nextRetryAt:0,generation:0,
    account(){const a=deps.account();return a?.ready&&a.appId===54870403&&Number.isSafeInteger(a.userId)&&a.userId>0&&typeof a.launchQuery==='string'&&a.launchQuery?{...a,key:String(a.appId)+':'+a.userId}:null;},
-   reset(){this.generation++;this.owned=false;this.purchasable=false;this.checked=false;this.checking=false;this.owner='';this.error='';this.checkedAt=0;this.checkJob=null;},
+   reset(){this.generation++;this.owned=false;this.purchasable=false;this.checked=false;this.checking=false;this.owner='';this.error='';this.checkedAt=0;this.nextRetryAt=0;this.checkJob=null;},
    hasAllMaps(){const a=this.account();return Boolean(a&&this.owner===a.key&&this.owned);},
    async refresh({force=true}={}){
     if(!this.enabled)return false;
     const account=this.account();if(!account){this.reset();return false;}
     if(this.owner!==account.key){this.reset();this.owner=account.key;}
     if(this.checkJob)return this.checkJob;
+    if(!force&&now()<this.nextRetryAt)return this.hasAllMaps();
     // Cache only server-verified results in memory, never a paid localStorage flag.
     if(!force&&this.checked&&!this.error&&now()-this.checkedAt<300000)return this.hasAllMaps();
     const generation=this.generation;
@@ -31,8 +32,8 @@
       const data=await r.json(),current=this.account();
       if(generation!==this.generation||!current||current.key!==account.key)return false;
       if(data?.app_id!==54870403||data?.user_id!==account.userId||typeof data.all_maps!=='boolean'||typeof data.purchasable!=='boolean'||data.item!=='unlock_all_maps'||data.price_votes!==10)throw Error('invalid_verification');
-      this.owner=account.key;this.owned=data.all_maps;this.purchasable=data.purchasable;this.checked=true;this.checkedAt=now();this.error='';return this.owned;
-     }catch(error){if(generation===this.generation)this.error='verification_unavailable';return false;}finally{clearTimeout(timer);}
+      this.owner=account.key;this.owned=data.all_maps;this.purchasable=data.purchasable;this.checked=true;this.checkedAt=now();this.nextRetryAt=0;this.error='';return this.owned;
+     }catch(error){if(generation===this.generation){this.error='verification_unavailable';this.nextRetryAt=now()+30000;}return false;}finally{clearTimeout(timer);}
     })();
     this.checkJob=job;
     try{return await job;}finally{if(this.checkJob===job){this.checkJob=null;this.checking=false;deps.onChange?.();}}

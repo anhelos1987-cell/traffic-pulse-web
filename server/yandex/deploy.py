@@ -2,6 +2,7 @@
 import argparse
 import json
 from pathlib import Path
+import secrets
 import subprocess
 import zipfile
 
@@ -42,8 +43,9 @@ def version(function, account, secret='', test_users='', live=False):
 def main():
     p = argparse.ArgumentParser()
     p.add_argument('--bootstrap', action='store_true')
-    p.add_argument('--synthetic-test', action='store_true')
-    p.add_argument('--public-disabled', action='store_true')
+    mode = p.add_mutually_exclusive_group(required=True)
+    mode.add_argument('--synthetic-test', action='store_true')
+    mode.add_argument('--public-disabled', action='store_true')
     args = p.parse_args()
     account = yc('iam', 'service-account', 'get', '--name', NAME)['id']
     function = yc('serverless', 'function', 'get', '--name', NAME)['id']
@@ -62,14 +64,19 @@ def main():
             finally:
                 session.delete()
         print(json.dumps({'schema_ready': True}))
+    synthetic_user = ''
     if args.synthetic_test:
-        v = version(function, account, 'synthetic-cloud-check-not-a-vk-secret', '900000000000001')
+        # Function access bindings persist across versions. Revoke public access
+        # before publishing a version whose synthetic key is intentionally known.
+        yc('serverless', 'function', 'deny-unauthenticated-invoke', function)
+        synthetic_user = str(900_000_000_000_000 + secrets.randbelow(99_999_999_999_999))
+        v = version(function, account, 'synthetic-cloud-check-not-a-vk-secret', synthetic_user)
     else:
         v = version(function, account)
     yc('serverless', 'function', 'set-scaling-policy', function, '--tag', '$latest', '--zone-instances-limit', '1', '--zone-requests-limit', '2')
     if args.public_disabled:
         yc('serverless', 'function', 'allow-unauthenticated-invoke', function)
-    print(json.dumps({'function_id': function, 'service_account_id': account, 'version_id': v['id'], 'endpoint': 'https://functions.yandexcloud.net/' + function, 'live': False, 'synthetic_test': args.synthetic_test}))
+    print(json.dumps({'function_id': function, 'service_account_id': account, 'version_id': v['id'], 'endpoint': 'https://functions.yandexcloud.net/' + function, 'live': False, 'synthetic_test': args.synthetic_test, 'synthetic_user': synthetic_user or None}))
 
 
 if __name__ == '__main__':

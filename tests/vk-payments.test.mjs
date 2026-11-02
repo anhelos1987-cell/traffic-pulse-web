@@ -114,3 +114,12 @@ test('old account checks cannot clobber a new account verification or leave it s
  fetch:async()=>{const replyUser=user;if(replyUser===42)await new Promise(r=>release=r);return {ok:true,json:async()=>({app_id:APP_ID,user_id:replyUser,item:ITEM,price_votes:10,purchasable:true,all_maps:true})};}});
  const old=state.refresh();user=43;state.reset();await state.refresh();assert.equal(state.hasAllMaps(),true);release();await old;assert.equal(state.hasAllMaps(),true);assert.equal(state.checking,false);
 });
+
+test('failed background checks back off while manual restore can retry immediately',async()=>{
+ const h=client({fetchError:true});
+ await h.state.refresh({force:false});
+ for(let i=0;i<10;i++)await h.state.refresh({force:false});
+ assert.equal(h.calls().requests,1);
+ await h.state.refresh();
+ assert.equal(h.calls().requests,2);
+});

@@ -79,7 +79,8 @@ class PaymentTests(unittest.TestCase):
         self.assertIn('response', b.callback(signed(notification_type='order_status_change_test')))
         self.assertTrue(b.entitlements(42)['all_maps'])
         b.live = True
-        self.assertFalse(b.entitlements(42)['all_maps'])
+        self.assertTrue(b.entitlements(42)['all_maps'])
+        self.assertFalse(b.entitlements(43)['all_maps'])
         self.assertIn('error', b.callback(signed(notification_type='order_status_change_test', user_id='43', receiver_id='43')))
     def test_launch_verification_and_duplicates(self):
         self.assertEqual(verify_launch(launch(vk_language='ru~* тест'), SECRET, NOW), 42)

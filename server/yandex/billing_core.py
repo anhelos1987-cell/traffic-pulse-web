@@ -64,9 +64,11 @@ class Billing:
         return bool(self.secret and self.photo_url.startswith('https://') and (user in self.test_users if test else self.live))
 
     def entitlements(self, user):
-        test = int(not self.live and user in self.test_users)
+        test = int(user in self.test_users)
+        owned = self.store.owned(user, 0) or (test and self.store.owned(user, 1))
+        purchasable = self.purchasable(user, 0) or (test and self.purchasable(user, 1))
         return {'app_id': APP_ID, 'user_id': user, 'item': ITEM, 'price_votes': PRICE,
-                'all_maps': self.store.owned(user, test), 'purchasable': self.purchasable(user, test)}
+                'all_maps': bool(owned), 'purchasable': bool(purchasable)}
 
     def callback(self, p):
         if not verify_callback(p, self.secret) or p.get('app_id') != str(APP_ID):
