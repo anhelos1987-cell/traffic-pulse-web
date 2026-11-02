@@ -27,8 +27,8 @@ jobs:
       - name: Enforce VK Games privacy boundary
         run: |
           ! grep -q "traffic-pulse-billing" app.js
-          ! grep -q "unpkg.com\|https://" index.html
-          grep -q "connect-src 'none'" index.html
+          ! grep -q "unpkg.com" index.html
+          grep -q "connect-src https://functions.yandexcloud.net/d4eo58crqj6cu6fk4hmg;" index.html
           ! grep -Eq "\\bfetch\\s*\\(" vk-games.js
           grep -q "cloudflarePlayerStorage:false" vk-games.js
       - name: Validate Russian payment handler

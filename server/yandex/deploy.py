@@ -30,13 +30,13 @@ def build():
 def version(function, account, secret='', test_users='', live=False):
     env = {'YDB_ENDPOINT': ENDPOINT, 'YDB_DATABASE': DATABASE, 'VK_ALLOWED_ORIGINS': ORIGIN,
            'VK_PAYMENTS_LIVE': str(live).lower(), 'VK_TEST_USERS': test_users,
-           'VK_ITEM_PHOTO_URL': '', 'VK_APP_SECRET': secret}
+           'VK_ITEM_PHOTO_URL': ORIGIN + '/all-maps.png', 'VK_APP_SECRET': secret}
     # Synthetic test secret only. Real secrets are supplied through the console,
     # never command arguments, source code, shell history or GitHub.
     return yc('serverless', 'function', 'version', 'create', '--function-id', function,
               '--runtime', 'python312', '--entrypoint', 'index.handler', '--memory', '256m',
               '--execution-timeout', '10s', '--concurrency', '1', '--service-account-id', account,
-              '--source-path', str(build()), '--environment', ','.join(k + '=' + v for k, v in env.items()), '--min-log-level', 'error')
+              '--source-path', str(build()), '--environment', ','.join(k + '=' + v for k, v in env.items() if v), '--min-log-level', 'error')
 
 
 def main():

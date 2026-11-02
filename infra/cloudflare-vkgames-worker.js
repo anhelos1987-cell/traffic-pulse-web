@@ -3,9 +3,10 @@
  * Static assets are stored in the private Cloudflare Workers KV namespace.
  * No GitHub runtime fetch and no server-side player save database are needed.
  */
-const CACHE_VERSION = 'vk-games-m199-all-maps';
+const CACHE_VERSION = 'vk-games-m200-yandex-payments';
 const TYPES = Object.freeze({
   'index.html':'text/html; charset=utf-8',
+  'all-maps.png':'image/png',
   'app.js':'application/javascript; charset=utf-8',
   'progress-core.js':'application/javascript; charset=utf-8',
   'campaign-access.js':'application/javascript; charset=utf-8',
@@ -20,7 +21,7 @@ const SECURITY = {
   'Referrer-Policy':'no-referrer',
   'Cross-Origin-Resource-Policy':'cross-origin',
   'Permissions-Policy':'geolocation=(), microphone=(), camera=(), payment=(), usb=(), serial=(), bluetooth=()',
-  'Content-Security-Policy':"default-src 'self' data: blob:; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' data: blob:; font-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'"
+  'Content-Security-Policy':"default-src 'self' data: blob:; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' data: blob:; font-src 'self' data:; connect-src https://functions.yandexcloud.net/d4eo58crqj6cu6fk4hmg; object-src 'none'; base-uri 'none'; form-action 'none'"
 };
 export default {
   async fetch(request, env, ctx) {
