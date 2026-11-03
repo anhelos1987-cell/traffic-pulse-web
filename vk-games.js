@@ -4,6 +4,7 @@
  'use strict';
 
  const EXPECTED_APP_ID=54870403;
+ const EXPECTED_OK_APP_ID=512005046523;
 const PREFIX='trafficpulse_vkg_v2';
  const INDEX=PREFIX+'_index';
  const EPOCH=PREFIX+'_reset_epoch';
@@ -86,7 +87,7 @@ const PREFIX='trafficpulse_vkg_v2';
    const storage=deps.storage||safeStorage();
    const state={
     ready:false,cloud:false,loaded:false,dirty:false,busy:null,timer:0,error:'',
-    appId:0,userId:0,clientPlatform:'',launchQuery:'',fingerprint:'',epoch:'',head:null,base:null,
+    appId:0,userId:0,socialPlatform:'vk',clientPlatform:'',launchQuery:'',fingerprint:'',epoch:'',head:null,base:null,
     deleting:false,deletionSupported:false,adBusy:false,rewardedStatus:'unknown',
     bannerVisible:false,bannerMode:'',bannerLastLayout:null,bannerJob:null,
 
@@ -155,7 +156,9 @@ const PREFIX='trafficpulse_vkg_v2';
      const appId=Number(launch?.vk_app_id||queryApp||0);
      const launchUser=Number(launch?.vk_user_id||queryUser||0);
      if(!Number.isSafeInteger(appId)||appId<=0)throw new Error('VK application unavailable');
-     if(appId!==EXPECTED_APP_ID)throw new Error('Wrong VK application; reload Traffic Pulse from VK Games');
+     const client=String(launch?.vk_client||query.get('vk_client')||'vk');
+     if(launch?.vk_client&&query.has('vk_client')&&String(launch.vk_client)!==query.get('vk_client'))throw new Error('Social platform mismatch');
+     if(!['vk','ok'].includes(client)||appId!==(client==='ok'?EXPECTED_OK_APP_ID:EXPECTED_APP_ID))throw new Error('Wrong VK application; reload Traffic Pulse from VK Games');
      if(launchUser&&launchUser!==user.id)throw new Error('VK account mismatch; reload the game');
      if(queryUser&&queryUser!==user.id)throw new Error('VK launch mismatch; reload the game');
      if(queryApp&&queryApp!==appId)throw new Error('VK application mismatch; reload the game');
@@ -165,7 +168,7 @@ const PREFIX='trafficpulse_vkg_v2';
        this.supported('VKWebAppStorageSet'),
        this.supported('VKWebAppStorageGetKeys')
      ]);
-     this.appId=appId;this.userId=user.id;this.clientPlatform=String(launch?.vk_platform||query.get('vk_platform')||'');this.cloud=canGet&&canSet;this.deletionSupported=this.cloud&&canKeys;
+     this.socialPlatform=client;this.appId=appId;this.userId=user.id;this.clientPlatform=String(launch?.vk_platform||query.get('vk_platform')||'');this.cloud=canGet&&canSet;this.deletionSupported=this.cloud&&canKeys;
      const signed=new URLSearchParams();
      for(const [key,value] of (launch?.sign?Object.entries(launch):query.entries()))if(key==='sign'||key.startsWith('vk_'))signed.append(key,String(value));
      this.launchQuery=signed.has('sign')?signed.toString():'';
@@ -415,7 +418,7 @@ const PREFIX='trafficpulse_vkg_v2';
     },
     privacyStatus(){
      return Object.freeze({
-       platform:'vkgames',cloud:this.cloud,loaded:this.loaded,deletionSupported:this.deletionSupported,
+       platform:this.socialPlatform==='ok'?'okgames':'vkgames',cloud:this.cloud,loaded:this.loaded,deletionSupported:this.deletionSupported,
        bannerVisible:this.bannerVisible,bannerMode:this.bannerMode,
        personalDataBackend:false,cloudflarePlayerStorage:false
      });
