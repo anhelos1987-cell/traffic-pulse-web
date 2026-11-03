@@ -565,7 +565,7 @@
   });
   cloudSaveHook=()=>VKGames.changed();
   const VKPurchases=TrafficPulseVKPurchases.create({
-    account:()=>({ready:VKGames.ready,appId:VKGames.appId,userId:VKGames.userId,launchQuery:VKGames.launchQuery}),
+    account:()=>({ready:VKGames.ready,appId:VKGames.appId,userId:VKGames.userId,socialPlatform:VKGames.socialPlatform,launchQuery:VKGames.launchQuery}),
     supported:method=>VKGames.supported(method),call:(method,props,ms)=>VKGames.call(method,props,ms),
     onBusy:busy=>{platform.purchaseBusy=busy;platform.paymentPaused=busy;syncExternalPauseState();},
     onChange:()=>{if(overlayVisible()&&document.querySelector('.modal')?.classList.contains('campaign-map-modal'))showCampaignMap('page',campaignMapContext.chapter?.start||save.level);}
@@ -5325,7 +5325,8 @@
     const n=safeInt(level,1,1_000_000,1);if(!campaignLevelUnlocked(n)){toast(T.campaignLocked);return false;}Game.userPaused=false;Game.startLevel(n,false,'campaign');return true;
   }
   function appendMapsPurchase(parent){
-    if(!VKPurchases.enabled)return;
+    const account=VKPurchases.account();
+    if(!VKPurchases.enabled||!account||VKPurchases.owner!==account.key||!VKPurchases.checked||(!VKPurchases.purchasable&&!VKPurchases.hasAllMaps()))return;
     const card=document.createElement('section');card.className='campaign-purchase';
     const title=document.createElement('strong');title.textContent=lang==='ru'?'🗺️ Все карты кампании':'🗺️ All campaign maps';
     const desc=document.createElement('p');desc.textContent=lang==='ru'?'Разовая покупка: выбирай любые районы и уровни. Звёзды и награды зарабатываются прохождением.':'One-time purchase: choose any district and level. Earn stars and rewards by playing.';

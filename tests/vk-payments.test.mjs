@@ -70,13 +70,13 @@ test('entitlement endpoint rejects unsigned requests, disallowed origins, and du
 });
 
 const purchaseSource=readFileSync(new URL('../vk-purchases.js',import.meta.url),'utf8');
-function client({enabled=true,confirmed=false,confirmAfterRequests=0,nativeResult={success:true},replyUser=42,onNative,fetchError=false}={}){
+function client({enabled=true,confirmed=false,confirmAfterRequests=0,nativeResult={success:true},replyUser=42,onNative,fetchError=false,purchasable=true,socialPlatform='vk'}={}){
  let user=42,nativeCalls=0,requests=0;
  const context={URL,AbortController,setTimeout,clearTimeout};runInNewContext(purchaseSource,context);
  const state=context.TrafficPulseVKPurchases.create({config:{enabled,endpoint:'https://billing.example.test',appId:APP_ID,item:ITEM,priceVotes:10},
-  account:()=>({ready:true,appId:APP_ID,userId:user,launchQuery:launch(user)}),supported:async()=>true,sleep:async()=>{},
+  account:()=>({ready:true,socialPlatform,appId:APP_ID,userId:user,launchQuery:launch(user)}),supported:async()=>true,sleep:async()=>{},
   call:async()=>{nativeCalls++;await onNative?.();return nativeResult;},
-  fetch:async()=>{requests++;if(fetchError)throw Error('offline');return {ok:true,json:async()=>({app_id:APP_ID,user_id:replyUser,item:ITEM,price_votes:10,purchasable:true,all_maps:confirmed&&nativeCalls>0&&requests>=confirmAfterRequests})};}
+  fetch:async()=>{requests++;if(fetchError)throw Error('offline');return {ok:true,json:async()=>({app_id:APP_ID,user_id:replyUser,item:ITEM,price_votes:10,purchasable,all_maps:confirmed&&nativeCalls>0&&requests>=confirmAfterRequests})};}
  });
  return {state,calls:()=>({nativeCalls,requests}),switchAccount:()=>{user=43;}};
 }
@@ -128,4 +128,26 @@ test('failed background checks back off while manual restore can retry immediate
  assert.equal(h.calls().requests,1);
  await h.state.refresh();
  assert.equal(h.calls().requests,2);
+});
+
+const appSource=readFileSync(new URL('../app.js',import.meta.url),'utf8');
+const offerSource=appSource.slice(appSource.indexOf('  function appendMapsPurchase('),appSource.indexOf('  function showCampaignMap('));
+function offerCount(state){
+ let offers=0;
+ const context={VKPurchases:state,lang:'ru',document:{createElement:()=>({append(){},appendChild(){}})}};
+ runInNewContext(offerSource,context);context.appendMapsPurchase({appendChild(){offers++;}});
+ return offers;
+}
+test('purchase offer appears only for the current server-approved account',async()=>{
+ const h=client();assert.equal(offerCount(h.state),0);
+ await h.state.refresh();assert.equal(offerCount(h.state),1);
+ h.switchAccount();assert.equal(offerCount(h.state),0);
+ const denied=client({purchasable:false});await denied.state.refresh();
+ assert.equal(offerCount(denied.state),0);assert.equal(await denied.state.purchase(),false);assert.equal(denied.calls().nativeCalls,0);
+ const failed=client({fetchError:true});await failed.state.refresh();assert.equal(offerCount(failed.state),0);
+});
+test('OK accounts cannot query VK billing, show an offer or open the VK order dialog',async()=>{
+ const h=client({socialPlatform:'ok'});await h.state.refresh();
+ assert.equal(offerCount(h.state),0);assert.equal(await h.state.purchase(),false);
+ assert.deepEqual(h.calls(),{nativeCalls:0,requests:0});
 });
