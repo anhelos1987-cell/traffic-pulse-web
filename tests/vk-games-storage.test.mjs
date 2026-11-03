@@ -65,7 +65,7 @@ function harness(allVk,localMap,initialSave={},opts={}){
       if(method==='VKWebAppGetLaunchParams')return {
         vk_app_id:opts.launchAppId??appId,
         vk_user_id:opts.launchUserId??userId,
-        vk_language:'ru',vk_platform:opts.clientPlatform||''
+        vk_client:opts.client||'vk',vk_language:'ru',vk_platform:opts.clientPlatform||''
       };
       if(method==='VKWebAppStorageGet')return {
         keys:payload.keys.map(key=>({key,value:vk.get(key)||''}))
@@ -88,7 +88,7 @@ function harness(allVk,localMap,initialSave={},opts={}){
   };
   const context={
     vkBridge:bridge,
-    location:{search:opts.embedded?`?vk_app_id=${appId}&vk_user_id=${userId}&vk_language=ru`:''},
+    location:{search:opts.embedded?`?vk_app_id=${appId}&vk_user_id=${userId}&vk_language=ru&vk_client=${opts.client||'vk'}`:''},
     navigator:{onLine:opts.online!==false},localStorage:localStore(localMap),innerWidth:opts.innerWidth??1280,innerHeight:opts.innerHeight??720,
     crypto:webcrypto,TextDecoder,TextEncoder,URLSearchParams,
     atob:s=>Buffer.from(s,'base64').toString('latin1'),
@@ -370,3 +370,26 @@ test('desktop host keeps the side banner when VK resizes the iframe below 900px'
  const h=harness(new Map(),new Map(),{}, {embedded:true,clientPlatform:'desktop_web',innerWidth:800,innerHeight:720});
  await h.instance.init();assert.equal(h.instance.bannerLayout().mode,'desktop-side');h.cleanup();
 });
+
+ test('OK app uses account storage and isolates same numeric VK user',async()=>{
+ const local=new Map();
+ const vk=harness(new Map(),local,{}, {embedded:true});
+ const ok=harness(new Map(),local,{}, {embedded:true,appId:512005046523,client:'ok'});
+ try{
+ assert.equal(await vk.instance.init(),true);
+ assert.equal(await ok.instance.init(),true);
+ assert.equal(ok.instance.socialPlatform,'ok');
+ assert.equal(ok.instance.privacyStatus().platform,'okgames');
+ assert.notEqual(vk.instance.fingerprint,ok.instance.fingerprint);
+ ok.setSave({revision:1,level:7});ok.instance.changed();
+ assert.equal(await ok.instance.sync(),true);
+ const next=harness(new Map([[42,ok.vk]]),local,{}, {embedded:true,appId:512005046523,client:'ok'});
+ try{assert.equal(await next.instance.init(),true);assert.equal(next.getSave().level,7);}finally{next.cleanup();}
+ }finally{vk.cleanup();ok.cleanup();}
+ });
+ test('rejects cross-platform app IDs',async()=>{
+ for(const opts of [{appId:54870403,client:'ok'},{appId:512005046523,client:'vk'},{appId:512005046524,client:'ok'}]){
+ const h=harness(new Map(),new Map(),{}, {embedded:true,...opts});
+ try{assert.equal(await h.instance.init(),false);}finally{h.cleanup();}
+ }
+ });
