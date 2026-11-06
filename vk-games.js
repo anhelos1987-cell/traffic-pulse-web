@@ -177,6 +177,10 @@ const PREFIX='trafficpulse_vkg_v2';
      if(this.localMeta()?.fingerprint!==this.fingerprint){
        deps.onLoad(cleanProgress({},deps.normalize),{accountChanged:true});
        this.base=null;this.head=null;
+       // Remember the verified account before a cloud read. If OK Storage
+       // times out during boot, offline progress must stay tied to this user
+       // instead of being discarded during the next initialization retry.
+       this.saveLocalMeta();
      }
 
      if(this.cloud){
