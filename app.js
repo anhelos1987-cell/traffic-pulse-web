@@ -495,11 +495,18 @@
       YandexAudit.state.sdk=VKGames.ready?'vk-bridge-ready':'vk-local-fallback';
       YandexAudit.state.lang=lang;startApp();
       setTimeout(()=>{void VKGames.showAdaptiveBanner();},700);
-      setInterval(()=>{if(!document.hidden)void VKGames.sync();},25000);
+      setInterval(()=>{if(!document.hidden&&navigator.onLine!==false)void this.recoverCloudAfterReconnect();},25000);
     },
     canAcquirePlayer(){return VKGames.ready;}, async acquirePlayer(){return null;},
     async initCloudSave(){return VKGames.sync();},
-    async recoverCloudAfterReconnect(){return VKGames.sync();},
+    async recoverCloudAfterReconnect(){
+      if(VKGames.ready)return VKGames.sync();
+      if(this.cloudInitInFlight)return this.cloudInitInFlight;
+      // A temporary OK Android Bridge/Storage boot failure must not strand the
+      // session in permanent device-only mode after network/app recovery.
+      const job=VKGames.init();this.cloudInitInFlight=job;
+      try{return await job;}finally{if(this.cloudInitInFlight===job)this.cloudInitInFlight=null;}
+    },
     queueCloudSave(immediate=false){VKGames.changed();if(immediate)return VKGames.sync();return true;},
     async flushCloud(){return VKGames.sync();},
     leaderboardStarsScore(){return safeInt(save?.totalStars,0,999999,0);}, leaderboardMasteryScore(){return encodeLeaderboardScore(save);}, leaderboardAuthorized(){return false;}, leaderboardSupported(){return false;}, queueLeaderboardSync(){return false;}, async submitLeaderboardScores(){return false;}, async getLeaderboardEntries(){return{supported:false,authorized:false,entries:[],userRank:0,error:'unsupported',mode:'mastery'};}, async authorizeForLeaderboard(){return false;},
@@ -2644,7 +2651,7 @@
         const def=this.scenarioDirector?.def||scenarioDefinition(this.scenarioId);if(!def)return;
         stars=1;if(this.maxObservedQueue<=def.starThresholds.twoStarQueue)stars=2;if(stars>=2&&this.switches<=def.starThresholds.threeStarSwitches)stars=3;if(this.rescueUsed)stars=Math.min(stars,2);
         const priorityReq=def.objectives?.priorityRequired||0;if(priorityReq&&this.prioritySaved<priorityReq)stars=Math.min(stars,this.prioritySaved>=Math.max(1,priorityReq-1)?2:1);const key=scenarioSaveKey(def),prev=save.scenarioProgress?.[key]||null,result={stars,bestQueue:this.maxObservedQueue,bestSwitches:this.switches,bestPriority:this.prioritySaved||0,clears:(prev?.clears||0)+1},best=betterScenario(prev,result);
-        save.scenarioProgress=save.scenarioProgress||{};save.scenarioProgress[key]={...best,clears:result.clears};persist();showScenarioWin(def,stars,prev,best);return;
+        save.scenarioProgress=save.scenarioProgress||{};save.scenarioProgress[key]={...best,clears:result.clears};persist();void platform.queueCloudSave(true);showScenarioWin(def,stars,prev,best);return;
       }
       if(this.mode==='greenwave'){
         const def=greenWaveDefinition(this.greenWaveId)||greenWaveDefinition(),stats=this.greenWaveStats||{throughTotal:0,throughNoStop:0,maxSideQueue:999},ratio=(stats.throughNoStop||0)/Math.max(1,stats.throughTotal||0);stars=1;if(ratio>=(def.objectives?.twoStarRatio||.55))stars=2;if(ratio>=(def.objectives?.threeStarRatio||.70)&&(stats.maxSideQueue||0)<=(def.objectives?.maxSideQueue3||3))stars=3;const priorityReq=def.objectives?.priorityRequired||0;if(priorityReq&&this.prioritySaved<priorityReq)stars=Math.min(stars,this.prioritySaved>0?2:1);const key=greenWaveSaveKey(def),prev=save.greenWaveProgress?.[key]||null,result={stars,throughNoStop:stats.throughNoStop||0,throughTotal:stats.throughTotal||0,bestSideQueue:stats.maxSideQueue||0,bestSwitches:this.switches,bestPriority:this.prioritySaved||0,clears:(prev?.clears||0)+1},best=betterGreenWave(prev,result);save.greenWaveProgress=save.greenWaveProgress||{};save.greenWaveProgress[key]={...best,clears:result.clears};persist();showGreenWaveWin(def,stars,prev,result,best);return;
@@ -2653,7 +2660,7 @@
         const key=this.weeklyKey||weekStartKey(),prev=save.weeklyBest[key]||null,pb=typeof PersonalBestService!=='undefined'?PersonalBestService.finish(this,stars):{record:null,comparison:null},record=pb.record||{stars,switches:this.switches,maxQueue:this.maxObservedQueue};
         const improved=isBetterBest(record,prev);if(improved)save.weeklyBest[key]=record;
         const firstReward=!save.weeklyRewards[key],weeklyReward=weeklyFirstClearReward(stars,key),reward=firstReward?weeklyReward.reward:0;if(firstReward){save.weeklyRewards[key]=true;save.coins+=reward;recordVkCloudReward(`weekly:${key}`,reward);}
-        persist();showWeeklyWin(stars,reward,improved,pb.comparison,weeklyReward.streak,firstReward?weeklyReward.streakBonus:0);return;
+        persist();void platform.queueCloudSave(true);showWeeklyWin(stars,reward,improved,pb.comparison,weeklyReward.streak,firstReward?weeklyReward.streakBonus:0);return;
       }
       if(this.mode==='daily'){
         const key=this.dailyKey||todayDailyKey(),prev=save.dailyBest[key]||null,pb=typeof PersonalBestService!=='undefined'?PersonalBestService.finish(this,stars):{record:null,comparison:null},record=pb.record||{stars,switches:this.switches,maxQueue:this.maxObservedQueue};
@@ -2661,7 +2668,7 @@
         const firstReward=!save.dailyRewards[key],streak=firstReward?dailyStreakIfCleared(key):dailyStreakEnding(key,save.dailyRewards);
         const streakBonus=firstReward?Math.min(6,Math.max(0,streak-1))*15:0,reward=firstReward?(120+stars*35+streakBonus):0;
         if(firstReward){save.dailyRewards[key]=true;save.coins+=reward;recordVkCloudReward(`daily:${key}`,reward);}
-        persist(); showDailyWin(stars,reward,improved,streak,streakBonus,pb.comparison); return;
+        persist();void platform.queueCloudSave(true); showDailyWin(stars,reward,improved,streak,streakBonus,pb.comparison); return;
       }
       const old=Number(save.starsByLevel[this.level]||0),starImprovement=Math.max(0,stars-old); if(stars>old){save.totalStars+=stars-old;save.starsByLevel[this.level]=stars;}
       const firstClear=TrafficPulseCampaign.firstClear(this.level,old,save);platform.noteCampaignCompletion(firstClear);this.lastCampaignFirstClear=firstClear;
@@ -2689,7 +2696,7 @@
       let unlocked='';
       const availableIndex=CAR_REQUIREMENTS.findIndex((req,i)=>i>0&&req===this.level);
       if(firstClear&&availableIndex>0&&save.level>CAR_REQUIREMENTS[availableIndex]&&!ownedStyleIds().includes(availableIndex))unlocked=T[CAR_NAMES[availableIndex]];
-      const district=firstClear&&save.level>this.level?nextDistrictUnlock(this.level):''; persist(); showWin(stars,reward,unlocked,district,starBonus,flowBonus,priorityBonus,newFlowRecord,missionSuccess,missionBonus,missionMilestoneBonus,unlockedAchievements,achievementBonus,syncBonus,firstClear,starImprovement,rewardedBonus);
+      const district=firstClear&&save.level>this.level?nextDistrictUnlock(this.level):''; persist();void platform.queueCloudSave(true); showWin(stars,reward,unlocked,district,starBonus,flowBonus,priorityBonus,newFlowRecord,missionSuccess,missionBonus,missionMilestoneBonus,unlockedAchievements,achievementBonus,syncBonus,firstClear,starImprovement,rewardedBonus);
     },
     async next(){
       if(this.nextPending||platform.adBusy||platform.purchaseBusy)return false;
@@ -5567,6 +5574,27 @@
   // M136: network-aware cloud recovery also heals an offline boot where initial getPlayer/getData timed out.
   window.addEventListener('offline',()=>{clearTimeout(platform.cloudTimer);platform.cloudTimer=0;platform.cloudDirty=platform.cloudDirty||Boolean(platform.cloudFlushRequested);});
   window.addEventListener('online',()=>{if(platform.cloudReady){if(platform.cloudDirty||platform.cloudFlushRequested)platform.queueCloudSave(true);}else{void platform.recoverCloudAfterReconnect();}});
+  // OK Android/mini-app shell may hide the service without dispatching DOM
+  // visibilitychange/blur. Its authoritative Bridge lifecycle is separate.
+  try{
+    window.vkBridge?.subscribe?.(event=>{
+      const type=event?.detail?.type;
+      if(type==='VKWebAppViewHide'){
+        YandexAudit.mark('lifecycle:bridge-hide');
+        platform.pausedByPlatform=true;
+        cancelBlurPause();pauseForFocusLoss(true);
+        AudioFx.stopTransientAudio();
+        snapshotLocalBeforeExternalTransition();
+        void platform.flushCloud(true);
+      }else if(type==='VKWebAppViewRestore'){
+        YandexAudit.mark('lifecycle:bridge-restore');
+        platform.pausedByPlatform=false;
+        // Do not wake sound until browser focus/visibility and user pause allow.
+        restoreBrowserFocus();
+        if(navigator.onLine!==false)void platform.recoverCloudAfterReconnect();
+      }
+    });
+  }catch(_){}
   canvas.addEventListener('contextmenu',e=>e.preventDefault());
 
   let layoutRefreshRaf=0;function scheduleLayoutRefresh(){canvasMetricsDirty=true;if(layoutRefreshRaf)return;layoutRefreshRaf=requestAnimationFrame(()=>{layoutRefreshRaf=0;updateViewportMetrics();Game.draw();});}
