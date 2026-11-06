@@ -500,7 +500,7 @@
     canAcquirePlayer(){return VKGames.ready;}, async acquirePlayer(){return null;},
     async initCloudSave(){return VKGames.sync();},
     async recoverCloudAfterReconnect(){
-      if(VKGames.ready)return VKGames.sync();
+      if(VKGames.ready&&VKGames.cloud)return VKGames.sync();
       if(this.cloudInitInFlight)return this.cloudInitInFlight;
       // A temporary OK Android Bridge/Storage boot failure must not strand the
       // session in permanent device-only mode after network/app recovery.
