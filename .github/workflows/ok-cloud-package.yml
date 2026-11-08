@@ -1,0 +1,53 @@
+name: Package Traffic Pulse OK cloud hotfix
+on:
+  push:
+    branches: [fix/ok-account-cloud-20261108]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  build-ok-web:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify JS and account save regression
+        run: |
+          node --check app.js
+          node --check vk-games.js
+          node --test tests/*.test.mjs
+      - name: Package static VK/OK game with root index.html
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile, ZIP_DEFLATED
+          import hashlib
+          names=[
+            "index.html","app.js","style.css","progress-core.js","campaign-access.js",
+            "vkbridge.min.js","vk-games.js","payments-config.js","vk-purchases.js",
+            "all-maps.png","AUDIO_CREDITS.txt","THIRD_PARTY_NOTICES-VKGAMES.md",
+          ]
+          for name in names:
+              p=Path(name)
+              assert p.exists() and p.is_file(), f"missing {name}"
+          html=Path("index.html").read_text(encoding="utf-8")
+          assert "vk-games.js?v=M201-OK-CLOUD-HF01" in html
+          assert "app.js?v=M201-OK-CLOUD-HF01" in html
+          dest=Path("TrafficPulse_M201_OKCloudHotfix01_VKOK.zip")
+          with ZipFile(dest,"w",compression=ZIP_DEFLATED,compresslevel=9) as z:
+              for name in names:z.write(name)
+          with ZipFile(dest) as z:
+              assert z.testzip() is None
+              assert set(z.namelist())==set(names)
+              assert "index.html" in z.namelist()
+          digest=hashlib.sha256(dest.read_bytes()).hexdigest()
+          print("PACKAGE="+dest.name,"SHA256="+digest,"BYTES="+dest.stat().st_size)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TrafficPulse-M201-OK-Cloud-Hotfix01
+          path: TrafficPulse_M201_OKCloudHotfix01_VKOK.zip
+          if-no-files-found: error
