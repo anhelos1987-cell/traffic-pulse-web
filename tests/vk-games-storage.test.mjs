@@ -381,28 +381,28 @@ test('desktop host keeps the side banner when VK resizes the iframe below 900px'
  await h.instance.init();assert.equal(h.instance.bannerLayout().mode,'desktop-side');h.cleanup();
 });
 
- test('OK app uses account storage and isolates same numeric VK user',async()=>{
- const local=new Map();
- const vk=harness(new Map(),local,{}, {embedded:true});
- const ok=harness(new Map(),local,{}, {embedded:true,appId:512005046523,client:'ok'});
+test('OK app uses account storage and isolates the same numeric VK user',async()=>{
+ const local=new Map(),all=new Map();
+ const vk=harness(all,local,{}, {embedded:true});
+ const ok=harness(all,local,{}, {embedded:true,client:'ok'});
  try{
  assert.equal(await vk.instance.init(),true);
- assert.equal(await ok.instance.init(),true);
+ assert.equal(await ok.instance.init(),true,ok.instance.error);
  assert.equal(ok.instance.socialPlatform,'ok');
  assert.equal(ok.instance.privacyStatus().platform,'okgames');
  assert.notEqual(vk.instance.fingerprint,ok.instance.fingerprint);
  ok.setSave({revision:1,level:7});ok.instance.changed();
  assert.equal(await ok.instance.sync(),true);
- const next=harness(new Map([[42,ok.vk]]),local,{}, {embedded:true,appId:512005046523,client:'ok'});
- try{assert.equal(await next.instance.init(),true);assert.equal(next.getSave().level,7);}finally{next.cleanup();}
+ const next=harness(all,new Map(),{}, {embedded:true,client:'ok'});
+ try{assert.equal(await next.instance.init(),true,next.instance.error);assert.equal(next.getSave().level,7);}finally{next.cleanup();}
  }finally{vk.cleanup();ok.cleanup();}
- });
- test('rejects cross-platform app IDs',async()=>{
- for(const opts of [{appId:54870403,client:'ok'},{appId:512005046523,client:'vk'},{appId:512005046524,client:'ok'}]){
- const h=harness(new Map(),new Map(),{}, {embedded:true,...opts});
- try{assert.equal(await h.instance.init(),false);}finally{h.cleanup();}
+});
+test('rejects cross-platform app IDs',async()=>{
+ for(const opts of [{appId:54870404,client:'ok'},{appId:512005046523,client:'vk'},{okAppId:512005046524,client:'ok'}]){
+  const h=harness(new Map(),new Map(),{}, {embedded:true,...opts});
+  try{assert.equal(await h.instance.init(),false);}finally{h.cleanup();}
  }
- });
+});
 
 test('OK launch uses vk_app_id for VK identity, vk_ok_app_id for its cloud and vk_ok_user_id for its player',async()=>{
   const all=new Map(),a=harness(all,new Map(),{},{
