@@ -44,7 +44,7 @@ jobs:
               assert set(z.namelist())==set(names)
               assert "index.html" in z.namelist()
           digest=hashlib.sha256(dest.read_bytes()).hexdigest()
-          print("PACKAGE="+dest.name,"SHA256="+digest,"BYTES="+dest.stat().st_size)
+          print("PACKAGE="+dest.name,"SHA256="+digest,"BYTES="+str(dest.stat().st_size))
           PY
       - uses: actions/upload-artifact@v4
         with:
