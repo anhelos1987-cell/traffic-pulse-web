@@ -146,33 +146,50 @@ const PREFIX='trafficpulse_vkg_v2';
      const initialized=await this.call('VKWebAppInit',{},3000);
      if(!initialized||initialized.result!==true)throw new Error('VK initialization not acknowledged');
 
-     const user=await this.call('VKWebAppGetUserInfo',{},3500);
-     if(!user||!Number.isSafeInteger(user.id)||user.id<=0)throw new Error('VK account unavailable');
-
-     let launch=null;
-     if(await this.supported('VKWebAppGetLaunchParams'))launch=await this.call('VKWebAppGetLaunchParams',{},3500);
      const query=new URLSearchParams(root.location?.search||'');
-     const queryApp=Number(query.get('vk_app_id')||0),queryUser=Number(query.get('vk_user_id')||0);
-     const appId=Number(launch?.vk_app_id||queryApp||0);
+     const client=String(query.get('vk_client')||'vk');
+     if(!['vk','ok'].includes(client))throw new Error('Unsupported social platform');
+     const isOk=client==='ok';
+     // The OK bridge returns the Odnoklassniki user, not VK's technical user.
+     const user=await this.call('VKWebAppGetUserInfo',isOk?{use_local:true}:{},3500);
+     const userId=Number(user?.id);
+     if(!Number.isSafeInteger(userId)||userId<=0)throw new Error('Platform account unavailable');
+
+     // VKWebAppGetLaunchParams is explicitly unsupported in OK. Its signed
+     // launch fields are already supplied by OK in the iframe query string.
+     let launch=null;
+     if(!isOk&&await this.supported('VKWebAppGetLaunchParams'))
+       launch=await this.call('VKWebAppGetLaunchParams',{},3500);
+     const queryVkApp=Number(query.get('vk_app_id')||0);
+     const queryOkApp=Number(query.get('vk_ok_app_id')||0);
+     const queryUser=Number(query.get(isOk?'vk_ok_user_id':'vk_user_id')||0);
+     const vkAppId=Number(launch?.vk_app_id||queryVkApp||0);
+     const appId=isOk?queryOkApp:vkAppId;
      const launchUser=Number(launch?.vk_user_id||queryUser||0);
-     if(!Number.isSafeInteger(appId)||appId<=0)throw new Error('VK application unavailable');
-     const client=String(launch?.vk_client||query.get('vk_client')||'vk');
-     if(launch?.vk_client&&query.has('vk_client')&&String(launch.vk_client)!==query.get('vk_client'))throw new Error('Social platform mismatch');
-     if(!['vk','ok'].includes(client)||appId!==(client==='ok'?EXPECTED_OK_APP_ID:EXPECTED_APP_ID))throw new Error('Wrong VK application; reload Traffic Pulse from VK Games');
-     if(launchUser&&launchUser!==user.id)throw new Error('VK account mismatch; reload the game');
-     if(queryUser&&queryUser!==user.id)throw new Error('VK launch mismatch; reload the game');
-     if(queryApp&&queryApp!==appId)throw new Error('VK application mismatch; reload the game');
+     if(launch?.vk_client&&String(launch.vk_client)!==client)
+       throw new Error('Social platform mismatch');
+     // An OK launch contains BOTH IDs: vk_app_id is still the VK application,
+     // whereas vk_ok_app_id identifies this game's separate OK account store.
+     if(!Number.isSafeInteger(vkAppId)||vkAppId!==EXPECTED_APP_ID||
+        !Number.isSafeInteger(appId)||appId!==(isOk?EXPECTED_OK_APP_ID:EXPECTED_APP_ID))
+       throw new Error('Wrong '+(isOk?'OK':'VK')+' application; reopen Traffic Pulse from the platform');
+     if(!Number.isSafeInteger(queryUser)||queryUser<=0||
+        (isOk&&(!query.has('vk_ok_user_id')||!query.has('vk_ok_app_id'))))
+       throw new Error('Missing OK or VK launch identity');
+     if(launchUser&&launchUser!==userId)throw new Error('Platform account mismatch; reload the game');
+     if(queryUser!==userId)throw new Error('Platform launch identity mismatch; reload the game');
+     if(queryVkApp&&queryVkApp!==vkAppId)throw new Error('VK launch application mismatch');
 
      const [canGet,canSet,canKeys]=await Promise.all([
        this.supported('VKWebAppStorageGet'),
        this.supported('VKWebAppStorageSet'),
        this.supported('VKWebAppStorageGetKeys')
      ]);
-     this.socialPlatform=client;this.appId=appId;this.userId=user.id;this.clientPlatform=String(launch?.vk_platform||query.get('vk_platform')||'');this.cloud=canGet&&canSet;this.deletionSupported=this.cloud&&canKeys;
+     this.socialPlatform=client;this.appId=appId;this.userId=userId;this.clientPlatform=String(launch?.vk_platform||query.get('vk_platform')||'');this.cloud=canGet&&canSet;this.deletionSupported=this.cloud&&canKeys;
      const signed=new URLSearchParams();
      for(const [key,value] of (launch?.sign?Object.entries(launch):query.entries()))if(key==='sign'||key.startsWith('vk_'))signed.append(key,String(value));
      this.launchQuery=signed.has('sign')?signed.toString():'';
-     this.fingerprint=await this.accountFingerprint(appId,user.id);
+     this.fingerprint=await this.accountFingerprint(appId,userId);
      // Isolate the local profile before any cloud read can fail or be unsupported.
      if(this.localMeta()?.fingerprint!==this.fingerprint){
        deps.onLoad(cleanProgress({},deps.normalize),{accountChanged:true});
