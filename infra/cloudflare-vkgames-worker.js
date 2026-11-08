@@ -3,7 +3,7 @@
  * Static assets are stored in the private Cloudflare Workers KV namespace.
  * No GitHub runtime fetch and no server-side player save database are needed.
  */
-const CACHE_VERSION = 'vk-games-m200a-yandex-payments';
+const CACHE_VERSION = 'vk-games-m201-ok-cloud-hf01';
 const TYPES = Object.freeze({
   'index.html':'text/html; charset=utf-8',
   'all-maps.png':'image/png',
@@ -35,7 +35,11 @@ export default {
     const hit=await caches.default.match(cache);
     if (hit) return request.method==='HEAD'?new Response(null,{status:200,headers:hit.headers}):hit;
     let bytes;
-    try { bytes=await env.GAME_ASSETS.get(path,{type:'arrayBuffer'}); }
+    // M201 is staged alongside the existing live assets: one Worker switch
+    // selects the three patched files. All unchanged assets keep their old keys.
+    const key=(path==='index.html'||path==='app.js'||path==='vk-games.js')
+      ?'m201-ok-cloud-hf01/'+path:path;
+    try { bytes=await env.GAME_ASSETS.get(key,{type:'arrayBuffer'}); }
     catch (_) { return new Response('Temporary storage error',{status:503,headers:SECURITY}); }
     if (!bytes) return new Response('Game asset unavailable',{status:503,headers:SECURITY});
     const headers=new Headers(SECURITY);
