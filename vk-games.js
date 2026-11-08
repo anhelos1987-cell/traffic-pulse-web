@@ -173,11 +173,11 @@ const PREFIX='trafficpulse_vkg_v2';
      if(!Number.isSafeInteger(vkAppId)||vkAppId!==EXPECTED_APP_ID||
         !Number.isSafeInteger(appId)||appId!==(isOk?EXPECTED_OK_APP_ID:EXPECTED_APP_ID))
        throw new Error('Wrong '+(isOk?'OK':'VK')+' application; reopen Traffic Pulse from the platform');
-     if(!Number.isSafeInteger(queryUser)||queryUser<=0||
-        (isOk&&(!query.has('vk_ok_user_id')||!query.has('vk_ok_app_id'))))
-       throw new Error('Missing OK or VK launch identity');
+     if(isOk&&(!query.has('vk_ok_user_id')||!query.has('vk_ok_app_id')||
+        !Number.isSafeInteger(queryUser)||queryUser<=0))
+       throw new Error('Missing OK launch identity');
      if(launchUser&&launchUser!==userId)throw new Error('Platform account mismatch; reload the game');
-     if(queryUser!==userId)throw new Error('Platform launch identity mismatch; reload the game');
+     if(queryUser&&queryUser!==userId)throw new Error('Platform launch identity mismatch; reload the game');
      if(queryVkApp&&queryVkApp!==vkAppId)throw new Error('VK launch application mismatch');
 
      const [canGet,canSet,canKeys]=await Promise.all([
