@@ -45,7 +45,9 @@ function harness(allVk,localMap,initialSave={},opts={}){
   let data=normalize(initialSave);
   const operations=[];
   const userId=opts.userId??42,appId=opts.appId??54870403;
-  const vk=accountStore(allVk,userId);
+  const isOk=opts.client==='ok',okAppId=opts.okAppId??512005046523;
+  // OK and VK accounts are separate stores even when their numeric user IDs match.
+  const vk=accountStore(allVk,isOk?'ok:'+okAppId+':'+userId:userId);
   const supported=new Set(opts.unsupported?[
     'VKWebAppGetLaunchParams','VKWebAppStorageGet','VKWebAppStorageSet',
     'VKWebAppStorageGetKeys','VKWebAppCheckNativeAds','VKWebAppShowNativeAds','VKWebAppCheckBannerAd','VKWebAppShowBannerAd','VKWebAppHideBannerAd'
@@ -53,20 +55,25 @@ function harness(allVk,localMap,initialSave={},opts={}){
     'VKWebAppGetLaunchParams','VKWebAppStorageGet','VKWebAppStorageSet',
     'VKWebAppStorageGetKeys','VKWebAppCheckNativeAds','VKWebAppShowNativeAds','VKWebAppCheckBannerAd','VKWebAppShowBannerAd','VKWebAppHideBannerAd'
   ]);
+  if(isOk)supported.delete('VKWebAppGetLaunchParams');
   const bridge={
     isEmbedded:()=>Boolean(opts.embedded),
     isWebView:()=>false,
     supportsAsync:async method=>supported.has(method),
     async send(method,payload={}){
       operations.push(method);
+      if(opts.rejectStorageSend&&method.startsWith('VKWebAppStorage'))throw Error('storage_not_available');
       if(opts.onCall)await opts.onCall(method,payload);
       if(method==='VKWebAppInit')return {result:true};
       if(method==='VKWebAppGetUserInfo')return {id:opts.infoUserId??userId};
-      if(method==='VKWebAppGetLaunchParams')return {
+      if(method==='VKWebAppGetLaunchParams'){
+        if(isOk)throw Error('OK does not support VKWebAppGetLaunchParams');
+        return {
         vk_app_id:opts.launchAppId??appId,
         vk_user_id:opts.launchUserId??userId,
         vk_client:opts.client||'vk',vk_language:'ru',vk_platform:opts.clientPlatform||''
       };
+      }
       if(method==='VKWebAppStorageGet')return {
         keys:payload.keys.map(key=>({key,value:vk.get(key)||''}))
       };
@@ -88,7 +95,11 @@ function harness(allVk,localMap,initialSave={},opts={}){
   };
   const context={
     vkBridge:bridge,
-    location:{search:opts.embedded?`?vk_app_id=${appId}&vk_user_id=${userId}&vk_language=ru&vk_client=${opts.client||'vk'}`:''},
+    location:{search:opts.embedded
+      ?(isOk
+        ?`?vk_app_id=${appId}&vk_ok_app_id=${okAppId}&vk_ok_user_id=${opts.launchOkUserId??userId}&vk_user_id=${opts.technicalVkId??987654}&vk_language=ru&vk_client=ok&vk_platform=${opts.clientPlatform||'desktop_web_ok'}`
+        :`?vk_app_id=${appId}&vk_user_id=${userId}&vk_language=ru&vk_client=${opts.client||'vk'}`)
+      :''},
     navigator:{onLine:opts.online!==false},localStorage:localStore(localMap),innerWidth:opts.innerWidth??1280,innerHeight:opts.innerHeight??720,
     crypto:webcrypto,TextDecoder,TextEncoder,URLSearchParams,
     atob:s=>Buffer.from(s,'base64').toString('latin1'),
@@ -371,25 +382,141 @@ test('desktop host keeps the side banner when VK resizes the iframe below 900px'
  await h.instance.init();assert.equal(h.instance.bannerLayout().mode,'desktop-side');h.cleanup();
 });
 
- test('OK app uses account storage and isolates same numeric VK user',async()=>{
- const local=new Map();
- const vk=harness(new Map(),local,{}, {embedded:true});
- const ok=harness(new Map(),local,{}, {embedded:true,appId:512005046523,client:'ok'});
+test('OK app uses account storage and isolates the same numeric VK user',async()=>{
+ const local=new Map(),all=new Map();
+ const vk=harness(all,local,{}, {embedded:true});
+ const ok=harness(all,local,{}, {embedded:true,client:'ok'});
  try{
  assert.equal(await vk.instance.init(),true);
- assert.equal(await ok.instance.init(),true);
+ assert.equal(await ok.instance.init(),true,ok.instance.error);
  assert.equal(ok.instance.socialPlatform,'ok');
  assert.equal(ok.instance.privacyStatus().platform,'okgames');
  assert.notEqual(vk.instance.fingerprint,ok.instance.fingerprint);
  ok.setSave({revision:1,level:7});ok.instance.changed();
  assert.equal(await ok.instance.sync(),true);
- const next=harness(new Map([[42,ok.vk]]),local,{}, {embedded:true,appId:512005046523,client:'ok'});
- try{assert.equal(await next.instance.init(),true);assert.equal(next.getSave().level,7);}finally{next.cleanup();}
+ const next=harness(all,new Map(),{}, {embedded:true,client:'ok'});
+ try{assert.equal(await next.instance.init(),true,next.instance.error);assert.equal(next.getSave().level,7);}finally{next.cleanup();}
  }finally{vk.cleanup();ok.cleanup();}
- });
- test('rejects cross-platform app IDs',async()=>{
- for(const opts of [{appId:54870403,client:'ok'},{appId:512005046523,client:'vk'},{appId:512005046524,client:'ok'}]){
- const h=harness(new Map(),new Map(),{}, {embedded:true,...opts});
- try{assert.equal(await h.instance.init(),false);}finally{h.cleanup();}
+});
+test('rejects cross-platform app IDs',async()=>{
+ for(const opts of [{appId:54870404,client:'ok'},{appId:512005046523,client:'vk'},{okAppId:512005046524,client:'ok'}]){
+  const h=harness(new Map(),new Map(),{}, {embedded:true,...opts});
+  try{assert.equal(await h.instance.init(),false);}finally{h.cleanup();}
  }
- });
+});
+
+test('OK launch uses vk_app_id for VK identity, vk_ok_app_id for its cloud and vk_ok_user_id for its player',async()=>{
+  const all=new Map(),a=harness(all,new Map(),{},{
+    embedded:true,client:'ok',clientPlatform:'desktop_web_ok',userId:701,technicalVkId:90042
+  });
+  assert.equal(await a.instance.init(),true,a.instance.error);
+  assert.equal(a.instance.socialPlatform,'ok');
+  assert.equal(a.instance.appId,512005046523);
+  assert.equal(a.instance.userId,701);
+  assert.equal(a.instance.cloud,true);
+  assert.equal(a.instance.privacyStatus().platform,'okgames');
+  assert.ok(!a.operations.includes('VKWebAppGetLaunchParams'),'not supported in OK bridge');
+  a.setSave({revision:3,level:13,coins:240,starsByLevel:{'12':3}});
+  a.instance.changed();assert.equal(await a.instance.sync(),true);
+  const b=harness(all,new Map(),{},{
+    embedded:true,client:'ok',clientPlatform:'mobile_android_ok',userId:701,technicalVkId:90042
+  });
+  assert.equal(await b.instance.init(),true,b.instance.error);
+  assert.equal(b.getSave().level,13);
+  assert.equal(b.getSave().coins,240);
+  assert.equal(b.getSave().starsByLevel['12'],3);
+  a.cleanup();b.cleanup();
+});
+
+test('OK and VK saves with the same numeric user ID cannot be mixed',async()=>{
+  const all=new Map();
+  const vk=harness(all,new Map(),{}, {embedded:true,userId:7});
+  assert.equal(await vk.instance.init(),true);
+  vk.setSave({revision:2,level:11,coins:250});
+  vk.instance.changed();await vk.instance.sync();
+  const ok=harness(all,new Map(),{}, {embedded:true,userId:7,client:'ok'});
+  assert.equal(await ok.instance.init(),true,ok.instance.error);
+  assert.equal(ok.getSave().level,1);
+  assert.equal(ok.getSave().coins,0);
+  ok.setSave({revision:1,level:4,coins:50});ok.instance.changed();await ok.instance.sync();
+  const otherVk=harness(all,new Map(),{}, {embedded:true,userId:7});
+  assert.equal(await otherVk.instance.init(),true);
+  assert.equal(otherVk.getSave().level,11);
+  assert.equal(otherVk.getSave().coins,250);
+  vk.cleanup();ok.cleanup();otherVk.cleanup();
+});
+
+test('OK rejects a wrong OK app ID or wrong signed OK player ID before cloud I/O',async()=>{
+  for(const opts of [
+    {okAppId:512005046524},
+    {appId:54870404},
+    {launchOkUserId:999}
+  ]){
+    const a=harness(new Map(),new Map(),{}, {embedded:true,client:'ok',userId:7,...opts});
+    assert.equal(await a.instance.init(),false);
+    assert.match(a.instance.error,/application|identity|mismatch/i);
+    assert.ok(!a.operations.includes('VKWebAppStorageGet'));
+    a.cleanup();
+  }
+});
+
+test('OK bridge without storage capabilities does not pretend it saved to the cloud',async()=>{
+  const a=harness(new Map(),new Map(),{revision:2,level:6},{embedded:true,client:'ok',
+    unsupported:['VKWebAppStorageGet','VKWebAppStorageSet','VKWebAppStorageGetKeys'],rejectStorageSend:true});
+  assert.equal(await a.instance.init(),true);
+  assert.equal(a.instance.privacyStatus().cloud,false);
+  assert.equal(a.instance.status(),'local');
+  a.cleanup();
+});
+
+test('OK cloud probes real Storage when capabilities incorrectly report unsupported',async()=>{
+  const all=new Map();
+  const a=harness(all,new Map(),{}, {embedded:true,client:'ok',
+    unsupported:['VKWebAppStorageGet','VKWebAppStorageSet','VKWebAppStorageGetKeys']});
+  assert.equal(await a.instance.init(),true,a.instance.error);
+  assert.equal(a.instance.cloud,true);
+  a.setSave({revision:2,level:5,coins:80});a.instance.changed();
+  assert.equal(await a.instance.sync(),true);
+  const b=harness(all,new Map(),{}, {embedded:true,client:'ok'});
+  assert.equal(await b.instance.init(),true);
+  assert.equal(b.getSave().level,5);
+  a.cleanup();b.cleanup();
+});
+
+test('OK preserves previously unlinked local progress for explicit import into an empty cloud',async()=>{
+  const all=new Map(),browserLocal=new Map();
+  const a=harness(all,browserLocal,{revision:4,level:8,coins:170,starsByLevel:{'7':3}},{
+    embedded:true,client:'ok',userId:26
+  });
+  assert.equal(await a.instance.init(),true,a.instance.error);
+  assert.equal(a.getSave().level,1,'unlinked local progress must never auto-upload into an account');
+  assert.equal(a.instance.recoverableLocal()?.level,8);
+  assert.equal(a.instance.recoverableLocal()?.coins,170);
+  assert.equal(await a.instance.importUnlinkedLocal(),true);
+  assert.equal(a.instance.recoverableLocal(),null);
+  const b=harness(all,new Map(),{}, {embedded:true,client:'ok',userId:26});
+  assert.equal(await b.instance.init(),true);
+  assert.equal(b.getSave().level,8);
+  assert.equal(b.getSave().coins,170);
+  assert.equal(b.getSave().starsByLevel['7'],3);
+  a.cleanup();b.cleanup();
+});
+
+test('OK local-only mode does not erase fresh offline progress at the next cloud retry',async()=>{
+  const all=new Map(),local=new Map();
+  const a=harness(all,local,{revision:5,level:7,coins:50},{
+    embedded:true,client:'ok',userId:26,
+    unsupported:['VKWebAppStorageGet','VKWebAppStorageSet'],rejectStorageSend:true
+  });
+  assert.equal(await a.instance.init(),true);
+  assert.equal(a.getSave().level,1,'unlinked legacy progress is backed up separately');
+  a.setSave({revision:1,level:3,coins:90});a.instance.changed();a.cleanup();
+  const retry=harness(all,local,a.getSave(),{embedded:true,client:'ok',userId:26});
+  assert.equal(await retry.instance.init(),true,retry.instance.error);
+  assert.equal(retry.getSave().level,3,'same-account offline progress survives retry');
+  assert.equal(await retry.instance.sync(),true);
+  const phone=harness(all,new Map(),{}, {embedded:true,client:'ok',userId:26});
+  assert.equal(await phone.instance.init(),true);
+  assert.equal(phone.getSave().level,3);
+  retry.cleanup();phone.cleanup();
+});

@@ -9,6 +9,7 @@ const PREFIX='trafficpulse_vkg_v2';
  const INDEX=PREFIX+'_index';
  const EPOCH=PREFIX+'_reset_epoch';
  const LOCAL_META='traffic_pulse_vkg_local_meta_v2';
+ const OK_RECOVERY_PREFIX='traffic_pulse_ok_unlinked_backup_v1_';
  const CHUNK=3000;
  const MAX_BYTES=190000;
  const MAX_CHUNKS=Math.ceil(MAX_BYTES*4/3/CHUNK)+1;
@@ -92,7 +93,7 @@ const PREFIX='trafficpulse_vkg_v2';
     bannerVisible:false,bannerMode:'',bannerLastLayout:null,bannerJob:null,
 
     status(){
-     if(!this.ready)return this.error==='outside_vk'||this.error==='vk_bridge_missing'?'local':'loading';
+     if(!this.ready)return this.error?(this.error==='outside_vk'||this.error==='vk_bridge_missing'?'local':'offline'):'loading';
      if(!this.cloud)return 'local';
      if(this.error)return 'offline';
      if(!this.loaded)return 'loading';
@@ -142,39 +143,96 @@ const PREFIX='trafficpulse_vkg_v2';
        generation:this.head?.generation||'',base:this.base?cleanProgress(this.base,deps.normalize):null
      });
     },
+    backupKey(){return OK_RECOVERY_PREFIX+this.fingerprint;},
+    recoverableLocal(){
+     if(!this.ready||!this.cloud||!this.loaded||this.head||!this.fingerprint)return null;
+     const backup=readJson(storage,this.backupKey());
+     return backup?.version===1&&backup.fingerprint===this.fingerprint&&plainObject(backup.progress)
+       ?cleanProgress(backup.progress,deps.normalize):null;
+    },
+    async importUnlinkedLocal(){
+     const backup=this.recoverableLocal();
+     if(!backup||this.busy||this.deleting)return false;
+     // Never auto-import a browser's unlinked local data into a different
+     // person's authenticated OK account. The player must opt in explicitly.
+     deps.onLoad(backup,{accountChanged:false});
+     this.changed();
+     const synced=await this.sync();
+     if(synced&&!this.dirty){
+       try{storage?.removeItem(this.backupKey());}catch(_){}
+       return true;
+     }
+     return false;
+    },
     async initializeAccount(){
      const initialized=await this.call('VKWebAppInit',{},3000);
      if(!initialized||initialized.result!==true)throw new Error('VK initialization not acknowledged');
 
-     const user=await this.call('VKWebAppGetUserInfo',{},3500);
-     if(!user||!Number.isSafeInteger(user.id)||user.id<=0)throw new Error('VK account unavailable');
-
-     let launch=null;
-     if(await this.supported('VKWebAppGetLaunchParams'))launch=await this.call('VKWebAppGetLaunchParams',{},3500);
      const query=new URLSearchParams(root.location?.search||'');
-     const queryApp=Number(query.get('vk_app_id')||0),queryUser=Number(query.get('vk_user_id')||0);
-     const appId=Number(launch?.vk_app_id||queryApp||0);
-     const launchUser=Number(launch?.vk_user_id||queryUser||0);
-     if(!Number.isSafeInteger(appId)||appId<=0)throw new Error('VK application unavailable');
-     const client=String(launch?.vk_client||query.get('vk_client')||'vk');
-     if(launch?.vk_client&&query.has('vk_client')&&String(launch.vk_client)!==query.get('vk_client'))throw new Error('Social platform mismatch');
-     if(!['vk','ok'].includes(client)||appId!==(client==='ok'?EXPECTED_OK_APP_ID:EXPECTED_APP_ID))throw new Error('Wrong VK application; reload Traffic Pulse from VK Games');
-     if(launchUser&&launchUser!==user.id)throw new Error('VK account mismatch; reload the game');
-     if(queryUser&&queryUser!==user.id)throw new Error('VK launch mismatch; reload the game');
-     if(queryApp&&queryApp!==appId)throw new Error('VK application mismatch; reload the game');
+     const client=String(query.get('vk_client')||'vk');
+     if(!['vk','ok'].includes(client))throw new Error('Unsupported social platform');
+     const isOk=client==='ok';
+     // The OK bridge returns the Odnoklassniki user, not VK's technical user.
+     const user=await this.call('VKWebAppGetUserInfo',isOk?{use_local:true}:{},3500);
+     const userId=Number(user?.id);
+     if(!Number.isSafeInteger(userId)||userId<=0)throw new Error('Platform account unavailable');
 
-     const [canGet,canSet,canKeys]=await Promise.all([
+     // VKWebAppGetLaunchParams is explicitly unsupported in OK. Its signed
+     // launch fields are already supplied by OK in the iframe query string.
+     let launch=null;
+     if(!isOk&&await this.supported('VKWebAppGetLaunchParams'))
+       launch=await this.call('VKWebAppGetLaunchParams',{},3500);
+     const queryVkApp=Number(query.get('vk_app_id')||0);
+     const queryOkApp=Number(query.get('vk_ok_app_id')||0);
+     const queryUser=Number(query.get(isOk?'vk_ok_user_id':'vk_user_id')||0);
+     const vkAppId=Number(launch?.vk_app_id||queryVkApp||0);
+     const appId=isOk?queryOkApp:vkAppId;
+     const launchUser=Number(launch?.vk_user_id||queryUser||0);
+     if(launch?.vk_client&&String(launch.vk_client)!==client)
+       throw new Error('Social platform mismatch');
+     // An OK launch contains BOTH IDs: vk_app_id is still the VK application,
+     // whereas vk_ok_app_id identifies this game's separate OK account store.
+     if(!Number.isSafeInteger(vkAppId)||vkAppId!==EXPECTED_APP_ID||
+        !Number.isSafeInteger(appId)||appId!==(isOk?EXPECTED_OK_APP_ID:EXPECTED_APP_ID))
+       throw new Error('Wrong '+(isOk?'OK':'VK')+' application; reopen Traffic Pulse from the platform');
+     if(isOk&&(!query.has('vk_ok_user_id')||!query.has('vk_ok_app_id')||
+        !Number.isSafeInteger(queryUser)||queryUser<=0))
+       throw new Error('Missing OK launch identity');
+     if(launchUser&&launchUser!==userId)throw new Error('Platform account mismatch; reload the game');
+     if(queryUser&&queryUser!==userId)throw new Error('Platform launch identity mismatch; reload the game');
+     if(queryVkApp&&queryVkApp!==vkAppId)throw new Error('VK launch application mismatch');
+
+     let [canGet,canSet,canKeys]=await Promise.all([
        this.supported('VKWebAppStorageGet'),
        this.supported('VKWebAppStorageSet'),
        this.supported('VKWebAppStorageGetKeys')
      ]);
-     this.socialPlatform=client;this.appId=appId;this.userId=user.id;this.clientPlatform=String(launch?.vk_platform||query.get('vk_platform')||'');this.cloud=canGet&&canSet;this.deletionSupported=this.cloud&&canKeys;
+     if(isOk&&(!canGet||!canSet)){
+       // Some OK client builds can execute Storage even when Bridge's
+       // capability query is incomplete. Confirm real read AND write without
+       // altering the current epoch value before declaring cloud available.
+       try{
+         const before=(await this.get([EPOCH],Date.now()+5000))[0];
+         await this.set(EPOCH,before,Date.now()+5000);
+         canGet=true;canSet=true;
+       }catch(_){/* Genuine unsupported storage remains local-only. */}
+     }
+     this.socialPlatform=client;this.appId=appId;this.userId=userId;this.clientPlatform=String(launch?.vk_platform||query.get('vk_platform')||'');this.cloud=canGet&&canSet;this.deletionSupported=this.cloud&&canKeys;
      const signed=new URLSearchParams();
      for(const [key,value] of (launch?.sign?Object.entries(launch):query.entries()))if(key==='sign'||key.startsWith('vk_'))signed.append(key,String(value));
      this.launchQuery=signed.has('sign')?signed.toString():'';
-     this.fingerprint=await this.accountFingerprint(appId,user.id);
-     // Isolate the local profile before any cloud read can fail or be unsupported.
-     if(this.localMeta()?.fingerprint!==this.fingerprint){
+     this.fingerprint=await this.accountFingerprint(appId,userId);
+     // Isolate accounts. Preserve unlinked OK-era local progress for an
+     // EXPLICIT player-controlled import rather than silently adopting
+     // possibly another person's browser-local coins or unlocked tracks.
+     const priorMeta=this.localMeta();
+     if(priorMeta?.fingerprint!==this.fingerprint){
+       if(isOk&&!priorMeta&&Number(deps.getSave()?.revision||0)>0){
+         const key=this.backupKey();
+         if(!storage?.getItem(key))
+           writeJson(storage,key,{version:1,fingerprint:this.fingerprint,
+             progress:cleanProgress(deps.getSave(),deps.normalize)});
+       }
        deps.onLoad(cleanProgress({},deps.normalize),{accountChanged:true});
        this.base=null;this.head=null;
      }
@@ -183,6 +241,10 @@ const PREFIX='trafficpulse_vkg_v2';
        const deadline=Date.now()+5000;
        this.epoch=(await this.get([EPOCH],deadline))[0];
        if(this.epoch&&!/^[a-f0-9]{32}$/.test(this.epoch))throw new Error('Invalid VK reset marker');
+     }else{
+       // Bind verified offline-local progress to this OK/VK account once,
+       // preventing each later retry from clearing newly earned local levels.
+       this.saveLocalMeta();
      }
      return true;
     },

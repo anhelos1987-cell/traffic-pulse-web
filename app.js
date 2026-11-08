@@ -13,7 +13,7 @@
   }catch(_){}
 
   const BUILD_MODE = 'production';
-  const BUILD_VERSION = 'M200-VKGAMES-YANDEX-PAYMENTS';
+  const BUILD_VERSION = 'M201-OK-CLOUD-HOTFIX01';
   const IS_DEVELOPMENT = BUILD_MODE === 'development';
   const PLATFORM_TARGET = 'vkgames'; // VK Games / VK Mini Apps, not VK Play
   const YANDEX_PUBLIC_LEADERBOARD_NAME = 'TrafficPulseStars';
@@ -495,11 +495,31 @@
       YandexAudit.state.sdk=VKGames.ready?'vk-bridge-ready':'vk-local-fallback';
       YandexAudit.state.lang=lang;startApp();
       setTimeout(()=>{void VKGames.showAdaptiveBanner();},700);
-      setInterval(()=>{if(!document.hidden)void VKGames.sync();},25000);
+      setInterval(()=>{
+        if(document.hidden)return;
+        if(!VKGames.ready||!VKGames.cloud)void this.recoverCloudAfterReconnect();
+        else void VKGames.sync();
+      },25000);
     },
     canAcquirePlayer(){return VKGames.ready;}, async acquirePlayer(){return null;},
     async initCloudSave(){return VKGames.sync();},
-    async recoverCloudAfterReconnect(){return VKGames.sync();},
+    async recoverCloudAfterReconnect(){
+      if(navigator.onLine===false)return false;
+      if(VKGames.ready&&VKGames.cloud)return VKGames.sync();
+      if(this.cloudInitInFlight||Date.now()<this.cloudInitNextRetryAt)return false;
+      this.cloudInitInFlight=true;
+      try{
+        const connected=await VKGames.init();
+        if(connected&&VKGames.cloud){
+          this.cloudInitFailureStreak=0;this.cloudInitNextRetryAt=0;
+          this.cloudReady=VKGames.loaded;
+          return true;
+        }
+        this.cloudInitFailureStreak=Math.min(8,this.cloudInitFailureStreak+1);
+        this.cloudInitNextRetryAt=Date.now()+Math.min(60000,2500*Math.pow(2,Math.min(4,this.cloudInitFailureStreak)));
+        return false;
+      }finally{this.cloudInitInFlight=false;}
+    },
     queueCloudSave(immediate=false){VKGames.changed();if(immediate)return VKGames.sync();return true;},
     async flushCloud(){return VKGames.sync();},
     leaderboardStarsScore(){return safeInt(save?.totalStars,0,999999,0);}, leaderboardMasteryScore(){return encodeLeaderboardScore(save);}, leaderboardAuthorized(){return false;}, leaderboardSupported(){return false;}, queueLeaderboardSync(){return false;}, async submitLeaderboardScores(){return false;}, async getLeaderboardEntries(){return{supported:false,authorized:false,entries:[],userRank:0,error:'unsupported',mode:'mastery'};}, async authorizeForLeaderboard(){return false;},
@@ -528,7 +548,14 @@
     if(!save.vkCloudRewards[key])save.vkCloudRewards[key]=amount;
   }
   function vkCloudStatusText(){
-    const states={
+    const ok=new URLSearchParams(location.search).get('vk_client')==='ok';
+    const states=ok?{
+      local:['Прогресс хранится только на этом устройстве — облако ОК не подключено','Progress is stored only on this device — OK cloud is not connected'],
+      loading:['Проверяем облачное сохранение ОК…','Checking your OK cloud save…'],
+      saving:['Сохраняем прогресс в Одноклассниках…','Saving progress to Odnoklassniki…'],
+      saved:['Прогресс сохранён в аккаунте Одноклассников','Progress saved to your Odnoklassniki account'],
+      offline:['Облако ОК временно недоступно. Локальная копия сохранена.','OK cloud is temporarily unavailable. A local copy is kept.']
+    }:{
       local:['Прогресс хранится только на этом устройстве','Progress is stored only on this device'],
       loading:['Проверяем сохранение VK…','Checking your VK save…'],
       saving:['Сохраняем прогресс в VK…','Saving progress to VK…'],
@@ -555,7 +582,7 @@
       }
     },
     onStatus:()=>{
-      platform.cloudReady=VKGames.loaded;platform.cloudDirty=VKGames.dirty;platform.cloudWriting=Boolean(VKGames.busy);
+      platform.cloudReady=VKGames.ready&&VKGames.cloud&&VKGames.loaded&&!VKGames.error;platform.cloudDirty=VKGames.dirty;platform.cloudWriting=Boolean(VKGames.busy);
       const extra=$('modal-extra');
       if(overlayVisible()&&$('modal-title')?.textContent===T.paused&&extra?.dataset.cloudStatus==='1')extra.textContent=vkCloudStatusText();
     },
@@ -5120,27 +5147,63 @@
 
   function showVkDataPanel(origin='pause'){
     const privacy=VKGames.privacyStatus();
-    $('modal-kicker').textContent='VK GAMES';
+    const okCloud=new URLSearchParams(location.search).get('vk_client')==='ok';
+    $('modal-kicker').textContent=okCloud?'OK GAMES':'VK GAMES';
     $('modal-title').textContent=lang==='ru'?'🔐 Данные игры':'🔐 Game data';
     $('modal-text').textContent=privacy.cloud
-      ?(lang==='ru'?'Игровой прогресс сохраняется в хранилище аккаунта VK.':'Game progress is saved in your VK account storage.')
-      :(lang==='ru'?'VK Storage сейчас недоступен — используется только локальная копия на устройстве.':'VK Storage is currently unavailable — only the local device copy is used.');
+      ?(okCloud
+        ?(lang==='ru'?'Игровой прогресс сохраняется в аккаунте Одноклассников.':'Game progress is saved in your Odnoklassniki account.')
+        :(lang==='ru'?'Игровой прогресс сохраняется в хранилище аккаунта VK.':'Game progress is saved in your VK account storage.'))
+      :(okCloud
+        ?(lang==='ru'?'Облачное сохранение Одноклассников пока не подключено. Сейчас прогресс доступен только на этом устройстве.':'Odnoklassniki cloud saving is not connected yet. Progress is currently local to this device.')
+        :(lang==='ru'?'VK Storage сейчас недоступен — используется только локальная копия на устройстве.':'VK Storage is currently unavailable — only the local device copy is used.'));
     $('modal-stars').textContent='';$('modal-reward').classList.add('hidden');
     const extra=$('modal-extra');extra.classList.remove('hidden');extra.textContent='';
     const state=document.createElement('div');state.className='garage-summary';state.textContent=vkCloudStatusText();extra.appendChild(state);
-    const dataActions=[{text:lang==='ru'?'☁ Синхронизировать':'☁ Sync',cls:'primary',fn:async()=>{await VKGames.sync();showVkDataPanel(origin);}}];
+    const legacy=okCloud&&VKGames.recoverableLocal();
+    if(legacy){
+      const warning=document.createElement('p');
+      warning.textContent=lang==='ru'
+        ?'Найден старый локальный прогресс. Его можно перенести вручную, только если эти данные принадлежат твоему аккаунту ОК и облако ещё пустое.'
+        :'Older local progress is available. You can import it manually only if it belongs to your OK account and the cloud is still empty.';
+      extra.appendChild(warning);
+    }
+    const dataActions=[{text:lang==='ru'?'☁ Синхронизировать':'☁ Sync',cls:'primary',fn:async()=>{await platform.recoverCloudAfterReconnect();showVkDataPanel(origin);}}];
+    if(legacy)dataActions.push({text:lang==='ru'?'Восстановить локальный прогресс':'Import old local progress',fn:()=>showVkLegacyImportConfirm(origin)});
     if(VKGames.deletionSupported){
-      dataActions.push({text:lang==='ru'?'Удалить прогресс из VK':'Delete VK progress',fn:()=>showVkDeleteConfirm(origin)});
+      dataActions.push({text:lang==='ru'?(okCloud?'Удалить прогресс из ОК':'Удалить прогресс из VK'):(okCloud?'Delete OK progress':'Delete VK progress'),fn:()=>showVkDeleteConfirm(origin)});
     }
     dataActions.push({text:T.close,fn:()=>origin==='pause'?showPause():closeOverlay()});
     actions(dataActions);openOverlay();
   }
+  function showVkLegacyImportConfirm(origin='pause'){
+    if(!VKGames.recoverableLocal()){showVkDataPanel(origin);return;}
+    $('modal-kicker').textContent='OK GAMES';
+    $('modal-title').textContent=lang==='ru'?'Перенести локальный прогресс?':'Import local progress?';
+    $('modal-text').textContent=lang==='ru'
+      ?'Перенос будет выполнен в твой подключённый аккаунт Одноклассников. Подтверждай только если эти локальные данные принадлежат тебе. Уже существующее облачное сохранение не перезаписывается автоматически.'
+      :'This imports local progress into your connected Odnoklassniki account. Confirm only if this local data belongs to you. Existing cloud saves are never automatically overwritten.';
+    $('modal-stars').textContent='';$('modal-reward').classList.add('hidden');$('modal-extra').classList.add('hidden');
+    actions([
+      {text:lang==='ru'?'Подтверждаю перенос':'Confirm import',cls:'primary',fn:async()=>{
+        const ok=await VKGames.importUnlinkedLocal();
+        toast(ok?(lang==='ru'?'Прогресс перенесён в ОК':'Progress imported to OK'):(lang==='ru'?'Перенос не завершён — данные сохранены локально':'Import incomplete — local backup retained'));
+        showVkDataPanel(origin);
+      }},
+      {text:lang==='ru'?'Отмена':'Cancel',fn:()=>showVkDataPanel(origin)}
+    ]);openOverlay();
+  }
   function showVkDeleteConfirm(origin='pause'){
-    $('modal-kicker').textContent='VK GAMES';
+    const okCloud=new URLSearchParams(location.search).get('vk_client')==='ok';
+    $('modal-kicker').textContent=okCloud?'OK GAMES':'VK GAMES';
     $('modal-title').textContent=lang==='ru'?'Удалить данные?':'Delete game data?';
     $('modal-text').textContent=lang==='ru'
-      ?'Будет удалён только прогресс Traffic Pulse из VK Storage и локальная копия этого аккаунта. Действие нельзя отменить. Закрой игру на других устройствах.'
-      :'Only Traffic Pulse progress in VK Storage and this account’s local copy will be removed. This cannot be undone. Close the game on other devices.';
+      ?(okCloud
+        ?'Будет удалён только прогресс Traffic Pulse из хранилища Одноклассников и локальная копия этого аккаунта. Действие нельзя отменить. Закрой игру на других устройствах.'
+        :'Будет удалён только прогресс Traffic Pulse из VK Storage и локальная копия этого аккаунта. Действие нельзя отменить. Закрой игру на других устройствах.')
+      :(okCloud
+        ?'Only Traffic Pulse progress in Odnoklassniki storage and this account’s local copy will be removed. This cannot be undone. Close the game on other devices.'
+        :'Only Traffic Pulse progress in VK Storage and this account’s local copy will be removed. This cannot be undone. Close the game on other devices.');
     $('modal-stars').textContent='';$('modal-reward').classList.add('hidden');$('modal-extra').classList.add('hidden');
     actions([
       {text:lang==='ru'?'Подтверждаю удаление':'Confirm deletion',cls:'primary',fn:async()=>{const ok=await VKGames.deleteData();if(ok){toast(lang==='ru'?'Данные Traffic Pulse удалены':'Traffic Pulse data deleted');showVkDataPanel(origin);}else toast(lang==='ru'?'Не удалось удалить данные':'Could not delete data');}},
