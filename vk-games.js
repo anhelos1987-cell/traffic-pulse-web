@@ -9,6 +9,7 @@ const PREFIX='trafficpulse_vkg_v2';
  const INDEX=PREFIX+'_index';
  const EPOCH=PREFIX+'_reset_epoch';
  const LOCAL_META='traffic_pulse_vkg_local_meta_v2';
+ const OK_RECOVERY_PREFIX='traffic_pulse_ok_unlinked_backup_v1_';
  const CHUNK=3000;
  const MAX_BYTES=190000;
  const MAX_CHUNKS=Math.ceil(MAX_BYTES*4/3/CHUNK)+1;
@@ -92,7 +93,7 @@ const PREFIX='trafficpulse_vkg_v2';
     bannerVisible:false,bannerMode:'',bannerLastLayout:null,bannerJob:null,
 
     status(){
-     if(!this.ready)return this.error==='outside_vk'||this.error==='vk_bridge_missing'?'local':'loading';
+     if(!this.ready)return this.error?(this.error==='outside_vk'||this.error==='vk_bridge_missing'?'local':'offline'):'loading';
      if(!this.cloud)return 'local';
      if(this.error)return 'offline';
      if(!this.loaded)return 'loading';
@@ -142,6 +143,27 @@ const PREFIX='trafficpulse_vkg_v2';
        generation:this.head?.generation||'',base:this.base?cleanProgress(this.base,deps.normalize):null
      });
     },
+    backupKey(){return OK_RECOVERY_PREFIX+this.fingerprint;},
+    recoverableLocal(){
+     if(!this.ready||!this.cloud||!this.loaded||this.head||!this.fingerprint)return null;
+     const backup=readJson(storage,this.backupKey());
+     return backup?.version===1&&backup.fingerprint===this.fingerprint&&plainObject(backup.progress)
+       ?cleanProgress(backup.progress,deps.normalize):null;
+    },
+    async importUnlinkedLocal(){
+     const backup=this.recoverableLocal();
+     if(!backup||this.busy||this.deleting)return false;
+     // Never auto-import a browser's unlinked local data into a different
+     // person's authenticated OK account. The player must opt in explicitly.
+     deps.onLoad(backup,{accountChanged:false});
+     this.changed();
+     const synced=await this.sync();
+     if(synced&&!this.dirty){
+       try{storage?.removeItem(this.backupKey());}catch(_){}
+       return true;
+     }
+     return false;
+    },
     async initializeAccount(){
      const initialized=await this.call('VKWebAppInit',{},3000);
      if(!initialized||initialized.result!==true)throw new Error('VK initialization not acknowledged');
@@ -180,18 +202,37 @@ const PREFIX='trafficpulse_vkg_v2';
      if(queryUser&&queryUser!==userId)throw new Error('Platform launch identity mismatch; reload the game');
      if(queryVkApp&&queryVkApp!==vkAppId)throw new Error('VK launch application mismatch');
 
-     const [canGet,canSet,canKeys]=await Promise.all([
+     let [canGet,canSet,canKeys]=await Promise.all([
        this.supported('VKWebAppStorageGet'),
        this.supported('VKWebAppStorageSet'),
        this.supported('VKWebAppStorageGetKeys')
      ]);
+     if(isOk&&(!canGet||!canSet)){
+       // Some OK client builds can execute Storage even when Bridge's
+       // capability query is incomplete. Confirm real read AND write without
+       // altering the current epoch value before declaring cloud available.
+       try{
+         const before=(await this.get([EPOCH],Date.now()+5000))[0];
+         await this.set(EPOCH,before,Date.now()+5000);
+         canGet=true;canSet=true;
+       }catch(_){/* Genuine unsupported storage remains local-only. */}
+     }
      this.socialPlatform=client;this.appId=appId;this.userId=userId;this.clientPlatform=String(launch?.vk_platform||query.get('vk_platform')||'');this.cloud=canGet&&canSet;this.deletionSupported=this.cloud&&canKeys;
      const signed=new URLSearchParams();
      for(const [key,value] of (launch?.sign?Object.entries(launch):query.entries()))if(key==='sign'||key.startsWith('vk_'))signed.append(key,String(value));
      this.launchQuery=signed.has('sign')?signed.toString():'';
      this.fingerprint=await this.accountFingerprint(appId,userId);
-     // Isolate the local profile before any cloud read can fail or be unsupported.
-     if(this.localMeta()?.fingerprint!==this.fingerprint){
+     // Isolate accounts. Preserve unlinked OK-era local progress for an
+     // EXPLICIT player-controlled import rather than silently adopting
+     // possibly another person's browser-local coins or unlocked tracks.
+     const priorMeta=this.localMeta();
+     if(priorMeta?.fingerprint!==this.fingerprint){
+       if(isOk&&!priorMeta&&Number(deps.getSave()?.revision||0)>0){
+         const key=this.backupKey();
+         if(!storage?.getItem(key))
+           writeJson(storage,key,{version:1,fingerprint:this.fingerprint,
+             progress:cleanProgress(deps.getSave(),deps.normalize)});
+       }
        deps.onLoad(cleanProgress({},deps.normalize),{accountChanged:true});
        this.base=null;this.head=null;
      }
@@ -200,6 +241,10 @@ const PREFIX='trafficpulse_vkg_v2';
        const deadline=Date.now()+5000;
        this.epoch=(await this.get([EPOCH],deadline))[0];
        if(this.epoch&&!/^[a-f0-9]{32}$/.test(this.epoch))throw new Error('Invalid VK reset marker');
+     }else{
+       // Bind verified offline-local progress to this OK/VK account once,
+       // preventing each later retry from clearing newly earned local levels.
+       this.saveLocalMeta();
      }
      return true;
     },
