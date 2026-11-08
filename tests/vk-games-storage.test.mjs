@@ -45,7 +45,9 @@ function harness(allVk,localMap,initialSave={},opts={}){
   let data=normalize(initialSave);
   const operations=[];
   const userId=opts.userId??42,appId=opts.appId??54870403;
-  const vk=accountStore(allVk,userId);
+  const isOk=opts.client==='ok',okAppId=opts.okAppId??512005046523;
+  // OK and VK accounts are separate stores even when their numeric user IDs match.
+  const vk=accountStore(allVk,isOk?'ok:'+okAppId+':'+userId:userId);
   const supported=new Set(opts.unsupported?[
     'VKWebAppGetLaunchParams','VKWebAppStorageGet','VKWebAppStorageSet',
     'VKWebAppStorageGetKeys','VKWebAppCheckNativeAds','VKWebAppShowNativeAds','VKWebAppCheckBannerAd','VKWebAppShowBannerAd','VKWebAppHideBannerAd'
@@ -53,6 +55,7 @@ function harness(allVk,localMap,initialSave={},opts={}){
     'VKWebAppGetLaunchParams','VKWebAppStorageGet','VKWebAppStorageSet',
     'VKWebAppStorageGetKeys','VKWebAppCheckNativeAds','VKWebAppShowNativeAds','VKWebAppCheckBannerAd','VKWebAppShowBannerAd','VKWebAppHideBannerAd'
   ]);
+  if(isOk)supported.delete('VKWebAppGetLaunchParams');
   const bridge={
     isEmbedded:()=>Boolean(opts.embedded),
     isWebView:()=>false,
@@ -62,11 +65,14 @@ function harness(allVk,localMap,initialSave={},opts={}){
       if(opts.onCall)await opts.onCall(method,payload);
       if(method==='VKWebAppInit')return {result:true};
       if(method==='VKWebAppGetUserInfo')return {id:opts.infoUserId??userId};
-      if(method==='VKWebAppGetLaunchParams')return {
+      if(method==='VKWebAppGetLaunchParams'){
+        if(isOk)throw Error('OK does not support VKWebAppGetLaunchParams');
+        return {
         vk_app_id:opts.launchAppId??appId,
         vk_user_id:opts.launchUserId??userId,
         vk_client:opts.client||'vk',vk_language:'ru',vk_platform:opts.clientPlatform||''
       };
+      }
       if(method==='VKWebAppStorageGet')return {
         keys:payload.keys.map(key=>({key,value:vk.get(key)||''}))
       };
@@ -88,7 +94,11 @@ function harness(allVk,localMap,initialSave={},opts={}){
   };
   const context={
     vkBridge:bridge,
-    location:{search:opts.embedded?`?vk_app_id=${appId}&vk_user_id=${userId}&vk_language=ru&vk_client=${opts.client||'vk'}`:''},
+    location:{search:opts.embedded
+      ?(isOk
+        ?`?vk_app_id=${appId}&vk_ok_app_id=${okAppId}&vk_ok_user_id=${opts.launchOkUserId??userId}&vk_user_id=${opts.technicalVkId??987654}&vk_language=ru&vk_client=ok&vk_platform=${opts.clientPlatform||'desktop_web_ok'}`
+        :`?vk_app_id=${appId}&vk_user_id=${userId}&vk_language=ru&vk_client=${opts.client||'vk'}`)
+      :''},
     navigator:{onLine:opts.online!==false},localStorage:localStore(localMap),innerWidth:opts.innerWidth??1280,innerHeight:opts.innerHeight??720,
     crypto:webcrypto,TextDecoder,TextEncoder,URLSearchParams,
     atob:s=>Buffer.from(s,'base64').toString('latin1'),
@@ -393,3 +403,67 @@ test('desktop host keeps the side banner when VK resizes the iframe below 900px'
  try{assert.equal(await h.instance.init(),false);}finally{h.cleanup();}
  }
  });
+
+test('OK launch uses vk_app_id for VK identity, vk_ok_app_id for its cloud and vk_ok_user_id for its player',async()=>{
+  const all=new Map(),a=harness(all,new Map(),{},{
+    embedded:true,client:'ok',clientPlatform:'desktop_web_ok',userId:701,technicalVkId:90042
+  });
+  assert.equal(await a.instance.init(),true,a.instance.error);
+  assert.equal(a.instance.socialPlatform,'ok');
+  assert.equal(a.instance.appId,512005046523);
+  assert.equal(a.instance.userId,701);
+  assert.equal(a.instance.cloud,true);
+  assert.equal(a.instance.privacyStatus().platform,'okgames');
+  assert.ok(!a.operations.includes('VKWebAppGetLaunchParams'),'not supported in OK bridge');
+  a.setSave({revision:3,level:13,coins:240,starsByLevel:{'12':3}});
+  a.instance.changed();assert.equal(await a.instance.sync(),true);
+  const b=harness(all,new Map(),{},{
+    embedded:true,client:'ok',clientPlatform:'mobile_android_ok',userId:701,technicalVkId:90042
+  });
+  assert.equal(await b.instance.init(),true,b.instance.error);
+  assert.equal(b.getSave().level,13);
+  assert.equal(b.getSave().coins,240);
+  assert.equal(b.getSave().starsByLevel['12'],3);
+  a.cleanup();b.cleanup();
+});
+
+test('OK and VK saves with the same numeric user ID cannot be mixed',async()=>{
+  const all=new Map();
+  const vk=harness(all,new Map(),{}, {embedded:true,userId:7});
+  assert.equal(await vk.instance.init(),true);
+  vk.setSave({revision:2,level:11,coins:250});
+  vk.instance.changed();await vk.instance.sync();
+  const ok=harness(all,new Map(),{}, {embedded:true,userId:7,client:'ok'});
+  assert.equal(await ok.instance.init(),true,ok.instance.error);
+  assert.equal(ok.getSave().level,1);
+  assert.equal(ok.getSave().coins,0);
+  ok.setSave({revision:1,level:4,coins:50});ok.instance.changed();await ok.instance.sync();
+  const otherVk=harness(all,new Map(),{}, {embedded:true,userId:7});
+  assert.equal(await otherVk.instance.init(),true);
+  assert.equal(otherVk.getSave().level,11);
+  assert.equal(otherVk.getSave().coins,250);
+  vk.cleanup();ok.cleanup();otherVk.cleanup();
+});
+
+test('OK rejects a wrong OK app ID or wrong signed OK player ID before cloud I/O',async()=>{
+  for(const opts of [
+    {okAppId:512005046524},
+    {appId:54870404},
+    {launchOkUserId:999}
+  ]){
+    const a=harness(new Map(),new Map(),{}, {embedded:true,client:'ok',userId:7,...opts});
+    assert.equal(await a.instance.init(),false);
+    assert.match(a.instance.error,/application|identity|mismatch/i);
+    assert.ok(!a.operations.includes('VKWebAppStorageGet'));
+    a.cleanup();
+  }
+});
+
+test('OK bridge without storage capabilities does not pretend it saved to the cloud',async()=>{
+  const a=harness(new Map(),new Map(),{revision:2,level:6},{embedded:true,client:'ok',
+    unsupported:['VKWebAppStorageGet','VKWebAppStorageSet','VKWebAppStorageGetKeys']});
+  assert.equal(await a.instance.init(),true);
+  assert.equal(a.instance.privacyStatus().cloud,false);
+  assert.equal(a.instance.status(),'local');
+  a.cleanup();
+});
