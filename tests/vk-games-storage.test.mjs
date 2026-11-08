@@ -62,6 +62,7 @@ function harness(allVk,localMap,initialSave={},opts={}){
     supportsAsync:async method=>supported.has(method),
     async send(method,payload={}){
       operations.push(method);
+      if(opts.rejectStorageSend&&method.startsWith('VKWebAppStorage'))throw Error('storage_not_available');
       if(opts.onCall)await opts.onCall(method,payload);
       if(method==='VKWebAppInit')return {result:true};
       if(method==='VKWebAppGetUserInfo')return {id:opts.infoUserId??userId};
@@ -461,9 +462,61 @@ test('OK rejects a wrong OK app ID or wrong signed OK player ID before cloud I/O
 
 test('OK bridge without storage capabilities does not pretend it saved to the cloud',async()=>{
   const a=harness(new Map(),new Map(),{revision:2,level:6},{embedded:true,client:'ok',
-    unsupported:['VKWebAppStorageGet','VKWebAppStorageSet','VKWebAppStorageGetKeys']});
+    unsupported:['VKWebAppStorageGet','VKWebAppStorageSet','VKWebAppStorageGetKeys'],rejectStorageSend:true});
   assert.equal(await a.instance.init(),true);
   assert.equal(a.instance.privacyStatus().cloud,false);
   assert.equal(a.instance.status(),'local');
   a.cleanup();
+});
+
+test('OK cloud probes real Storage when capabilities incorrectly report unsupported',async()=>{
+  const all=new Map();
+  const a=harness(all,new Map(),{}, {embedded:true,client:'ok',
+    unsupported:['VKWebAppStorageGet','VKWebAppStorageSet','VKWebAppStorageGetKeys']});
+  assert.equal(await a.instance.init(),true,a.instance.error);
+  assert.equal(a.instance.cloud,true);
+  a.setSave({revision:2,level:5,coins:80});a.instance.changed();
+  assert.equal(await a.instance.sync(),true);
+  const b=harness(all,new Map(),{}, {embedded:true,client:'ok'});
+  assert.equal(await b.instance.init(),true);
+  assert.equal(b.getSave().level,5);
+  a.cleanup();b.cleanup();
+});
+
+test('OK preserves previously unlinked local progress for explicit import into an empty cloud',async()=>{
+  const all=new Map(),browserLocal=new Map();
+  const a=harness(all,browserLocal,{revision:4,level:8,coins:170,starsByLevel:{'7':3}},{
+    embedded:true,client:'ok',userId:26
+  });
+  assert.equal(await a.instance.init(),true,a.instance.error);
+  assert.equal(a.getSave().level,1,'unlinked local progress must never auto-upload into an account');
+  assert.equal(a.instance.recoverableLocal()?.level,8);
+  assert.equal(a.instance.recoverableLocal()?.coins,170);
+  assert.equal(await a.instance.importUnlinkedLocal(),true);
+  assert.equal(a.instance.recoverableLocal(),null);
+  const b=harness(all,new Map(),{}, {embedded:true,client:'ok',userId:26});
+  assert.equal(await b.instance.init(),true);
+  assert.equal(b.getSave().level,8);
+  assert.equal(b.getSave().coins,170);
+  assert.equal(b.getSave().starsByLevel['7'],3);
+  a.cleanup();b.cleanup();
+});
+
+test('OK local-only mode does not erase fresh offline progress at the next cloud retry',async()=>{
+  const all=new Map(),local=new Map();
+  const a=harness(all,local,{revision:5,level:7,coins:50},{
+    embedded:true,client:'ok',userId:26,
+    unsupported:['VKWebAppStorageGet','VKWebAppStorageSet'],rejectStorageSend:true
+  });
+  assert.equal(await a.instance.init(),true);
+  assert.equal(a.getSave().level,1,'unlinked legacy progress is backed up separately');
+  a.setSave({revision:1,level:3,coins:90});a.instance.changed();a.cleanup();
+  const retry=harness(all,local,a.getSave(),{embedded:true,client:'ok',userId:26});
+  assert.equal(await retry.instance.init(),true,retry.instance.error);
+  assert.equal(retry.getSave().level,3,'same-account offline progress survives retry');
+  assert.equal(await retry.instance.sync(),true);
+  const phone=harness(all,new Map(),{}, {embedded:true,client:'ok',userId:26});
+  assert.equal(await phone.instance.init(),true);
+  assert.equal(phone.getSave().level,3);
+  retry.cleanup();phone.cleanup();
 });
