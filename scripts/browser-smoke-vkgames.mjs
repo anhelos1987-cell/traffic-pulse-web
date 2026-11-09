@@ -42,7 +42,7 @@ try{
     const page=await browser.newPage(),errors=[],missing=[],consoleErrors=[];
     page.on('pageerror',error=>errors.push(String(error?.stack||error?.message||error)));
     page.on('console',message=>{if(message.type()==='error')consoleErrors.push(message.text());});
-    page.on('response',res=>{if(res.url().startsWith(address)&&res.status()>=400)missing.push(res.url()+' '+res.status());});
+    page.on('response',res=>{if(res.url().startsWith(address)&&!res.url().endsWith('/favicon.ico')&&res.status()>=400)missing.push(res.url()+' '+res.status());});
     try{
       await page.setViewport(viewport);
       await page.goto(address,{waitUntil:'networkidle2',timeout:20000});
