@@ -5098,6 +5098,25 @@
     return null;
   }
   const HUD_CACHE=Object.create(null);
+  const SIGNAL_PROGRESS_CACHE=Object.create(null);
+  // M204: show the actual clearance countdown in the existing signal buttons.
+  // UI only; no buffered inputs, no change to yellow/all-red simulation rules.
+  function updateSignalProgress(){
+    const total=Math.max(.01,Number(Game.config?.clearance)||.82);
+    const update=(id,controller)=>{
+      const b=$(id);if(!b)return;
+      const remaining=Math.max(0,Number(controller?.transitionTimer)||0);
+      // 20 coarse ticks, updated at the regular HUD cadence, not per fixed simulation step.
+      const steps=remaining>0?Math.max(0,Math.min(20,Math.floor((1-Math.min(1,remaining/total))*20))):0;
+      if(SIGNAL_PROGRESS_CACHE[id]===steps)return;
+      SIGNAL_PROGRESS_CACHE[id]=steps;
+      b.style.setProperty('--signal-progress',String(steps/20));
+    };
+    if(independentSignals(Game)){
+      update('signal-j0-btn',Game.signalControllers.J0);
+      update('signal-j1-btn',Game.signalControllers.J1);
+    }else update('signal-btn',Game);
+  }
   function setHudText(key,id,value){if(HUD_CACHE[key]===value)return;HUD_CACHE[key]=value;$(id).textContent=value;}
   function phaseLabelText(axis){return axis==='H'?`↔ ${T.phaseH}`:`↕ ${T.phaseV}`;}
 
@@ -5135,13 +5154,14 @@
     if(HUD_CACHE.flowShown!==flowShown){HUD_CACHE.flowShown=flowShown;$('flow-badge').classList.toggle('show',flowShown);}if(HUD_CACHE.hotFlow!==hotFlow){HUD_CACHE.hotFlow=hotFlow;$('flow-badge').classList.toggle('hot',hotFlow);document.querySelector('.game-card')?.classList.toggle('hot-flow',hotFlow);}
     const flowHot=Game.flowStreak>=6;if(HUD_CACHE.flowHot!==flowHot){HUD_CACHE.flowHot=flowHot;document.querySelector('.game-card')?.classList.toggle('flow-hot',flowHot);}
     const signalKey=independentSignals(Game)?`ind:${Object.entries(Game.signalControllers).map(([k,c])=>`${k}:${c.phase}:${c.transitionTimer>0?'t':'s'}`).join('|')}:${lang}`:`${Game.phase}:${Game.transitionTimer>0?'t':'s'}:${lang}`;if(HUD_CACHE.signalKey!==signalKey){HUD_CACHE.signalKey=signalKey;updateSignalIcon();}
+    updateSignalProgress();
     if(typeof PersonalBestService!=='undefined')PersonalBestService.renderBadge(Game);
     // Coalescing bookkeeping. Explicit calls are also treated as a completed refresh, so the rAF
     // loop will not immediately duplicate the same DOM work on the next frame.
     Game.hudDirty=false;Game.lastHudTs=performance.now();Game.hudRefreshCount=(Game.hudRefreshCount||0)+1;
   }
   function updateSignalIcon(){
-    const indicator=$('phase-indicator'),label=$('phase-label'),button=$('signal-btn'),dual=$('greenwave-controls'),panel=$('controls-panel');if(!button)return;const independent=independentSignals(Game);button.classList.toggle('ui-hidden',independent);dual?.classList.toggle('ui-hidden',!independent);panel?.classList.toggle('greenwave-active',independent);
+    const indicator=$('phase-indicator'),label=$('phase-label'),button=$('signal-btn'),dual=$('greenwave-controls'),panel=$('controls-panel');if(!button)return;updateSignalProgress();const independent=independentSignals(Game);button.classList.toggle('ui-hidden',independent);dual?.classList.toggle('ui-hidden',!independent);panel?.classList.toggle('greenwave-active',independent);
     if(independent){let anyTransition=false;for(const [id,name] of [['J0',T.greenWaveLeft],['J1',T.greenWaveRight]]){const c=Game.signalControllers[id],b=$(id==='J0'?'signal-j0-btn':'signal-j1-btn'),icon=b?.querySelector('.signal-icon'),txt=$(id==='J0'?'signal-j0-label':'signal-j1-label');if(!b||!icon)continue;const tr=(c.transitionTimer||0)>0;anyTransition=anyTransition||tr;icon.classList.toggle('transition',tr);icon.style.transform=c.phase==='H'?'rotate(0deg)':'rotate(90deg)';b.disabled=tr;b.classList.toggle('ready',!tr);b.setAttribute('aria-busy',tr?'true':'false');const state=tr?T.phaseChanging:phaseLabelText(c.phase);if(txt)txt.textContent=`${name} · ${state}`;b.setAttribute('aria-label',`${name}: ${state}`);}indicator.classList.toggle('transition',anyTransition);label.textContent=`${T.greenWaveLeft}: ${phaseLabelText(Game.signalControllers.J0.phase)} · ${T.greenWaveRight}: ${phaseLabelText(Game.signalControllers.J1.phase)}`;return;}
     const icon=button.querySelector('.signal-icon'),tr=Game.transitionTimer>0;icon?.classList.toggle('transition',tr);indicator.classList.toggle('transition',tr);button.disabled=tr;button.classList.toggle('ready',!tr);button.setAttribute('aria-busy',tr?'true':'false');if(tr){const transitionText=Game.pedestrianHold?T.phasePedestrianClearing:T.phaseChanging;label.textContent=transitionText;button.setAttribute('aria-label',transitionText);return;}if(icon)icon.style.transform=Game.phase==='H'?'rotate(0deg)':'rotate(90deg)';label.textContent=phaseLabelText(Game.phase);button.setAttribute('aria-label',`${T.switchLight}: ${phaseLabelText(Game.phase)}`);
   }
@@ -5598,11 +5618,26 @@
     const state=String(AudioFx.ctx?.state||'');
     if(!AudioFx.ctx||AudioFx.needsGestureResume||state==='suspended'||state==='interrupted'||state==='closed'){YandexAudit.state.audio.gestureFallbacks++;YandexAudit.mark('audio:gesture-fallback',state||'none');AudioFx.ensure();}
   },{capture:true,passive:true});
-  $('signal-btn').addEventListener('click',()=>{AudioFx.ensure();Game.toggle();});
-  canvas.addEventListener('pointerup',(e)=>{if(e.isPrimary===false||e.button!==0)return;e.preventDefault();AudioFx.ensure();if(independentSignals(Game)){toast(T.greenWaveChoose);return;}Game.toggle();});
-  $('signal-j0-btn')?.addEventListener('click',()=>{AudioFx.ensure();Game.toggle('J0');});$('signal-j1-btn')?.addEventListener('click',()=>{AudioFx.ensure();Game.toggle('J1');});
+  let lastClearanceHintAt=-Infinity;
+  function togglePlayerSignal(junctionId=null){
+    if(Game.toggle(junctionId))return true;
+    // Canvas and keyboard remain clickable while the existing button is disabled.
+    // Explain why the input was ignored, without queuing an unexpected future switch.
+    const c=independentSignals(Game)?Game.signalControllers?.[junctionId]:Game;
+    if(Game.state==='playing'&&!Game.userPaused&&!Game.externalPaused&&(c?.transitionTimer||0)>0){
+      const now=performance.now();
+      if(now-lastClearanceHintAt>=1000){
+        lastClearanceHintAt=now;
+        toast(c.pedestrianHold?T.phasePedestrianClearing:T.phaseChanging);
+      }
+    }
+    return false;
+  }
+  $('signal-btn').addEventListener('click',()=>{AudioFx.ensure();togglePlayerSignal();});
+  canvas.addEventListener('pointerup',(e)=>{if(e.isPrimary===false||e.button!==0)return;e.preventDefault();AudioFx.ensure();if(independentSignals(Game)){toast(T.greenWaveChoose);return;}togglePlayerSignal();});
+  $('signal-j0-btn')?.addEventListener('click',()=>{AudioFx.ensure();togglePlayerSignal('J0');});$('signal-j1-btn')?.addEventListener('click',()=>{AudioFx.ensure();togglePlayerSignal('J1');});
   $('restart-btn').addEventListener('click',()=>Game.restart());$('hint-btn').addEventListener('click',()=>Game.hint());$('pause-btn').addEventListener('click',()=>Game.pause());
-  document.addEventListener('keydown',(e)=>{if(trapOverlayFocus(e))return;if(e.key==='Escape'){if(Game.userPaused)Game.resume();else if(!overlayVisible())Game.pause();return;}if(overlayVisible())return;if(independentSignals(Game)&&(e.key==='1'||e.code==='Digit1')){e.preventDefault();AudioFx.ensure();Game.toggle('J0');}else if(independentSignals(Game)&&(e.key==='2'||e.code==='Digit2')){e.preventDefault();AudioFx.ensure();Game.toggle('J1');}else if(e.code==='Space'){e.preventDefault();AudioFx.ensure();if(independentSignals(Game))toast(T.greenWaveChoose);else Game.toggle();}else if(e.key.toLowerCase()==='r')Game.restart();});
+  document.addEventListener('keydown',(e)=>{if(trapOverlayFocus(e))return;if(e.key==='Escape'){if(Game.userPaused)Game.resume();else if(!overlayVisible())Game.pause();return;}if(overlayVisible())return;if(independentSignals(Game)&&(e.key==='1'||e.code==='Digit1')){e.preventDefault();AudioFx.ensure();togglePlayerSignal('J0');}else if(independentSignals(Game)&&(e.key==='2'||e.code==='Digit2')){e.preventDefault();AudioFx.ensure();togglePlayerSignal('J1');}else if(e.code==='Space'){e.preventDefault();AudioFx.ensure();if(independentSignals(Game))toast(T.greenWaveChoose);else togglePlayerSignal();}else if(e.key.toLowerCase()==='r')Game.restart();});
   function pauseForFocusLoss(commitManual=true){
     const manualPause=commitManual&&Game.state==='playing'&&!Game.userPaused&&!platform.adBusy&&!platform.adPaused;
     platform.browserPaused=true;
