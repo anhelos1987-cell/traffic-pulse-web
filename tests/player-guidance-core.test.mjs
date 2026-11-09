@@ -14,7 +14,7 @@ function load(){
 
 test('M207: guidance policy stays a dependency-free frozen API',()=>{
   const p=load();
-  assert.deepEqual(Object.keys(p).sort(),['firstSessionActive','nextLessonLevel','signalProgressSteps'].sort());
+  assert.deepEqual(Object.keys(p).sort(),['firstSessionActive','nextLessonLevel','signalProgressSteps','campaignStarFeedback'].sort());
   assert.equal(Object.isFrozen(p),true);
   assert.doesNotMatch(guidanceSource,/\b(document|localStorage|vkBridge|navigator|fetch)\b/);
 });
@@ -52,11 +52,11 @@ test('M207: 20-step clearance meter handles steady, half and invalid durations d
 });
 
 test('M207: script load order and asset cache keys include the extracted policy',()=>{
-  const iGuidance=html.indexOf('src="player-guidance-core.js?v=M207"');
-  const iApp=html.indexOf('src="app.js?v=M208-VKGAMES-RC"');
+  const iGuidance=html.indexOf('src="player-guidance-core.js?v=M211"');
+  const iApp=html.indexOf('src="app.js?v=M211-VKGAMES-RC"');
   assert.ok(iGuidance>0&&iApp>iGuidance);
   assert.match(html,/href="style\.css\?v=M204-VKGAMES-RC"/);
-  assert.match(app,/const BUILD_VERSION = 'M208-VKGAMES-RC';/);
+  assert.match(app,/const BUILD_VERSION = 'M211-VKGAMES-RC';/);
   assert.match(html,/src="vk-games\.js\?v=M209-VKGAMES-CLOUD-RC"/);
   assert.match(app,/TrafficPulseGuidance\.nextLessonLevel\(/);
   assert.match(app,/TrafficPulseGuidance\.firstSessionActive\(/);
