@@ -44,6 +44,19 @@ jobs:
         run: |
           npm install --no-save --no-package-lock --ignore-scripts puppeteer-core@24.26.1
           node scripts/browser-smoke-vkgames.mjs
+      - name: Validate VK/OK test package script syntax
+        run: node --check scripts/package-vkgames-test-build.mjs
+      - name: Package minimal VK/OK test build (ZIP + SHA-256 manifest)
+        run: node scripts/package-vkgames-test-build.mjs
+      - name: Upload M212 playable static test candidate
+        uses: actions/upload-artifact@v4
+        with:
+          name: traffic-pulse-m212-test-build
+          path: |
+            artifacts/TrafficPulse_M212_VKOK_TestBuild.zip
+            artifacts/TrafficPulse_M212_VKOK_TestBuild_manifest.json
+          retention-days: 14
+          if-no-files-found: error
       - name: Upload browser screenshots for manual QA
         if: always()
         uses: actions/upload-artifact@v4
