@@ -4,6 +4,7 @@ import {readFileSync} from 'node:fs';
 import {runInNewContext} from 'node:vm';
 
 const app=readFileSync(new URL('../app.js',import.meta.url),'utf8');
+const guidanceSource=readFileSync(new URL('../player-guidance-core.js',import.meta.url),'utf8');
 const css=readFileSync(new URL('../style.css',import.meta.url),'utf8');
 
 function part(start,end){
@@ -19,6 +20,7 @@ function meter(independent=false){
     signalControllers:independent?{J0:{transitionTimer:.82},J1:{transitionTimer:.41}}:null};
   const sandbox={Game:game,$:id=>buttons[id],independentSignals:g=>g.signalMode==='independent'};
   const source=part('  function updateSignalProgress(){','  function setHudText(');
+  runInNewContext(guidanceSource,sandbox);
   runInNewContext('const SIGNAL_PROGRESS_CACHE=Object.create(null);'+source+';globalThis.render=updateSignalProgress;',sandbox);
   return {game,buttons,render:sandbox.render};
 }
@@ -79,6 +81,7 @@ test('M205: a steady-state HUD meter skips DOM lookups after the first stable va
   const button={style:{setProperty(){writes++;}}};
   const ctx={Game:game,$:id=>{lookups++;return button;},independentSignals:()=>false};
   const source=part('  function updateSignalProgress(){','  function setHudText(');
+  runInNewContext(guidanceSource,ctx);
   runInNewContext('const SIGNAL_PROGRESS_CACHE=Object.create(null);'+source+';globalThis.render=updateSignalProgress;',ctx);
   for(let i=0;i<500;i++)ctx.render();
   assert.equal(lookups,1,'no DOM reads on subsequent steady-state refreshes');
