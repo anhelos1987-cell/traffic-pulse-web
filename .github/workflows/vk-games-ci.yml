@@ -20,6 +20,7 @@ jobs:
           node --check vkbridge.min.js
           node --check vk-games.js
           node --check campaign-access.js
+          node --check player-guidance-core.js
           node --check payments-config.js
           node --check vk-purchases.js
           node --check server/vk-payments.mjs
@@ -35,3 +36,5 @@ jobs:
         run: python3 -m unittest discover -s tests -p 'test_*.py'
       - name: Validate VK cloud saves, account isolation, deletion and ads
         run: node --test tests/*.test.mjs
+      - name: Report M205 frame hot-path microbenchmark (informational)
+        run: node scripts/benchmark-m205-hotpaths.mjs

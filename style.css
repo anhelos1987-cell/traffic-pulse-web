@@ -124,7 +124,15 @@ canvas { display:block; width:100%; height:100%; min-width:0; min-height:0; touc
 .control:active { transform:scale(.97); }
 .control:disabled { opacity:.62; cursor:default; }
 .control.secondary { flex:1; color:#dceaf5; background:linear-gradient(180deg,rgba(17,35,62,.96),rgba(11,26,46,.92)); }
-.control.signal { flex:1.72; background:linear-gradient(145deg,#33c8e4,#226c9e 64%,#274c7d); border-color:rgba(90,225,255,.40); box-shadow:0 12px 30px rgba(28,111,145,.26), inset 0 1px 0 rgba(255,255,255,.10); }
+.control.signal { position:relative; overflow:hidden; flex:1.72; background:linear-gradient(145deg,#33c8e4,#226c9e 64%,#274c7d); border-color:rgba(90,225,255,.40); box-shadow:0 12px 30px rgba(28,111,145,.26), inset 0 1px 0 rgba(255,255,255,.10); }
+/* M204: the existing control reports clearance progress without adding a second action. */
+.control.signal::before {
+  content:''; position:absolute; left:0; right:0; bottom:0; height:4px;
+  background:#ffd166; transform-origin:left center; transform:scaleX(var(--signal-progress,0));
+  opacity:0; pointer-events:none; z-index:2; transition:transform .08s linear,opacity .08s linear;
+}
+.control.signal[aria-busy="true"]::before { opacity:1; }
+@media (prefers-reduced-motion: reduce) { .control.signal::before { transition:none; } }
 .control::after { content:''; position:absolute; inset:0; pointer-events:none; background:linear-gradient(180deg,rgba(255,255,255,.08),transparent 36%); }
 .control.signal.ready { box-shadow:0 8px 24px rgba(85,213,255,.18), inset 0 0 24px rgba(85,213,255,.04); }
 .control span:not(.signal-icon) { font-size:21px; flex:0 0 auto; }
