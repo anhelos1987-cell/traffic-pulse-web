@@ -87,7 +87,7 @@ const PREFIX='trafficpulse_vkg_v2';
    const bridge=root.vkBridge;
    const storage=deps.storage||safeStorage();
    const state={
-    ready:false,cloud:false,loaded:false,dirty:false,busy:null,timer:0,error:'',
+    ready:false,cloud:false,loaded:false,dirty:false,busy:null,timer:0,timerDueAt:0,error:'',
     appId:0,userId:0,socialPlatform:'vk',clientPlatform:'',launchQuery:'',fingerprint:'',epoch:'',head:null,base:null,
     deleting:false,deletionSupported:false,adBusy:false,rewardedStatus:'unknown',
     bannerVisible:false,bannerMode:'',bannerLastLayout:null,bannerJob:null,
@@ -298,12 +298,19 @@ const PREFIX='trafficpulse_vkg_v2';
     },
     changed(){
      if(this.deleting)return;
-     this.dirty=true;this.saveLocalMeta();this.inform();this.schedule(900);
+     this.dirty=true;this.saveLocalMeta();this.inform();this.schedule(this.error?12000:900);
     },
     schedule(delay=900){
-     clearTimeout(this.timer);this.timer=0;
-     if(!this.ready||!this.cloud||this.deleting)return;
-     this.timer=setTimeout(()=>{this.timer=0;void this.sync();},delay);
+     if(!this.ready||!this.cloud||this.deleting){
+       clearTimeout(this.timer);this.timer=0;this.timerDueAt=0;return;
+     }
+     const wait=Math.max(0,Number(delay)||0),dueAt=Date.now()+wait;
+     // Keep the earliest pending write. Frequent progress changes must not starve
+     // cloud persistence by continuously restarting the debounce window.
+     if(this.timer&&this.timerDueAt<=dueAt)return;
+     clearTimeout(this.timer);
+     this.timerDueAt=dueAt;
+     this.timer=setTimeout(()=>{this.timer=0;this.timerDueAt=0;void this.sync();},wait);
     },
     async cleanupOld(old,next){
      if(!old||old.generation===next.generation)return;
@@ -350,6 +357,8 @@ const PREFIX='trafficpulse_vkg_v2';
     async sync(){
      if(!this.ready||!this.cloud||this.deleting||root.navigator?.onLine===false)return false;
      if(this.busy){this.dirty=true;return this.busy;}
+     // An explicit sync (including visibility/pagehide) supersedes a queued timer.
+     clearTimeout(this.timer);this.timer=0;this.timerDueAt=0;
      const job=(async()=>{
        if(!this.loaded)await this.load();
        if(this.dirty)await this.write();
@@ -366,7 +375,7 @@ const PREFIX='trafficpulse_vkg_v2';
     },
     async deleteData(){
      if(!this.ready||!this.cloud||!this.deletionSupported||this.adBusy)throw new Error('VK data deletion unavailable');
-     this.deleting=true;clearTimeout(this.timer);this.timer=0;this.inform();
+     this.deleting=true;clearTimeout(this.timer);this.timer=0;this.timerDueAt=0;this.inform();
      const deadline=Date.now()+120000;
      try{
        while(this.busy){remaining(deadline);await new Promise(r=>setTimeout(r,50));}
