@@ -10,7 +10,7 @@ import {fileURLToPath} from 'node:url';
 import {execFileSync} from 'node:child_process';
 import puppeteer from 'puppeteer-core';
 
-const root=fileURLToPath(new URL('../',import.meta.url));
+const root=resolve(fileURLToPath(new URL('../',import.meta.url))); // normalize trailing slash before containment check
 function browserBinary(){
   for(const choice of [process.env.CHROME_BIN,'google-chrome','google-chrome-stable','chromium','chromium-browser']){
     if(!choice)continue;
