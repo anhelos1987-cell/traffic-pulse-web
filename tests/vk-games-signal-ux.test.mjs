@@ -72,3 +72,19 @@ test('M204: meter styling lives on existing busy buttons and respects reduced mo
   assert.match(css,/prefers-reduced-motion: reduce/);
   assert.match(app,/updateSignalProgress\(\);\s*if\(typeof PersonalBestService/);
 });
+
+test('M205: a steady-state HUD meter skips DOM lookups after the first stable value',()=>{
+  let lookups=0,writes=0;
+  const game={config:{clearance:.82},transitionTimer:0,signalMode:'shared'};
+  const button={style:{setProperty(){writes++;}}};
+  const ctx={Game:game,$:id=>{lookups++;return button;},independentSignals:()=>false};
+  const source=part('  function updateSignalProgress(){','  function setHudText(');
+  runInNewContext('const SIGNAL_PROGRESS_CACHE=Object.create(null);'+source+';globalThis.render=updateSignalProgress;',ctx);
+  for(let i=0;i<500;i++)ctx.render();
+  assert.equal(lookups,1,'no DOM reads on subsequent steady-state refreshes');
+  assert.equal(writes,1);
+  game.transitionTimer=.40;
+  ctx.render();
+  assert.equal(lookups,2,'a real transition change must update the meter');
+  assert.equal(writes,2);
+});
