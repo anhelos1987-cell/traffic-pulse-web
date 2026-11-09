@@ -672,3 +672,46 @@ test('M209: an external reset epoch still fails closed during clean reconciliati
     assert.equal(a.instance.loaded,true);
   }finally{a.cleanup();}
 });
+
+test('M209: two separately acknowledged competing writers converge when a device reconnects',async()=>{
+  const all=new Map();
+  let notifyA,notifyB,releaseA,releaseB;
+  const enteredA=new Promise(resolve=>notifyA=resolve);
+  const enteredB=new Promise(resolve=>notifyB=resolve);
+  const gateA=new Promise(resolve=>releaseA=resolve);
+  const gateB=new Promise(resolve=>releaseB=resolve);
+  const a=harness(all,new Map(),{}, {embedded:true,onCall:async (method,payload)=>{
+    if(method==='VKWebAppStorageSet'&&payload.key===manifestKey){notifyA();await gateA;}
+  }});
+  const b=harness(all,new Map(),{}, {embedded:true,onCall:async (method,payload)=>{
+    if(method==='VKWebAppStorageSet'&&payload.key===manifestKey){notifyB();await gateB;}
+  }});
+  try{
+    await a.instance.init();await b.instance.init();
+    a.setSave({revision:2,level:3,starsByLevel:{1:3,2:1}});
+    b.setSave({revision:2,level:5,starsByLevel:{1:3,4:3}});
+    a.instance.changed();b.instance.changed();
+    const writeA=a.instance.sync(),writeB=b.instance.sync();
+    await Promise.all([enteredA,enteredB]); // Both read the same old head.
+    releaseA();
+    assert.equal(await writeA,true,'A verifies its own pointer before B publishes');
+    releaseB();
+    assert.equal(await writeB,true,'B can also verify its pointer: no atomic CAS exists');
+    // At this instant VK's single pointer still omits A's level-two result.
+    const before=harness(all,new Map(),{}, {embedded:true});
+    try{
+      await before.instance.init();
+      assert.equal(before.getSave().starsByLevel[2]||0,0);
+    }finally{before.cleanup();}
+    // The previously clean A detects the newer B pointer on heartbeat and
+    // re-publishes a merged snapshot, repairing the otherwise lost star.
+    assert.equal(await a.instance.sync(),true);
+    const after=harness(all,new Map(),{}, {embedded:true});
+    try{
+      assert.equal(await after.instance.init(),true);
+      assert.equal(after.getSave().level,5);
+      assert.equal(after.getSave().starsByLevel[2],1);
+      assert.equal(after.getSave().starsByLevel[4],3);
+    }finally{after.cleanup();}
+  }finally{releaseA?.();releaseB?.();a.cleanup();b.cleanup();}
+});
