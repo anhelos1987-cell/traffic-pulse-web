@@ -35,3 +35,5 @@ jobs:
         run: python3 -m unittest discover -s tests -p 'test_*.py'
       - name: Validate VK cloud saves, account isolation, deletion and ads
         run: node --test tests/*.test.mjs
+      - name: Report M205 frame hot-path microbenchmark (informational)
+        run: node scripts/benchmark-m205-hotpaths.mjs
