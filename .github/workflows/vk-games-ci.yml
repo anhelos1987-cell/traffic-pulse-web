@@ -20,6 +20,7 @@ jobs:
           node --check vkbridge.min.js
           node --check vk-games.js
           node --check campaign-access.js
+          node --check player-guidance-core.js
           node --check payments-config.js
           node --check vk-purchases.js
           node --check server/vk-payments.mjs
