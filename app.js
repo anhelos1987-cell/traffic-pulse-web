@@ -591,6 +591,12 @@
     onDelete:()=>YandexAudit.mark('vkgames:cloud:deleted')
   });
   cloudSaveHook=()=>VKGames.changed();
+  // Important progress (level completions, rewarded grants) should begin uploading
+  // while the app is visible. A pagehide VK Bridge call cannot guarantee completion.
+  function persistCheckpoint(){
+    persist(); // local durable copy first
+    if(VKGames.ready&&VKGames.cloud)void VKGames.sync();
+  }
   const VKPurchases=TrafficPulseVKPurchases.create({
     account:()=>({ready:VKGames.ready,appId:VKGames.appId,userId:VKGames.userId,socialPlatform:VKGames.socialPlatform,launchQuery:VKGames.launchQuery}),
     supported:method=>VKGames.supported(method),call:(method,props,ms)=>VKGames.call(method,props,ms),
@@ -2115,7 +2121,11 @@
         const controller=signalControllerState(this,p.junctionId||null),clearing=(controller.transitionTimer||0)>0&&controller.pendingPhase===p.roadAxis,rate=clearing?1.55:1;
         p.t=Math.min(1,(p.t||0)+(dt*rate)/Math.max(.8,p.duration||2.3));
       }
-      this.pedestrians=this.pedestrians.filter(p=>p.t<1);
+      // M205: retain the existing array; .filter() allocated a new array every 60Hz tick,
+      // including frames with no pedestrians. Preserve surviving order and object identities.
+      const pedestrians=this.pedestrians;let kept=0;
+      for(let i=0;i<pedestrians.length;i++)if(pedestrians[i].t<1)pedestrians[kept++]=pedestrians[i];
+      pedestrians.length=kept;
       if(independentSignals(this)){for(const c of Object.values(this.signalControllers))if((c.transitionTimer||0)<=0)c.phaseElapsed+=dt;if(this.mode==='greenwave'){this.pedestrianSpawnTimer=99;return;}}
       if(this.transitionTimer>0)return;
       if(this.mode==='scenario'){this.phaseElapsed+=dt;this.pedestrianSpawnTimer=99;return;}
@@ -2168,7 +2178,9 @@
     },
     captureFailureReplayFrame(dt=0){
       if(this.state!=='playing'||this.externalPaused||this.userPaused)return;
-      this.failureReplayClock=(this.failureReplayClock||0)+Math.max(0,dt||0);if(this.failureReplayClock<.12)return;this.failureReplayClock=0;
+      // Keep the fixed-step fractional remainder: resetting to zero turns a nominal 120ms
+      // capture interval into 133ms at 60Hz, so playback drifts against its 120ms clock.
+      this.failureReplayClock=(this.failureReplayClock||0)+Math.max(0,dt||0);if(this.failureReplayClock<.12)return;this.failureReplayClock=Math.max(0,this.failureReplayClock-.12);
       const cars=this.cars.map(c=>{const p=carXY(c);return{x:Number(p.x.toFixed(1)),y:Number(p.y.toFixed(1)),rot:Number(p.rot.toFixed(3)),color:c.color,kind:c.kind,style:c.style||0,stopped:Boolean(c.stopped),violation:c.violation||'none'};});
       const pedestrians=this.pedestrians.map(p=>{const q=pedestrianPose(p,this.config?.lanes||1);return{x:Number(q.x.toFixed(1)),y:Number(q.y.toFixed(1))};});
       this.failureReplayFrames.push({t:Number(this.elapsed.toFixed(2)),phase:this.phase,transition:this.transitionTimer>0,cars,pedestrians});if(this.failureReplayFrames.length>36)this.failureReplayFrames.shift();
@@ -2620,7 +2632,10 @@
         else if(p.kind==='debris'){p.vy+=90*dt;p.rot=(p.rot||0)+(p.spin||0)*dt;p.vx*=.985;}
         else {p.vx*=.96;p.vy*=.96;}
       }
-      this.particles=this.particles.filter(p=>p.life>0);
+      // M205: avoid a fresh transient array at every fixed-step, even on empty scenes.
+      const particles=this.particles;let kept=0;
+      for(let i=0;i<particles.length;i++)if(particles[i].life>0)particles[kept++]=particles[i];
+      particles.length=kept;
       if(this.crashFx){this.crashFx.life-=dt;if(this.crashFx.life<=0)this.crashFx=null;} this.cameraKick=Math.max(0,(this.cameraKick||0)-dt*1.65);
     },
     emitCrashFx(a,b){
@@ -2671,16 +2686,16 @@
         const def=this.scenarioDirector?.def||scenarioDefinition(this.scenarioId);if(!def)return;
         stars=1;if(this.maxObservedQueue<=def.starThresholds.twoStarQueue)stars=2;if(stars>=2&&this.switches<=def.starThresholds.threeStarSwitches)stars=3;if(this.rescueUsed)stars=Math.min(stars,2);
         const priorityReq=def.objectives?.priorityRequired||0;if(priorityReq&&this.prioritySaved<priorityReq)stars=Math.min(stars,this.prioritySaved>=Math.max(1,priorityReq-1)?2:1);const key=scenarioSaveKey(def),prev=save.scenarioProgress?.[key]||null,result={stars,bestQueue:this.maxObservedQueue,bestSwitches:this.switches,bestPriority:this.prioritySaved||0,clears:(prev?.clears||0)+1},best=betterScenario(prev,result);
-        save.scenarioProgress=save.scenarioProgress||{};save.scenarioProgress[key]={...best,clears:result.clears};persist();showScenarioWin(def,stars,prev,best);return;
+        save.scenarioProgress=save.scenarioProgress||{};save.scenarioProgress[key]={...best,clears:result.clears};persistCheckpoint();showScenarioWin(def,stars,prev,best);return;
       }
       if(this.mode==='greenwave'){
-        const def=greenWaveDefinition(this.greenWaveId)||greenWaveDefinition(),stats=this.greenWaveStats||{throughTotal:0,throughNoStop:0,maxSideQueue:999},ratio=(stats.throughNoStop||0)/Math.max(1,stats.throughTotal||0);stars=1;if(ratio>=(def.objectives?.twoStarRatio||.55))stars=2;if(ratio>=(def.objectives?.threeStarRatio||.70)&&(stats.maxSideQueue||0)<=(def.objectives?.maxSideQueue3||3))stars=3;const priorityReq=def.objectives?.priorityRequired||0;if(priorityReq&&this.prioritySaved<priorityReq)stars=Math.min(stars,this.prioritySaved>0?2:1);const key=greenWaveSaveKey(def),prev=save.greenWaveProgress?.[key]||null,result={stars,throughNoStop:stats.throughNoStop||0,throughTotal:stats.throughTotal||0,bestSideQueue:stats.maxSideQueue||0,bestSwitches:this.switches,bestPriority:this.prioritySaved||0,clears:(prev?.clears||0)+1},best=betterGreenWave(prev,result);save.greenWaveProgress=save.greenWaveProgress||{};save.greenWaveProgress[key]={...best,clears:result.clears};persist();showGreenWaveWin(def,stars,prev,result,best);return;
+        const def=greenWaveDefinition(this.greenWaveId)||greenWaveDefinition(),stats=this.greenWaveStats||{throughTotal:0,throughNoStop:0,maxSideQueue:999},ratio=(stats.throughNoStop||0)/Math.max(1,stats.throughTotal||0);stars=1;if(ratio>=(def.objectives?.twoStarRatio||.55))stars=2;if(ratio>=(def.objectives?.threeStarRatio||.70)&&(stats.maxSideQueue||0)<=(def.objectives?.maxSideQueue3||3))stars=3;const priorityReq=def.objectives?.priorityRequired||0;if(priorityReq&&this.prioritySaved<priorityReq)stars=Math.min(stars,this.prioritySaved>0?2:1);const key=greenWaveSaveKey(def),prev=save.greenWaveProgress?.[key]||null,result={stars,throughNoStop:stats.throughNoStop||0,throughTotal:stats.throughTotal||0,bestSideQueue:stats.maxSideQueue||0,bestSwitches:this.switches,bestPriority:this.prioritySaved||0,clears:(prev?.clears||0)+1},best=betterGreenWave(prev,result);save.greenWaveProgress=save.greenWaveProgress||{};save.greenWaveProgress[key]={...best,clears:result.clears};persistCheckpoint();showGreenWaveWin(def,stars,prev,result,best);return;
       }
       if(this.mode==='weekly'){
         const key=this.weeklyKey||weekStartKey(),prev=save.weeklyBest[key]||null,pb=typeof PersonalBestService!=='undefined'?PersonalBestService.finish(this,stars):{record:null,comparison:null},record=pb.record||{stars,switches:this.switches,maxQueue:this.maxObservedQueue};
         const improved=isBetterBest(record,prev);if(improved)save.weeklyBest[key]=record;
         const firstReward=!save.weeklyRewards[key],weeklyReward=weeklyFirstClearReward(stars,key),reward=firstReward?weeklyReward.reward:0;if(firstReward){save.weeklyRewards[key]=true;save.coins+=reward;recordVkCloudReward(`weekly:${key}`,reward);}
-        persist();showWeeklyWin(stars,reward,improved,pb.comparison,weeklyReward.streak,firstReward?weeklyReward.streakBonus:0);return;
+        persistCheckpoint();showWeeklyWin(stars,reward,improved,pb.comparison,weeklyReward.streak,firstReward?weeklyReward.streakBonus:0);return;
       }
       if(this.mode==='daily'){
         const key=this.dailyKey||todayDailyKey(),prev=save.dailyBest[key]||null,pb=typeof PersonalBestService!=='undefined'?PersonalBestService.finish(this,stars):{record:null,comparison:null},record=pb.record||{stars,switches:this.switches,maxQueue:this.maxObservedQueue};
@@ -2688,7 +2703,7 @@
         const firstReward=!save.dailyRewards[key],streak=firstReward?dailyStreakIfCleared(key):dailyStreakEnding(key,save.dailyRewards);
         const streakBonus=firstReward?Math.min(6,Math.max(0,streak-1))*15:0,reward=firstReward?(120+stars*35+streakBonus):0;
         if(firstReward){save.dailyRewards[key]=true;save.coins+=reward;recordVkCloudReward(`daily:${key}`,reward);}
-        persist(); showDailyWin(stars,reward,improved,streak,streakBonus,pb.comparison); return;
+        persistCheckpoint(); showDailyWin(stars,reward,improved,streak,streakBonus,pb.comparison); return;
       }
       const old=Number(save.starsByLevel[this.level]||0),starImprovement=Math.max(0,stars-old); if(stars>old){save.totalStars+=stars-old;save.starsByLevel[this.level]=stars;}
       const firstClear=TrafficPulseCampaign.firstClear(this.level,old,save);platform.noteCampaignCompletion(firstClear);this.lastCampaignFirstClear=firstClear;
@@ -2716,7 +2731,7 @@
       let unlocked='';
       const availableIndex=CAR_REQUIREMENTS.findIndex((req,i)=>i>0&&req===this.level);
       if(firstClear&&availableIndex>0&&save.level>CAR_REQUIREMENTS[availableIndex]&&!ownedStyleIds().includes(availableIndex))unlocked=T[CAR_NAMES[availableIndex]];
-      const district=firstClear&&save.level>this.level?nextDistrictUnlock(this.level):''; persist(); showWin(stars,reward,unlocked,district,starBonus,flowBonus,priorityBonus,newFlowRecord,missionSuccess,missionBonus,missionMilestoneBonus,unlockedAchievements,achievementBonus,syncBonus,firstClear,starImprovement,rewardedBonus);
+      const district=firstClear&&save.level>this.level?nextDistrictUnlock(this.level):''; persistCheckpoint(); showWin(stars,reward,unlocked,district,starBonus,flowBonus,priorityBonus,newFlowRecord,missionSuccess,missionBonus,missionMilestoneBonus,unlockedAchievements,achievementBonus,syncBonus,firstClear,starImprovement,rewardedBonus);
     },
     async next(){
       if(this.nextPending||platform.adBusy||platform.purchaseBusy)return false;
@@ -5090,6 +5105,26 @@
     return null;
   }
   const HUD_CACHE=Object.create(null);
+  const SIGNAL_PROGRESS_CACHE=Object.create(null);
+  // M204: show the actual clearance countdown in the existing signal buttons.
+  // UI only; no buffered inputs, no change to yellow/all-red simulation rules.
+  function updateSignalProgress(){
+    const total=Math.max(.01,Number(Game.config?.clearance)||.82);
+    const update=(id,controller)=>{
+      const remaining=Math.max(0,Number(controller?.transitionTimer)||0);
+      // 20 coarse ticks, updated at the regular HUD cadence, not per fixed simulation step.
+      const steps=remaining>0?Math.max(0,Math.min(20,Math.floor((1-Math.min(1,remaining/total))*20))):0;
+      // M205: most frames are steady-state; skip DOM lookup as well as the style write.
+      if(SIGNAL_PROGRESS_CACHE[id]===steps)return;
+      const b=$(id);if(!b)return;
+      SIGNAL_PROGRESS_CACHE[id]=steps;
+      b.style.setProperty('--signal-progress',String(steps/20));
+    };
+    if(independentSignals(Game)){
+      update('signal-j0-btn',Game.signalControllers.J0);
+      update('signal-j1-btn',Game.signalControllers.J1);
+    }else update('signal-btn',Game);
+  }
   function setHudText(key,id,value){if(HUD_CACHE[key]===value)return;HUD_CACHE[key]=value;$(id).textContent=value;}
   function phaseLabelText(axis){return axis==='H'?`↔ ${T.phaseH}`:`↕ ${T.phaseV}`;}
 
@@ -5127,13 +5162,14 @@
     if(HUD_CACHE.flowShown!==flowShown){HUD_CACHE.flowShown=flowShown;$('flow-badge').classList.toggle('show',flowShown);}if(HUD_CACHE.hotFlow!==hotFlow){HUD_CACHE.hotFlow=hotFlow;$('flow-badge').classList.toggle('hot',hotFlow);document.querySelector('.game-card')?.classList.toggle('hot-flow',hotFlow);}
     const flowHot=Game.flowStreak>=6;if(HUD_CACHE.flowHot!==flowHot){HUD_CACHE.flowHot=flowHot;document.querySelector('.game-card')?.classList.toggle('flow-hot',flowHot);}
     const signalKey=independentSignals(Game)?`ind:${Object.entries(Game.signalControllers).map(([k,c])=>`${k}:${c.phase}:${c.transitionTimer>0?'t':'s'}`).join('|')}:${lang}`:`${Game.phase}:${Game.transitionTimer>0?'t':'s'}:${lang}`;if(HUD_CACHE.signalKey!==signalKey){HUD_CACHE.signalKey=signalKey;updateSignalIcon();}
+    updateSignalProgress();
     if(typeof PersonalBestService!=='undefined')PersonalBestService.renderBadge(Game);
     // Coalescing bookkeeping. Explicit calls are also treated as a completed refresh, so the rAF
     // loop will not immediately duplicate the same DOM work on the next frame.
     Game.hudDirty=false;Game.lastHudTs=performance.now();Game.hudRefreshCount=(Game.hudRefreshCount||0)+1;
   }
   function updateSignalIcon(){
-    const indicator=$('phase-indicator'),label=$('phase-label'),button=$('signal-btn'),dual=$('greenwave-controls'),panel=$('controls-panel');if(!button)return;const independent=independentSignals(Game);button.classList.toggle('ui-hidden',independent);dual?.classList.toggle('ui-hidden',!independent);panel?.classList.toggle('greenwave-active',independent);
+    const indicator=$('phase-indicator'),label=$('phase-label'),button=$('signal-btn'),dual=$('greenwave-controls'),panel=$('controls-panel');if(!button)return;updateSignalProgress();const independent=independentSignals(Game);button.classList.toggle('ui-hidden',independent);dual?.classList.toggle('ui-hidden',!independent);panel?.classList.toggle('greenwave-active',independent);
     if(independent){let anyTransition=false;for(const [id,name] of [['J0',T.greenWaveLeft],['J1',T.greenWaveRight]]){const c=Game.signalControllers[id],b=$(id==='J0'?'signal-j0-btn':'signal-j1-btn'),icon=b?.querySelector('.signal-icon'),txt=$(id==='J0'?'signal-j0-label':'signal-j1-label');if(!b||!icon)continue;const tr=(c.transitionTimer||0)>0;anyTransition=anyTransition||tr;icon.classList.toggle('transition',tr);icon.style.transform=c.phase==='H'?'rotate(0deg)':'rotate(90deg)';b.disabled=tr;b.classList.toggle('ready',!tr);b.setAttribute('aria-busy',tr?'true':'false');const state=tr?T.phaseChanging:phaseLabelText(c.phase);if(txt)txt.textContent=`${name} · ${state}`;b.setAttribute('aria-label',`${name}: ${state}`);}indicator.classList.toggle('transition',anyTransition);label.textContent=`${T.greenWaveLeft}: ${phaseLabelText(Game.signalControllers.J0.phase)} · ${T.greenWaveRight}: ${phaseLabelText(Game.signalControllers.J1.phase)}`;return;}
     const icon=button.querySelector('.signal-icon'),tr=Game.transitionTimer>0;icon?.classList.toggle('transition',tr);indicator.classList.toggle('transition',tr);button.disabled=tr;button.classList.toggle('ready',!tr);button.setAttribute('aria-busy',tr?'true':'false');if(tr){const transitionText=Game.pedestrianHold?T.phasePedestrianClearing:T.phaseChanging;label.textContent=transitionText;button.setAttribute('aria-label',transitionText);return;}if(icon)icon.style.transform=Game.phase==='H'?'rotate(0deg)':'rotate(90deg)';label.textContent=phaseLabelText(Game.phase);button.setAttribute('aria-label',`${T.switchLight}: ${phaseLabelText(Game.phase)}`);
   }
@@ -5526,7 +5562,7 @@
     try{
       const rewarded=await platform.showRewarded();if(!rewarded){toast(T.adUnavailable);return false;}
       if(Game.rewardedWinClaimed)return true;
-      Game.rewardedWinClaimed=true;save.coins+=amount;persist();updateHud();
+      Game.rewardedWinClaimed=true;save.coins+=amount;persistCheckpoint();updateHud();
       const rw=$('modal-reward');if(rw){rw.textContent=`+${Math.max(0,baseReward)+amount} ${T.coins}`;rw.classList.remove('hidden');}
       if(button){button.textContent=`✓ +${amount} ${T.coins}`;button.disabled=true;}
       toast(`${T.adCoinsAdded}: +${amount} ${T.coins}`);return true;
@@ -5590,11 +5626,26 @@
     const state=String(AudioFx.ctx?.state||'');
     if(!AudioFx.ctx||AudioFx.needsGestureResume||state==='suspended'||state==='interrupted'||state==='closed'){YandexAudit.state.audio.gestureFallbacks++;YandexAudit.mark('audio:gesture-fallback',state||'none');AudioFx.ensure();}
   },{capture:true,passive:true});
-  $('signal-btn').addEventListener('click',()=>{AudioFx.ensure();Game.toggle();});
-  canvas.addEventListener('pointerup',(e)=>{if(e.isPrimary===false||e.button!==0)return;e.preventDefault();AudioFx.ensure();if(independentSignals(Game)){toast(T.greenWaveChoose);return;}Game.toggle();});
-  $('signal-j0-btn')?.addEventListener('click',()=>{AudioFx.ensure();Game.toggle('J0');});$('signal-j1-btn')?.addEventListener('click',()=>{AudioFx.ensure();Game.toggle('J1');});
+  let lastClearanceHintAt=-Infinity;
+  function togglePlayerSignal(junctionId=null){
+    if(Game.toggle(junctionId))return true;
+    // Canvas and keyboard remain clickable while the existing button is disabled.
+    // Explain why the input was ignored, without queuing an unexpected future switch.
+    const c=independentSignals(Game)?Game.signalControllers?.[junctionId]:Game;
+    if(Game.state==='playing'&&!Game.userPaused&&!Game.externalPaused&&(c?.transitionTimer||0)>0){
+      const now=performance.now();
+      if(now-lastClearanceHintAt>=1000){
+        lastClearanceHintAt=now;
+        toast(c.pedestrianHold?T.phasePedestrianClearing:T.phaseChanging);
+      }
+    }
+    return false;
+  }
+  $('signal-btn').addEventListener('click',()=>{AudioFx.ensure();togglePlayerSignal();});
+  canvas.addEventListener('pointerup',(e)=>{if(e.isPrimary===false||e.button!==0)return;e.preventDefault();AudioFx.ensure();if(independentSignals(Game)){toast(T.greenWaveChoose);return;}togglePlayerSignal();});
+  $('signal-j0-btn')?.addEventListener('click',()=>{AudioFx.ensure();togglePlayerSignal('J0');});$('signal-j1-btn')?.addEventListener('click',()=>{AudioFx.ensure();togglePlayerSignal('J1');});
   $('restart-btn').addEventListener('click',()=>Game.restart());$('hint-btn').addEventListener('click',()=>Game.hint());$('pause-btn').addEventListener('click',()=>Game.pause());
-  document.addEventListener('keydown',(e)=>{if(trapOverlayFocus(e))return;if(e.key==='Escape'){if(Game.userPaused)Game.resume();else if(!overlayVisible())Game.pause();return;}if(overlayVisible())return;if(independentSignals(Game)&&(e.key==='1'||e.code==='Digit1')){e.preventDefault();AudioFx.ensure();Game.toggle('J0');}else if(independentSignals(Game)&&(e.key==='2'||e.code==='Digit2')){e.preventDefault();AudioFx.ensure();Game.toggle('J1');}else if(e.code==='Space'){e.preventDefault();AudioFx.ensure();if(independentSignals(Game))toast(T.greenWaveChoose);else Game.toggle();}else if(e.key.toLowerCase()==='r')Game.restart();});
+  document.addEventListener('keydown',(e)=>{if(trapOverlayFocus(e))return;if(e.key==='Escape'){if(Game.userPaused)Game.resume();else if(!overlayVisible())Game.pause();return;}if(overlayVisible())return;if(independentSignals(Game)&&(e.key==='1'||e.code==='Digit1')){e.preventDefault();AudioFx.ensure();togglePlayerSignal('J0');}else if(independentSignals(Game)&&(e.key==='2'||e.code==='Digit2')){e.preventDefault();AudioFx.ensure();togglePlayerSignal('J1');}else if(e.code==='Space'){e.preventDefault();AudioFx.ensure();if(independentSignals(Game))toast(T.greenWaveChoose);else togglePlayerSignal();}else if(e.key.toLowerCase()==='r')Game.restart();});
   function pauseForFocusLoss(commitManual=true){
     const manualPause=commitManual&&Game.state==='playing'&&!Game.userPaused&&!platform.adBusy&&!platform.adPaused;
     platform.browserPaused=true;
