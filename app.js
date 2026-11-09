@@ -13,7 +13,7 @@
   }catch(_){}
 
   const BUILD_MODE = 'production';
-  const BUILD_VERSION = 'M201-OK-CLOUD-HOTFIX01';
+  const BUILD_VERSION = 'M207-VKGAMES-RC';
   const IS_DEVELOPMENT = BUILD_MODE === 'development';
   const PLATFORM_TARGET = 'vkgames'; // VK Games / VK Mini Apps, not VK Play
   const YANDEX_PUBLIC_LEADERBOARD_NAME = 'TrafficPulseStars';
@@ -2007,11 +2007,11 @@
   // M206: short, contextual "what comes next" text on a first-time victory.
   // Uses already-localized lesson cues; never changes stars, coin grants or unlocks.
   function firstSessionNextLesson(level,firstClear){
-    if(!firstClear||!Number.isSafeInteger(level)||level<1||level>5)return '';
-    return tutorialCueForLevel(level+1);
+    const next=TrafficPulseGuidance.nextLessonLevel(level,firstClear);
+    return next===null?'':tutorialCueForLevel(next);
   }
   function firstSessionCoachActive(game=Game){
-    return Boolean(game&&game.mode==='campaign'&&game.level<=5&&save.level<=5);
+    return TrafficPulseGuidance.firstSessionActive(game?.mode,game?.level,save.level);
   }
   function hideFirstSessionCoach(){
     const hint=$('tap-hint');if(!hint)return;hint.style.display='none';hint.setAttribute('aria-hidden','true');hint.classList.remove('coach-warning');
@@ -5115,11 +5115,10 @@
   // M204: show the actual clearance countdown in the existing signal buttons.
   // UI only; no buffered inputs, no change to yellow/all-red simulation rules.
   function updateSignalProgress(){
-    const total=Math.max(.01,Number(Game.config?.clearance)||.82);
+    const total=Game.config?.clearance;
     const update=(id,controller)=>{
-      const remaining=Math.max(0,Number(controller?.transitionTimer)||0);
       // 20 coarse ticks, updated at the regular HUD cadence, not per fixed simulation step.
-      const steps=remaining>0?Math.max(0,Math.min(20,Math.floor((1-Math.min(1,remaining/total))*20))):0;
+      const steps=TrafficPulseGuidance.signalProgressSteps(controller?.transitionTimer,total);
       // M205: most frames are steady-state; skip DOM lookup as well as the style write.
       if(SIGNAL_PROGRESS_CACHE[id]===steps)return;
       const b=$(id);if(!b)return;
