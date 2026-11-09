@@ -39,17 +39,30 @@ try{
   browser=await puppeteer.launch({executablePath:browserBinary(),headless:true,
     args:['--no-sandbox','--disable-dev-shm-usage','--autoplay-policy=no-user-gesture-required']});
   for(const viewport of [{width:1280,height:800,isMobile:false},{width:390,height:844,isMobile:true,hasTouch:true}]){
-    const page=await browser.newPage(),errors=[],missing=[];
-    page.on('pageerror',error=>errors.push(String(error?.message||error)));
+    const page=await browser.newPage(),errors=[],missing=[],consoleErrors=[];
+    page.on('pageerror',error=>errors.push(String(error?.stack||error?.message||error)));
+    page.on('console',message=>{if(message.type()==='error')consoleErrors.push(message.text());});
     page.on('response',res=>{if(res.url().startsWith(address)&&res.status()>=400)missing.push(res.url()+' '+res.status());});
     try{
       await page.setViewport(viewport);
       await page.goto(address,{waitUntil:'networkidle2',timeout:20000});
-      await page.waitForFunction(()=>{
-        const canvas=document.querySelector('#game'),signal=document.querySelector('#signal-btn');
-        return canvas?.width>50&&canvas?.height>50&&signal&&!signal.disabled&&
-          document.querySelector('#progress-bar')&&document.querySelector('#level-label');
-      },{timeout:15000});
+      try{
+        await page.waitForFunction(()=>{
+          const canvas=document.querySelector('#game'),signal=document.querySelector('#signal-btn');
+          return canvas?.width>50&&canvas?.height>50&&signal&&!signal.disabled&&
+            document.querySelector('#progress-bar')&&document.querySelector('#level-label');
+        },{timeout:15000});
+      }catch(error){
+        const state=await page.evaluate(()=>({
+          ready:document.readyState,board:document.querySelector('#game')?.getBoundingClientRect().toJSON(),
+          canvas:[document.querySelector('#game')?.width,document.querySelector('#game')?.height],
+          buttonDisabled:document.querySelector('#signal-btn')?.disabled,
+          buttonText:document.querySelector('#signal-label')?.textContent,
+          level:document.querySelector('#level-label')?.textContent,
+          appChildren:document.querySelector('#app')?.children?.length
+        }));
+        throw new Error('Browser boot failed: '+JSON.stringify({viewport,state,errors,consoleErrors,missing,reason:String(error)}));
+      }
       const initial=await page.evaluate(()=>({
         loaded:[...document.scripts].some(s=>s.src.includes('player-guidance-core.js')),
         width:document.querySelector('#game').width,
