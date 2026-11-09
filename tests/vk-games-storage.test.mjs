@@ -520,3 +520,79 @@ test('OK local-only mode does not erase fresh offline progress at the next cloud
   assert.equal(phone.getSave().level,3);
   retry.cleanup();phone.cleanup();
 });
+
+
+test('M202: continuous progress changes cannot postpone the earliest pending cloud write',async()=>{
+  const h=harness(new Map(),new Map(),{}, {embedded:true});
+  try{
+    assert.equal(await h.instance.init(),true);
+    h.setSave({revision:1,level:2,coins:10});
+    h.instance.changed();
+    h.instance.schedule(100); // Bring the first upload forward for a short deterministic test.
+    const firstDue=h.instance.timerDueAt;
+    assert.ok(firstDue>Date.now());
+    for(let n=2;n<=6;n++){
+      await new Promise(resolve=>setTimeout(resolve,10));
+      h.setSave({revision:n,level:n+1,coins:n*10});
+      h.instance.changed(); // A classic trailing-edge debounce would postpone every write.
+      assert.equal(h.instance.timerDueAt,firstDue);
+    }
+    await new Promise(resolve=>setTimeout(resolve,160));
+    assert.ok(h.vk.get(manifestKey),'a pending save must reach VK storage despite new edits');
+    const cloud=await h.instance.readSnapshot();
+    assert.equal(cloud.progress.level,7);
+    assert.equal(cloud.progress.coins,60);
+    assert.equal(h.instance.dirty,false);
+  }finally{h.cleanup();}
+});
+
+test('M202: explicit cloud flush cancels the deferred write and persists immediately',async()=>{
+  const h=harness(new Map(),new Map(),{}, {embedded:true});
+  try{
+    await h.instance.init();
+    h.setSave({revision:2,level:5,coins:25});
+    h.instance.changed();
+    assert.ok(h.instance.timer);
+    assert.equal(await h.instance.sync(),true);
+    assert.equal(h.instance.timer,0);
+    assert.equal(h.instance.timerDueAt,0);
+    const snapshot=await h.instance.readSnapshot();
+    assert.equal(snapshot.progress.level,5);
+    assert.equal(snapshot.progress.coins,25);
+  }finally{h.cleanup();}
+});
+
+test('M202: malformed cloud manifest fails closed and preserves same-account local progress',async()=>{
+  const all=new Map(),local=new Map();
+  const a=harness(all,local,{}, {embedded:true});
+  try{
+    await a.instance.init();
+    a.setSave({revision:1,level:4,coins:40});a.instance.changed();
+    assert.equal(await a.instance.sync(),true);
+    a.vk.set(manifestKey,'{"version":2,');
+  }finally{a.cleanup();}
+  const b=harness(all,local,{revision:2,level:6,coins:50}, {embedded:true});
+  try{
+    assert.equal(await b.instance.init(),false,'corrupted remote data is not an empty cloud');
+    assert.ok(b.instance.error,'the corruption must be reported');
+    assert.equal(b.getSave().level,6);
+    assert.equal(b.getSave().coins,50);
+    assert.equal(b.vk.get(manifestKey),'{"version":2,','do not overwrite the damaged pointer');
+    assert.ok(!b.operations.includes('VKWebAppStorageSet'));
+  }finally{b.cleanup();}
+});
+
+test('M202: failed cloud sync keeps a bounded retry backoff while progress changes',async()=>{
+  const h=harness(new Map(),new Map(),{}, {embedded:true});
+  try{
+    assert.equal(await h.instance.init(),true);
+    h.instance.error='simulated-cloud-error';
+    h.setSave({revision:1,level:3,coins:8});
+    h.instance.changed();
+    const retryDue=h.instance.timerDueAt;
+    assert.ok(retryDue-Date.now()>10000,'cloud error must not retry in only 900 ms');
+    for(let i=0;i<8;i++)h.instance.changed();
+    assert.equal(h.instance.timerDueAt,retryDue);
+    assert.equal(h.operations.filter(m=>m==='VKWebAppStorageSet').length,0);
+  }finally{h.cleanup();}
+});
