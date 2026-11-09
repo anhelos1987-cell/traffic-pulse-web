@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
+import {readFileSync,existsSync} from 'node:fs';
 import {runInNewContext} from 'node:vm';
 
 const guidanceSource=readFileSync(new URL('../player-guidance-core.js',import.meta.url),'utf8');
@@ -60,4 +60,20 @@ test('M207: script load order and asset cache keys include the extracted policy'
   assert.match(app,/TrafficPulseGuidance\.nextLessonLevel\(/);
   assert.match(app,/TrafficPulseGuidance\.firstSessionActive\(/);
   assert.match(app,/TrafficPulseGuidance\.signalProgressSteps\(/);
+});
+
+test('M207: all local production scripts and styles resolve in the VK repository tree',()=>{
+  const references=[
+    ...[...html.matchAll(/<script\s+src="([^"]+)"/g)].map(x=>x[1]),
+    ...[...html.matchAll(/<link\s+rel="stylesheet"\s+href="([^"]+)"/g)].map(x=>x[1])
+  ];
+  assert.ok(references.length>=8,'VK production entrypoint should enumerate all required modules');
+  for(const ref of references){
+    if(ref.startsWith('/')||/^https?:/.test(ref))continue;
+    const pathname=ref.split('?')[0].split('#')[0];
+    assert.ok(existsSync(new URL('../'+pathname,import.meta.url)),`missing production asset: ${pathname}`);
+  }
+  assert.equal(references.filter(x=>x.startsWith('player-guidance-core.js?')).length,1,
+    'new module must be shipped exactly once');
+  assert.equal(references.filter(x=>x.startsWith('app.js?')).length,1);
 });
