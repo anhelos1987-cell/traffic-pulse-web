@@ -93,6 +93,23 @@ try{
       await mkdir(resolve(root,'artifacts/browser-smoke'),{recursive:true});
       const target=resolve(root,'artifacts/browser-smoke',viewport.width+'x'+viewport.height+'.png');
       await page.screenshot({path:target,fullPage:false});
+      // Reload must bootstrap from an actual durable local checkpoint as well.
+      const before=await page.evaluate(()=>JSON.parse(
+        localStorage.getItem('traffic_pulse_vk_games_save_v1')||'{}'
+      ));
+      assert.ok(Number(before.revision)>=1,'a local save must exist before reload');
+      await page.reload({waitUntil:'networkidle2',timeout:20000});
+      await page.waitForFunction(()=>{
+        const signal=document.querySelector('#signal-btn'),canvas=document.querySelector('#game');
+        return signal&&!signal.disabled&&canvas?.width>100;
+      },{timeout:15000});
+      const after=await page.evaluate(()=>JSON.parse(
+        localStorage.getItem('traffic_pulse_vk_games_save_v1')||'{}'
+      ));
+      assert.ok(Number(after.sessions)>=Number(before.sessions)+1,
+        'reload must restore saved sessions and record one new launch');
+      assert.ok(Number(after.level)>=Number(before.level),
+        'reload cannot roll back local level progress');
       assert.deepEqual(errors,[],'no uncaught JS errors: '+errors.join('; '));
       assert.deepEqual(missing,[],'no missing production resources: '+missing.join('; '));
       console.log('PASS browser boot/control',viewport.width+'x'+viewport.height,initial);
