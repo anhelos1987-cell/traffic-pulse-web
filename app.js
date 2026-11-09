@@ -13,7 +13,7 @@
   }catch(_){}
 
   const BUILD_MODE = 'production';
-  const BUILD_VERSION = 'M208-VKGAMES-RC';
+  const BUILD_VERSION = 'M211-VKGAMES-RC';
   const IS_DEVELOPMENT = BUILD_MODE === 'development';
   const PLATFORM_TARGET = 'vkgames'; // VK Games / VK Mini Apps, not VK Play
   const YANDEX_PUBLIC_LEADERBOARD_NAME = 'TrafficPulseStars';
@@ -5589,10 +5589,25 @@
       Game.rewardedWinClaiming=false;if(button&&!Game.rewardedWinClaimed)button.disabled=false;
     }
   }
+  // M211: one actionable, localized hint about the current run's next star.
+  // Does not alter any scoring thresholds, progression or coin rewards.
+  function campaignStarFeedbackText(stars,game=Game){
+    const tip=TrafficPulseGuidance.campaignStarFeedback(stars,game,game?.config);
+    if(!tip)return '';
+    if(tip.kind==='queue')return lang==='ru'
+      ?`Для ${tip.targetStars}★: пик очереди не выше ${tip.target} (сейчас ${tip.actual})`
+      :`For ${tip.targetStars}★: peak queue at most ${tip.target} (now ${tip.actual})`;
+    if(tip.kind==='switches')return lang==='ru'
+      ?`Для 3★: не более ${tip.target} переключений (сейчас ${tip.actual})`
+      :`For 3★: no more than ${tip.target} switches (now ${tip.actual})`;
+    return lang==='ru'
+      ?'Для 3★ пройди уровень без спасения или адаптивной помощи'
+      :'For 3★, clear the level without rescue or adaptive assist';
+  }
   function showWin(stars,reward,unlocked,district,starBonus=0,flowBonus=0,priorityBonus=0,newFlowRecord=false,missionSuccess=false,missionBonus=0,missionMilestoneBonus=0,unlockedAchievements=[],achievementBonus=0,syncBonus=0,firstClear=true,starImprovement=0,rewardedBonus=0){
     $('modal-kicker').textContent='TRAFFIC PULSE';$('modal-title').textContent=stars===3?T.perfect:stars===2?T.good:T.survived;const nextLesson=firstSessionNextLesson(Game.level,firstClear);$('modal-text').textContent=nextLesson?`${T.completeText} ${T.next}: ${nextLesson}`:T.completeText;$('modal-stars').textContent='⭐'.repeat(stars)+'☆'.repeat(3-stars);
     const rw=$('modal-reward');if(reward>0){rw.textContent=`+${reward} ${T.coins}`;rw.classList.remove('hidden');}else{rw.textContent='';rw.classList.add('hidden');}
-    const extra=$('modal-extra');const extras=[`🚦 ${T.queueShort}: ${Game.maxObservedQueue} · ${T.switchesShort}: ${Game.switches}`];if(firstClear)extras.push(`🪙 ${T.campaignFirstClear}`);else extras.push(`↻ ${T.campaignBaseAlreadyPaid}`);if(!firstClear&&starImprovement)extras.push(`⭐ ${T.campaignStarImprove}: +${starImprovement*15} ${T.coins}`);if(starBonus)extras.push(`⭐ ${T.starBonus}: +${starBonus} ${T.coins}`);if(flowBonus)extras.push(`⚡ ${T.flowBonus}: +${flowBonus} ${T.coins}`);if(priorityBonus)extras.push(`🚑 ${T.priorityBonus}: +${priorityBonus} ${T.coins}`);if(syncBonus)extras.push(`⚡ ${T.syncBonus}: +${syncBonus} ${T.coins}`);if(newFlowRecord)extras.push(`⚡ ${T.newFlowRecord}: ×${save.bestFlow}`);if(missionSuccess)extras.push(`🎯 ${T.missionDone}${missionBonus?`: +${missionBonus} ${T.coins}`:''}`);if(missionMilestoneBonus)extras.push(`🏆 ${T.missionMilestone}: +${missionMilestoneBonus} ${T.coins}`);if(Game.lastMedalResult){extras.push(`🏅 ${T.medals}: ${Game.lastMedalResult.count}/3`);if(Game.lastMedalResult.newCount)extras.push(`✨ ${T.medalNew}: ${Game.lastMedalResult.newLabels.join(', ')}`);}if(unlockedAchievements.length)extras.push(`🏅 ${T.achievement}: ${unlockedAchievements.map(a=>a.label).join(', ')}${achievementBonus?` · +${achievementBonus} ${T.coins}`:''}`);if(unlocked)extras.push(`🚗 ${T.newCar} ${unlocked}`);if(district)extras.push(`🌆 ${T.newDistrict} ${district}`);if(Game.mode==='campaign'){const cityNow=districtGrowthSummaryForLevel(Game.level),cityBefore=firstClear?districtGrowthSummaryForLevel(Game.level,-1):cityNow;if(firstClear&&cityNow.stage>cityBefore.stage)extras.push(`🏙️ ${T.cityGrowthWin}: ${T[cityNow.labelKey]}`);else extras.push(`🏙️ ${T.cityGrowth}: ${cityNow.completed}/${cityNow.total} · ${T[cityNow.labelKey]}`);extras.push(`🗺️ ${T.campaignNextReward}: ${campaignNextGoalText()}`);}extra.textContent=extras.join('  •  ');extra.classList.toggle('hidden',extras.length===0);
+    const extra=$('modal-extra');const extras=[`🚦 ${T.queueShort}: ${Game.maxObservedQueue} · ${T.switchesShort}: ${Game.switches}`];const starTip=campaignStarFeedbackText(stars);if(starTip)extras.push(`⭐ ${starTip}`);if(firstClear)extras.push(`🪙 ${T.campaignFirstClear}`);else extras.push(`↻ ${T.campaignBaseAlreadyPaid}`);if(!firstClear&&starImprovement)extras.push(`⭐ ${T.campaignStarImprove}: +${starImprovement*15} ${T.coins}`);if(starBonus)extras.push(`⭐ ${T.starBonus}: +${starBonus} ${T.coins}`);if(flowBonus)extras.push(`⚡ ${T.flowBonus}: +${flowBonus} ${T.coins}`);if(priorityBonus)extras.push(`🚑 ${T.priorityBonus}: +${priorityBonus} ${T.coins}`);if(syncBonus)extras.push(`⚡ ${T.syncBonus}: +${syncBonus} ${T.coins}`);if(newFlowRecord)extras.push(`⚡ ${T.newFlowRecord}: ×${save.bestFlow}`);if(missionSuccess)extras.push(`🎯 ${T.missionDone}${missionBonus?`: +${missionBonus} ${T.coins}`:''}`);if(missionMilestoneBonus)extras.push(`🏆 ${T.missionMilestone}: +${missionMilestoneBonus} ${T.coins}`);if(Game.lastMedalResult){extras.push(`🏅 ${T.medals}: ${Game.lastMedalResult.count}/3`);if(Game.lastMedalResult.newCount)extras.push(`✨ ${T.medalNew}: ${Game.lastMedalResult.newLabels.join(', ')}`);}if(unlockedAchievements.length)extras.push(`🏅 ${T.achievement}: ${unlockedAchievements.map(a=>a.label).join(', ')}${achievementBonus?` · +${achievementBonus} ${T.coins}`:''}`);if(unlocked)extras.push(`🚗 ${T.newCar} ${unlocked}`);if(district)extras.push(`🌆 ${T.newDistrict} ${district}`);if(Game.mode==='campaign'){const cityNow=districtGrowthSummaryForLevel(Game.level),cityBefore=firstClear?districtGrowthSummaryForLevel(Game.level,-1):cityNow;if(firstClear&&cityNow.stage>cityBefore.stage)extras.push(`🏙️ ${T.cityGrowthWin}: ${T[cityNow.labelKey]}`);else extras.push(`🏙️ ${T.cityGrowth}: ${cityNow.completed}/${cityNow.total} · ${T[cityNow.labelKey]}`);extras.push(`🗺️ ${T.campaignNextReward}: ${campaignNextGoalText()}`);}extra.textContent=extras.join('  •  ');extra.classList.toggle('hidden',extras.length===0);
     const winActions=[{text:T.next,cls:'primary',fn:()=>Game.next()}];if(rewardedBonus>0&&!Game.rewardedWinClaimed)winActions.push({text:`${T.adDoubleCoins} +${rewardedBonus} ${T.coins}`,cls:'rewarded-action',fn:(b)=>void claimWinRewardedCoins(rewardedBonus,reward,b)});winActions.push({text:`🗺️ ${T.campaignMap}`,fn:()=>showCampaignMap('result',save.level)});actions(winActions);openOverlay('win');
   }
   function actions(items){const box=$('modal-actions');box.innerHTML='';items.forEach(it=>{const b=document.createElement('button');b.type='button';b.textContent=it.text;b.className=it.cls||'';b.onclick=()=>it.fn?.(b);box.appendChild(b);});}
