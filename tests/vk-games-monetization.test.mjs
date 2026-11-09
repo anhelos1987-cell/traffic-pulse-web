@@ -21,7 +21,7 @@ function rewardHarness(success){
  const game={state:'won',mode:'campaign',rewardedWinClaimed:false,rewardedWinClaiming:false};
  const context={Game:game,save,safeInt:(v,min,max)=>Math.max(min,Math.min(max,Number(v)||0)),
   platform:{showRewarded:()=>new Promise(r=>{resolveAd=()=>r(success)})},
-  toast(){},T:{adUnavailable:'none',coins:'coins',adCoinsAdded:'added'},persist(){persists++},updateHud(){},$:()=>null};
+  toast(){},T:{adUnavailable:'none',coins:'coins',adCoinsAdded:'added'},persist(){persists++},persistCheckpoint(){persists++},updateHud(){},$:()=>null};
  const start=app.indexOf('  async function claimWinRewardedCoins('),end=app.indexOf('  function showWin(',start);
  runInNewContext(app.slice(start,end)+';globalThis.claim=claimWinRewardedCoins;',context);
  return {claim:()=>context.claim(50,50,button),save,game,button,resolve:()=>resolveAd(),persists:()=>persists};
