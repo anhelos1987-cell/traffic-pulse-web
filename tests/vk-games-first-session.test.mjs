@@ -4,6 +4,7 @@ import {readFileSync} from 'node:fs';
 import {runInNewContext} from 'node:vm';
 
 const app=readFileSync(new URL('../app.js',import.meta.url),'utf8');
+const guidanceSource=readFileSync(new URL('../player-guidance-core.js',import.meta.url),'utf8');
 function section(start,end){
   const a=app.indexOf(start),b=app.indexOf(end,a+start.length);
   assert.ok(a>=0&&b>a,'missing source section '+start);return app.slice(a,b);
@@ -16,6 +17,7 @@ function lessonHarness(){
   };
   const ctx={T,Number};
   const source=section('  function tutorialCueForLevel(level){','  function firstSessionCoachActive(');
+  runInNewContext(guidanceSource,ctx);
   runInNewContext(source+'\nglobalThis.lesson=firstSessionNextLesson;',ctx);
   return ctx.lesson;
 }
@@ -47,6 +49,7 @@ function failHarness({level=2,saveLevel=2,type='jam',fails=0}={}){
       failureReplayCrash:'Replay crash',failureReplayJam:'Replay jam',tryAgain:'Retry'},
     $:id=>els[id],actions:a=>{actionsArgs=a;},openOverlay:x=>{opened=x;}
   };
+  runInNewContext(guidanceSource,ctx);
   runInNewContext(section('  function firstSessionCoachActive(','  function hideFirstSessionCoach(')+
     '\n'+section('  function showFail(type){','  async function claimWinRewardedCoins('),ctx);
   ctx.showFail(type);
