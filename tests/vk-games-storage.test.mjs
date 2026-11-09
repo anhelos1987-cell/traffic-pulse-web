@@ -79,7 +79,7 @@ function harness(allVk,localMap,initialSave={},opts={}){
       };
       if(method==='VKWebAppStorageSet'){
         if(opts.rejectWrite?.(payload.key,payload.value))throw Error('simulated_write_failure');
-        vk.set(payload.key,payload.value);return {result:true};
+        vk.set(payload.key,payload.value);if(opts.afterStorageWrite)await opts.afterStorageWrite(payload);return {result:true};
       }
       if(method==='VKWebAppStorageGetKeys'){
         const keys=[...vk.keys()].slice(payload.offset||0,(payload.offset||0)+(payload.count||100));
@@ -595,4 +595,80 @@ test('M202: failed cloud sync keeps a bounded retry backoff while progress chang
     assert.equal(h.instance.timerDueAt,retryDue);
     assert.equal(h.operations.filter(m=>m==='VKWebAppStorageSet').length,0);
   }finally{h.cleanup();}
+});
+
+test('M209: a clean device discovers remote saves during ordinary heartbeat sync',async()=>{
+  const all=new Map();
+  const a=harness(all,new Map(),{}, {embedded:true});
+  const b=harness(all,new Map(),{}, {embedded:true});
+  try{
+    assert.equal(await a.instance.init(),true);
+    assert.equal(await b.instance.init(),true);
+    a.setSave({revision:2,level:4,starsByLevel:{1:3,2:2,3:1}});
+    a.instance.changed();
+    assert.equal(await a.instance.sync(),true);
+    assert.equal(b.getSave().level,1);
+    // Previously sync() returned immediately when clean; no second device pull.
+    assert.equal(await b.instance.sync(),true);
+    assert.equal(b.getSave().level,4);
+    assert.equal(b.getSave().starsByLevel[3],1);
+    assert.equal(b.instance.head.generation,a.instance.head.generation);
+    assert.equal(b.instance.dirty,false);
+  }finally{a.cleanup();b.cleanup();}
+});
+
+test('M209: clean sync checks the lightweight index before downloading cloud chunks',async()=>{
+  const all=new Map(),h=harness(all,new Map(),{}, {embedded:true});
+  try{
+    await h.instance.init();
+    h.setSave({revision:2,level:4,starsByLevel:{1:3}});
+    h.instance.changed();await h.instance.sync();
+    const old=h.operations.length;
+    assert.equal(await h.instance.sync(),true);
+    const reads=h.operations.slice(old).filter(x=>x==='VKWebAppStorageGet');
+    assert.equal(reads.length,1,'unchanged pointer must not download and decode the save');
+  }finally{h.cleanup();}
+});
+
+test('M209: overwritten commit pointer is not acknowledged as a successful upload',async()=>{
+  const all=new Map();let notifyEntered,releaseA;
+  const entered=new Promise(resolve=>notifyEntered=resolve);
+  const blocked=new Promise(resolve=>releaseA=resolve);
+  let held=false;
+  const a=harness(all,new Map(),{}, {embedded:true,afterStorageWrite:async ({key})=>{
+    if(key===manifestKey&&!held){held=true;notifyEntered();await blocked;}
+  }});
+  const b=harness(all,new Map(),{}, {embedded:true});
+  try{
+    await a.instance.init();await b.instance.init();
+    a.setSave({revision:3,level:3,starsByLevel:{1:3,2:2}});
+    b.setSave({revision:3,level:5,starsByLevel:{1:3,4:3}});
+    a.instance.changed();b.instance.changed();
+    const aWrite=a.instance.sync();
+    await entered; // A pointer is committed, its acknowledgment is held.
+    assert.equal(await b.instance.sync(),true); // B reads A, merges, commits its own pointer.
+    releaseA();
+    assert.equal(await aWrite,false,'A must detect that B replaced A pointer before acknowledgment');
+    assert.equal(a.instance.dirty,true,'A must retry instead of claiming all changes are saved');
+    assert.ok(a.getSave().starsByLevel[4]===3,'A must import B\'s new stars');
+    assert.equal(await a.instance.sync(),true);
+    const third=harness(all,new Map(),{}, {embedded:true});
+    try{
+      assert.equal(await third.instance.init(),true);
+      assert.equal(third.getSave().level,5);
+      assert.equal(third.getSave().starsByLevel[2],2);
+      assert.equal(third.getSave().starsByLevel[4],3);
+    }finally{third.cleanup();}
+  }finally{releaseA?.();a.cleanup();b.cleanup();}
+});
+
+test('M209: an external reset epoch still fails closed during clean reconciliation',async()=>{
+  const all=new Map(),a=harness(all,new Map(),{}, {embedded:true});
+  try{
+    await a.instance.init();
+    a.vk.set(epochKey,'a'.repeat(32));
+    assert.equal(await a.instance.sync(),false);
+    assert.match(a.instance.error,/reload/i);
+    assert.equal(a.instance.loaded,true);
+  }finally{a.cleanup();}
 });
