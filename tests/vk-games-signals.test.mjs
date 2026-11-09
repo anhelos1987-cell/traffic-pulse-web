@@ -133,3 +133,49 @@ test('M203: manual, platform and nonplaying pauses reject signal input',()=>{
     }
   }
 });
+
+test('M208: Green Wave pedestrian hold immediately updates the player-facing state',()=>{
+  const {Game:g,events}=signalHarness(true);
+  assert.equal(g.toggle('J0'),true);
+  const before=events.ui;
+  g.pedestrians.push({roadAxis:'V',junctionId:'J0'});
+  g.updateSignalControllers(.83);
+  assert.equal(g.signalControllers.J0.pedestrianHold,true);
+  assert.ok(events.ui>before,'entering pedestrian hold must invalidate UI');
+  const after=events.ui;
+  g.pedestrians.length=0;
+  g.updateSignalControllers(.05);
+  assert.equal(g.signalControllers.J0.pedestrianHold,false);
+  assert.equal(g.signalControllers.J0.phase,'V');
+  assert.ok(events.ui>after,'release must refresh the independent light');
+});
+test('M208: real dual-signal label identifies a pedestrian hold rather than generic switching',()=>{
+  const app=readFileSync(new URL('../app.js',import.meta.url),'utf8');
+  const a=app.indexOf('  function updateSignalIcon(){'),b=app.indexOf('  function toast(msg){',a);
+  assert.ok(a>=0&&b>a);
+  function element(){
+    const attrs={};
+    return {attrs,dataset:{},style:{},classList:{toggle(){}},
+      setAttribute(k,v){attrs[k]=v;},
+      querySelector(){return {classList:{toggle(){}},style:{}};},
+      textContent:'',disabled:false};
+  }
+  const ids=['signal-btn','greenwave-controls','phase-indicator','phase-label','controls-panel',
+    'signal-j0-btn','signal-j1-btn','signal-j0-label','signal-j1-label'];
+  const elements=Object.fromEntries(ids.map(id=>[id,element()]));
+  const g={signalMode:'independent',signalControllers:{
+    J0:{phase:'H',pendingPhase:'V',transitionTimer:.04,pedestrianHold:true},
+    J1:{phase:'V',pendingPhase:'H',transitionTimer:.5,pedestrianHold:false}
+  }};
+  const ctx={Game:g,$:id=>elements[id],T:{
+    greenWaveLeft:'Left',greenWaveRight:'Right',phaseChanging:'Switching',
+    phasePedestrianClearing:'Pedestrians clearing',switchLight:'Switch'
+  },independentSignals:()=>true,updateSignalProgress(){},phaseLabelText:x=>x};
+  runInNewContext(app.slice(a,b)+'\nglobalThis.render=updateSignalIcon;',ctx,{filename:'shipping-signal-label.js'});
+  ctx.render();
+  assert.match(elements['signal-j0-label'].textContent,/Pedestrians clearing/);
+  assert.equal(elements['signal-j0-btn'].dataset.waiting,'pedestrians');
+  assert.equal(elements['signal-j0-btn'].attrs['aria-busy'],'true');
+  assert.match(elements['signal-j1-label'].textContent,/Switching/);
+  assert.equal(elements['signal-j1-btn'].dataset.waiting,'');
+});
