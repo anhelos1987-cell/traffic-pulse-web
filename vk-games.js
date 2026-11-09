@@ -298,7 +298,7 @@ const PREFIX='trafficpulse_vkg_v2';
     },
     changed(){
      if(this.deleting)return;
-     this.dirty=true;this.saveLocalMeta();this.inform();this.schedule(900);
+     this.dirty=true;this.saveLocalMeta();this.inform();this.schedule(this.error?12000:900);
     },
     schedule(delay=900){
      if(!this.ready||!this.cloud||this.deleting){
