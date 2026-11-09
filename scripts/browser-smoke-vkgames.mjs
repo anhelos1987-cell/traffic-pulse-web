@@ -3,7 +3,7 @@
 // This tests real script loading, startup and basic interaction, NOT VK/OK callbacks.
 import assert from 'node:assert/strict';
 import {createServer} from 'node:http';
-import {readFile} from 'node:fs/promises';
+import {readFile,mkdir} from 'node:fs/promises';
 import {existsSync} from 'node:fs';
 import {resolve,sep,extname} from 'node:path';
 import {fileURLToPath} from 'node:url';
@@ -38,7 +38,7 @@ let browser;
 try{
   browser=await puppeteer.launch({executablePath:browserBinary(),headless:true,
     args:['--no-sandbox','--disable-dev-shm-usage','--autoplay-policy=no-user-gesture-required']});
-  for(const viewport of [{width:1280,height:800,isMobile:false},{width:390,height:844,isMobile:true,hasTouch:true}]){
+  for(const viewport of [{width:1280,height:800,isMobile:false},{width:390,height:844,isMobile:true,hasTouch:true},{width:844,height:390,isMobile:true,hasTouch:true}]){
     const page=await browser.newPage(),errors=[],missing=[],consoleErrors=[];
     page.on('pageerror',error=>errors.push(String(error?.stack||error?.message||error)));
     page.on('console',message=>{if(message.type()==='error')consoleErrors.push(message.text());});
@@ -77,6 +77,22 @@ try{
         ()=>document.querySelector('#signal-btn')?.getAttribute('aria-busy')==='true',
         {timeout:2000}
       );
+      // M212: test actual user pause -> modal -> resume -> keyboard controls.
+      await page.click('#pause-btn');
+      await page.waitForFunction(()=>document.querySelector('#overlay')?.getAttribute('aria-hidden')==='false',{timeout:2000});
+      const modalTitle=await page.$eval('#modal-title',el=>el.textContent);
+      assert.ok(modalTitle.trim(),'pause dialog must have a readable title');
+      await page.click('#modal-actions button.primary');
+      await page.waitForFunction(()=>document.querySelector('#overlay')?.getAttribute('aria-hidden')==='true',{timeout:2000});
+      await page.waitForFunction(()=>document.querySelector('#signal-btn')?.disabled===false,{timeout:5000});
+      await page.keyboard.press('Space');
+      await page.waitForFunction(()=>document.querySelector('#signal-btn')?.getAttribute('aria-busy')==='true',{timeout:2500});
+      const renderFallback=await page.evaluate(()=>window.__trafficPulseRenderFault||null);
+      assert.equal(renderFallback,null,'Canvas must not silently fall back to emergency rendering');
+      // Save UI screenshots as CI artifacts for the next manual review.
+      await mkdir(resolve(root,'artifacts/browser-smoke'),{recursive:true});
+      const target=resolve(root,'artifacts/browser-smoke',viewport.width+'x'+viewport.height+'.png');
+      await page.screenshot({path:target,fullPage:false});
       assert.deepEqual(errors,[],'no uncaught JS errors: '+errors.join('; '));
       assert.deepEqual(missing,[],'no missing production resources: '+missing.join('; '));
       console.log('PASS browser boot/control',viewport.width+'x'+viewport.height,initial);
