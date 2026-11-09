@@ -13,7 +13,7 @@
   }catch(_){}
 
   const BUILD_MODE = 'production';
-  const BUILD_VERSION = 'M207-VKGAMES-RC';
+  const BUILD_VERSION = 'M208-VKGAMES-RC';
   const IS_DEVELOPMENT = BUILD_MODE === 'development';
   const PLATFORM_TARGET = 'vkgames'; // VK Games / VK Mini Apps, not VK Play
   const YANDEX_PUBLIC_LEADERBOARD_NAME = 'TrafficPulseStars';
@@ -2202,7 +2202,7 @@
           if((c.transitionTimer||0)<=0)continue;c.transitionTimer-=dt;if(c.transitionTimer>0)continue;
           const blockedByPedestrians=Boolean(c.pendingPhase&&this.pedestriansOnAxis(c.pendingPhase,junctionId));
           const blockedByCommittedVehicle=Boolean(c.pendingPhase&&this.cars.some(v=>v.axis!==c.pendingPhase&&(v.linkedCommittedJunction===junctionId||linkedJunctionInside(v,junctionId,laneCount))));
-          if(blockedByPedestrians||blockedByCommittedVehicle){c.transitionTimer=.04;c.pedestrianHold=blockedByPedestrians;continue;}
+          if(blockedByPedestrians||blockedByCommittedVehicle){c.transitionTimer=.04;if(c.pedestrianHold!==blockedByPedestrians){c.pedestrianHold=blockedByPedestrians;changed=true;}continue;}
           c.transitionTimer=0;c.phase=c.pendingPhase||c.phase;c.pendingPhase=null;c.phaseElapsed=0;c.pedestrianHold=false;changed=true;
         }
         const j0=this.signalControllers.J0;this.phase=j0.phase;this.pendingPhase=j0.pendingPhase;this.transitionTimer=Math.max(...Object.values(this.signalControllers).map(c=>c.transitionTimer||0));this.pedestrianHold=Object.values(this.signalControllers).some(c=>c.pedestrianHold);if(changed){updateSignalIcon();updateHud();}return;
@@ -5175,7 +5175,7 @@
   }
   function updateSignalIcon(){
     const indicator=$('phase-indicator'),label=$('phase-label'),button=$('signal-btn'),dual=$('greenwave-controls'),panel=$('controls-panel');if(!button)return;updateSignalProgress();const independent=independentSignals(Game);button.classList.toggle('ui-hidden',independent);dual?.classList.toggle('ui-hidden',!independent);panel?.classList.toggle('greenwave-active',independent);
-    if(independent){let anyTransition=false;for(const [id,name] of [['J0',T.greenWaveLeft],['J1',T.greenWaveRight]]){const c=Game.signalControllers[id],b=$(id==='J0'?'signal-j0-btn':'signal-j1-btn'),icon=b?.querySelector('.signal-icon'),txt=$(id==='J0'?'signal-j0-label':'signal-j1-label');if(!b||!icon)continue;const tr=(c.transitionTimer||0)>0;anyTransition=anyTransition||tr;icon.classList.toggle('transition',tr);icon.style.transform=c.phase==='H'?'rotate(0deg)':'rotate(90deg)';b.disabled=tr;b.classList.toggle('ready',!tr);b.setAttribute('aria-busy',tr?'true':'false');const state=tr?T.phaseChanging:phaseLabelText(c.phase);if(txt)txt.textContent=`${name} · ${state}`;b.setAttribute('aria-label',`${name}: ${state}`);}indicator.classList.toggle('transition',anyTransition);label.textContent=`${T.greenWaveLeft}: ${phaseLabelText(Game.signalControllers.J0.phase)} · ${T.greenWaveRight}: ${phaseLabelText(Game.signalControllers.J1.phase)}`;return;}
+    if(independent){let anyTransition=false;for(const [id,name] of [['J0',T.greenWaveLeft],['J1',T.greenWaveRight]]){const c=Game.signalControllers[id],b=$(id==='J0'?'signal-j0-btn':'signal-j1-btn'),icon=b?.querySelector('.signal-icon'),txt=$(id==='J0'?'signal-j0-label':'signal-j1-label');if(!b||!icon)continue;const tr=(c.transitionTimer||0)>0;anyTransition=anyTransition||tr;icon.classList.toggle('transition',tr);icon.style.transform=c.phase==='H'?'rotate(0deg)':'rotate(90deg)';b.disabled=tr;b.classList.toggle('ready',!tr);b.setAttribute('aria-busy',tr?'true':'false');const state=tr?(c.pedestrianHold?T.phasePedestrianClearing:T.phaseChanging):phaseLabelText(c.phase);b.dataset.waiting=tr&&c.pedestrianHold?'pedestrians':'';if(txt)txt.textContent=`${name} · ${state}`;b.setAttribute('aria-label',`${name}: ${state}`);}indicator.classList.toggle('transition',anyTransition);label.textContent=`${T.greenWaveLeft}: ${phaseLabelText(Game.signalControllers.J0.phase)} · ${T.greenWaveRight}: ${phaseLabelText(Game.signalControllers.J1.phase)}`;return;}
     const icon=button.querySelector('.signal-icon'),tr=Game.transitionTimer>0;icon?.classList.toggle('transition',tr);indicator.classList.toggle('transition',tr);button.disabled=tr;button.classList.toggle('ready',!tr);button.setAttribute('aria-busy',tr?'true':'false');if(tr){const transitionText=Game.pedestrianHold?T.phasePedestrianClearing:T.phaseChanging;label.textContent=transitionText;button.setAttribute('aria-label',transitionText);return;}if(icon)icon.style.transform=Game.phase==='H'?'rotate(0deg)':'rotate(90deg)';label.textContent=phaseLabelText(Game.phase);button.setAttribute('aria-label',`${T.switchLight}: ${phaseLabelText(Game.phase)}`);
   }
   function toast(msg){const el=$('toast');el.textContent=msg;el.classList.add('show');clearTimeout(toast._t);toast._t=setTimeout(()=>el.classList.remove('show'),1900);}
