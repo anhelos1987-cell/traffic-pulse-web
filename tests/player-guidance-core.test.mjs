@@ -57,6 +57,7 @@ test('M207: script load order and asset cache keys include the extracted policy'
   assert.ok(iGuidance>0&&iApp>iGuidance);
   assert.match(html,/href="style\.css\?v=M204-VKGAMES-RC"/);
   assert.match(app,/const BUILD_VERSION = 'M208-VKGAMES-RC';/);
+  assert.match(html,/src="vk-games\.js\?v=M209-VKGAMES-CLOUD-RC"/);
   assert.match(app,/TrafficPulseGuidance\.nextLessonLevel\(/);
   assert.match(app,/TrafficPulseGuidance\.firstSessionActive\(/);
   assert.match(app,/TrafficPulseGuidance\.signalProgressSteps\(/);
