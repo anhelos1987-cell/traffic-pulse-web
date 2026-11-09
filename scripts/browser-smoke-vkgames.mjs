@@ -110,6 +110,41 @@ try{
         'reload must restore saved sessions and record one new launch');
       assert.ok(Number(after.level)>=Number(before.level),
         'reload cannot roll back local level progress');
+      // M213: exercise repeated portrait/landscape transitions without reloading
+      // the game or resetting the saved session. This checks live viewport
+      // observers, canvas sizing and interactive targets under resize stress.
+      if(viewport.isMobile){
+        for(let rotation=0;rotation<12;rotation++){
+          const rotated=rotation%2===0
+            ?{width:844,height:390,isMobile:true,hasTouch:true}
+            :{width:390,height:844,isMobile:true,hasTouch:true};
+          await page.setViewport(rotated);
+          const state=await page.evaluate(async()=>{
+            await new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve)));
+            const canvas=document.querySelector('#game');
+            const signal=document.querySelector('#signal-btn');
+            const rect=canvas?.getBoundingClientRect();
+            const button=signal?.getBoundingClientRect();
+            return {
+              canvasWidth:canvas?.width||0,canvasHeight:canvas?.height||0,
+              canvasRectWidth:rect?.width||0,canvasRectHeight:rect?.height||0,
+              buttonWidth:button?.width||0,buttonHeight:button?.height||0,
+              overflow:document.documentElement.scrollWidth-innerWidth,
+              disabled:signal?.disabled,renderFault:window.__trafficPulseRenderFault||null
+            };
+          });
+          assert.ok(state.canvasWidth>100&&state.canvasHeight>100,
+            'canvas remains sized after rotation '+rotation+': '+JSON.stringify(state));
+          assert.ok(state.canvasRectWidth>100&&state.canvasRectHeight>100,
+            'canvas remains visible after rotation '+rotation);
+          assert.ok(state.buttonWidth>=40&&state.buttonHeight>=40,
+            'signal remains touchable after rotation '+rotation+': '+JSON.stringify(state));
+          assert.ok(state.overflow<=2,'no horizontal overflow after rotation '+rotation);
+          assert.equal(state.disabled,false,'signal stays interactive after rotation '+rotation);
+          assert.equal(state.renderFault,null,'no render fallback after rotation '+rotation);
+        }
+        console.log('PASS M213 live viewport rotations',viewport.width+'x'+viewport.height,12);
+      }
       assert.deepEqual(errors,[],'no uncaught JS errors: '+errors.join('; '));
       assert.deepEqual(missing,[],'no missing production resources: '+missing.join('; '));
       console.log('PASS browser boot/control',viewport.width+'x'+viewport.height,initial);
