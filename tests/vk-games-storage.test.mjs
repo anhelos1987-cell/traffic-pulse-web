@@ -581,3 +581,18 @@ test('M202: malformed cloud manifest fails closed and preserves same-account loc
     assert.ok(!b.operations.includes('VKWebAppStorageSet'));
   }finally{b.cleanup();}
 });
+
+test('M202: failed cloud sync keeps a bounded retry backoff while progress changes',async()=>{
+  const h=harness(new Map(),new Map(),{}, {embedded:true});
+  try{
+    assert.equal(await h.instance.init(),true);
+    h.instance.error='simulated-cloud-error';
+    h.setSave({revision:1,level:3,coins:8});
+    h.instance.changed();
+    const retryDue=h.instance.timerDueAt;
+    assert.ok(retryDue-Date.now()>10000,'cloud error must not retry in only 900 ms');
+    for(let i=0;i<8;i++)h.instance.changed();
+    assert.equal(h.instance.timerDueAt,retryDue);
+    assert.equal(h.operations.filter(m=>m==='VKWebAppStorageSet').length,0);
+  }finally{h.cleanup();}
+});
