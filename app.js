@@ -2121,7 +2121,11 @@
         const controller=signalControllerState(this,p.junctionId||null),clearing=(controller.transitionTimer||0)>0&&controller.pendingPhase===p.roadAxis,rate=clearing?1.55:1;
         p.t=Math.min(1,(p.t||0)+(dt*rate)/Math.max(.8,p.duration||2.3));
       }
-      this.pedestrians=this.pedestrians.filter(p=>p.t<1);
+      // M205: retain the existing array; .filter() allocated a new array every 60Hz tick,
+      // including frames with no pedestrians. Preserve surviving order and object identities.
+      const pedestrians=this.pedestrians;let kept=0;
+      for(let i=0;i<pedestrians.length;i++)if(pedestrians[i].t<1)pedestrians[kept++]=pedestrians[i];
+      pedestrians.length=kept;
       if(independentSignals(this)){for(const c of Object.values(this.signalControllers))if((c.transitionTimer||0)<=0)c.phaseElapsed+=dt;if(this.mode==='greenwave'){this.pedestrianSpawnTimer=99;return;}}
       if(this.transitionTimer>0)return;
       if(this.mode==='scenario'){this.phaseElapsed+=dt;this.pedestrianSpawnTimer=99;return;}
@@ -2628,7 +2632,10 @@
         else if(p.kind==='debris'){p.vy+=90*dt;p.rot=(p.rot||0)+(p.spin||0)*dt;p.vx*=.985;}
         else {p.vx*=.96;p.vy*=.96;}
       }
-      this.particles=this.particles.filter(p=>p.life>0);
+      // M205: avoid a fresh transient array at every fixed-step, even on empty scenes.
+      const particles=this.particles;let kept=0;
+      for(let i=0;i<particles.length;i++)if(particles[i].life>0)particles[kept++]=particles[i];
+      particles.length=kept;
       if(this.crashFx){this.crashFx.life-=dt;if(this.crashFx.life<=0)this.crashFx=null;} this.cameraKick=Math.max(0,(this.cameraKick||0)-dt*1.65);
     },
     emitCrashFx(a,b){
