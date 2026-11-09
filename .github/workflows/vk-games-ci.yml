@@ -7,7 +7,7 @@ on:
 jobs:
   vk-games-tests:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -38,3 +38,9 @@ jobs:
         run: node --test tests/*.test.mjs
       - name: Report M205 frame hot-path microbenchmark (informational)
         run: node scripts/benchmark-m205-hotpaths.mjs
+      - name: Validate browser smoke script syntax
+        run: node --check scripts/browser-smoke-vkgames.mjs
+      - name: Browser smoke (real headless Chrome, local-only platform fallback)
+        run: |
+          npm install --no-save --no-package-lock --ignore-scripts puppeteer-core@24.26.1
+          node scripts/browser-smoke-vkgames.mjs
