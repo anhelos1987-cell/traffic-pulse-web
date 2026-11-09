@@ -5111,11 +5111,12 @@
   function updateSignalProgress(){
     const total=Math.max(.01,Number(Game.config?.clearance)||.82);
     const update=(id,controller)=>{
-      const b=$(id);if(!b)return;
       const remaining=Math.max(0,Number(controller?.transitionTimer)||0);
       // 20 coarse ticks, updated at the regular HUD cadence, not per fixed simulation step.
       const steps=remaining>0?Math.max(0,Math.min(20,Math.floor((1-Math.min(1,remaining/total))*20))):0;
+      // M205: most frames are steady-state; skip DOM lookup as well as the style write.
       if(SIGNAL_PROGRESS_CACHE[id]===steps)return;
+      const b=$(id);if(!b)return;
       SIGNAL_PROGRESS_CACHE[id]=steps;
       b.style.setProperty('--signal-progress',String(steps/20));
     };
