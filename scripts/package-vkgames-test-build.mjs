@@ -2,7 +2,7 @@
 // This is intentionally separate from the Node/Python/server source tree:
 // do not put backend code, secrets, test fixtures or development logs in the ZIP.
 import assert from 'node:assert/strict';
-import {readFileSync,existsSync,mkdirSync,writeFileSync} from 'node:fs';
+import {readFileSync,existsSync,mkdirSync,writeFileSync,rmSync} from 'node:fs';
 import {resolve,join,extname} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {execFileSync} from 'node:child_process';
@@ -41,6 +41,7 @@ assert.ok(scripts.some(x=>x.startsWith('app.js?v=M211-VKGAMES-RC')),'M211 gamepl
 // Keep packaging independent of local file timestamps and reject hidden extras.
 // The package is built as root-level entries, matching platform upload expectations.
 mkdirSync(dest,{recursive:true});
+rmSync(archive,{force:true}); // reruns must never retain files from an older ZIP
 execFileSync('zip',['-q','-9','-X','-j',archive,...files],{cwd:root,stdio:'pipe'});
 execFileSync('unzip',['-tq',archive],{cwd:root,stdio:'pipe'});
 const entries=execFileSync('unzip',['-Z1',archive],{encoding:'utf8',cwd:root}).trim().split('\n').sort();
