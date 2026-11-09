@@ -13,7 +13,7 @@
   }catch(_){}
 
   const BUILD_MODE = 'production';
-  const BUILD_VERSION = 'M201-OK-CLOUD-HOTFIX01';
+  const BUILD_VERSION = 'M211-VKGAMES-RC';
   const IS_DEVELOPMENT = BUILD_MODE === 'development';
   const PLATFORM_TARGET = 'vkgames'; // VK Games / VK Mini Apps, not VK Play
   const YANDEX_PUBLIC_LEADERBOARD_NAME = 'TrafficPulseStars';
@@ -591,6 +591,12 @@
     onDelete:()=>YandexAudit.mark('vkgames:cloud:deleted')
   });
   cloudSaveHook=()=>VKGames.changed();
+  // Important progress (level completions, rewarded grants) should begin uploading
+  // while the app is visible. A pagehide VK Bridge call cannot guarantee completion.
+  function persistCheckpoint(){
+    persist(); // local durable copy first
+    if(VKGames.ready&&VKGames.cloud)void VKGames.sync();
+  }
   const VKPurchases=TrafficPulseVKPurchases.create({
     account:()=>({ready:VKGames.ready,appId:VKGames.appId,userId:VKGames.userId,socialPlatform:VKGames.socialPlatform,launchQuery:VKGames.launchQuery}),
     supported:method=>VKGames.supported(method),call:(method,props,ms)=>VKGames.call(method,props,ms),
@@ -1998,8 +2004,14 @@
     if(level===90)return `🛣 ${T.tutorialLanes3}`;
     return '';
   }
+  // M206: short, contextual "what comes next" text on a first-time victory.
+  // Uses already-localized lesson cues; never changes stars, coin grants or unlocks.
+  function firstSessionNextLesson(level,firstClear){
+    const next=TrafficPulseGuidance.nextLessonLevel(level,firstClear);
+    return next===null?'':tutorialCueForLevel(next);
+  }
   function firstSessionCoachActive(game=Game){
-    return Boolean(game&&game.mode==='campaign'&&game.level<=5&&save.level<=5);
+    return TrafficPulseGuidance.firstSessionActive(game?.mode,game?.level,save.level);
   }
   function hideFirstSessionCoach(){
     const hint=$('tap-hint');if(!hint)return;hint.style.display='none';hint.setAttribute('aria-hidden','true');hint.classList.remove('coach-warning');
@@ -2115,7 +2127,11 @@
         const controller=signalControllerState(this,p.junctionId||null),clearing=(controller.transitionTimer||0)>0&&controller.pendingPhase===p.roadAxis,rate=clearing?1.55:1;
         p.t=Math.min(1,(p.t||0)+(dt*rate)/Math.max(.8,p.duration||2.3));
       }
-      this.pedestrians=this.pedestrians.filter(p=>p.t<1);
+      // M205: retain the existing array; .filter() allocated a new array every 60Hz tick,
+      // including frames with no pedestrians. Preserve surviving order and object identities.
+      const pedestrians=this.pedestrians;let kept=0;
+      for(let i=0;i<pedestrians.length;i++)if(pedestrians[i].t<1)pedestrians[kept++]=pedestrians[i];
+      pedestrians.length=kept;
       if(independentSignals(this)){for(const c of Object.values(this.signalControllers))if((c.transitionTimer||0)<=0)c.phaseElapsed+=dt;if(this.mode==='greenwave'){this.pedestrianSpawnTimer=99;return;}}
       if(this.transitionTimer>0)return;
       if(this.mode==='scenario'){this.phaseElapsed+=dt;this.pedestrianSpawnTimer=99;return;}
@@ -2146,7 +2162,7 @@
       else this.syncStreak=0;
       const wasFirstInput=!this.firstInput;AudioFx.switch();if(perfect)AudioFx.sync(this.syncStreak);Haptics.switch();this.pendingPhase=nextPhase;this.pedestrianHold=false;this.transitionTimer=this.config.clearance;this.switches++;this.firstInput=true;
       clearTimeout(this.tutorialCueTimer);this.tutorialCueTimer=0;hideFirstSessionCoach();updateSignalIcon();updateHud();
-      if(occupiedNow)showFirstSessionCoach('occupied',T.tutorialCoachOccupied,2800);else if(wasFirstInput&&this.level===1)setTimeout(()=>{if(this.state==='playing'&&this.level===1)showFirstSessionCoach('clearance',T.tutorialCoachClearance,2600);},260);
+      if(occupiedNow)showFirstSessionCoach('occupied',T.tutorialCoachOccupied,2800);else if(wasFirstInput&&this.level===1)this.scheduleNotice(()=>{if(this.state==='playing'&&this.level===1&&this.firstInput)showFirstSessionCoach('clearance',T.tutorialCoachClearance,2600);},260);
       return true;
     },
     toggleJunction(junctionId){
@@ -2168,7 +2184,9 @@
     },
     captureFailureReplayFrame(dt=0){
       if(this.state!=='playing'||this.externalPaused||this.userPaused)return;
-      this.failureReplayClock=(this.failureReplayClock||0)+Math.max(0,dt||0);if(this.failureReplayClock<.12)return;this.failureReplayClock=0;
+      // Keep the fixed-step fractional remainder: resetting to zero turns a nominal 120ms
+      // capture interval into 133ms at 60Hz, so playback drifts against its 120ms clock.
+      this.failureReplayClock=(this.failureReplayClock||0)+Math.max(0,dt||0);if(this.failureReplayClock<.12)return;this.failureReplayClock=Math.max(0,this.failureReplayClock-.12);
       const cars=this.cars.map(c=>{const p=carXY(c);return{x:Number(p.x.toFixed(1)),y:Number(p.y.toFixed(1)),rot:Number(p.rot.toFixed(3)),color:c.color,kind:c.kind,style:c.style||0,stopped:Boolean(c.stopped),violation:c.violation||'none'};});
       const pedestrians=this.pedestrians.map(p=>{const q=pedestrianPose(p,this.config?.lanes||1);return{x:Number(q.x.toFixed(1)),y:Number(q.y.toFixed(1))};});
       this.failureReplayFrames.push({t:Number(this.elapsed.toFixed(2)),phase:this.phase,transition:this.transitionTimer>0,cars,pedestrians});if(this.failureReplayFrames.length>36)this.failureReplayFrames.shift();
@@ -2180,14 +2198,16 @@
     updateSignalControllers(dt){
       const laneCount=Math.max(1,this.config?.lanes||1),linked=isLinkedJunctionType(this.config?.junctionType);
       if(independentSignals(this)){
-        let changed=false;for(const [junctionId,c] of Object.entries(this.signalControllers)){
+        // M210: exactly two Green Wave controllers; avoid allocating Object.entries
+        // on every 60Hz update. Preserve the J0 then J1 transition order.
+        let changed=false;for(let i=0;i<2;i++){const junctionId=i===0?'J0':'J1',c=this.signalControllers[junctionId];
           if((c.transitionTimer||0)<=0)continue;c.transitionTimer-=dt;if(c.transitionTimer>0)continue;
           const blockedByPedestrians=Boolean(c.pendingPhase&&this.pedestriansOnAxis(c.pendingPhase,junctionId));
           const blockedByCommittedVehicle=Boolean(c.pendingPhase&&this.cars.some(v=>v.axis!==c.pendingPhase&&(v.linkedCommittedJunction===junctionId||linkedJunctionInside(v,junctionId,laneCount))));
-          if(blockedByPedestrians||blockedByCommittedVehicle){c.transitionTimer=.04;c.pedestrianHold=blockedByPedestrians;continue;}
+          if(blockedByPedestrians||blockedByCommittedVehicle){c.transitionTimer=.04;if(c.pedestrianHold!==blockedByPedestrians){c.pedestrianHold=blockedByPedestrians;changed=true;}continue;}
           c.transitionTimer=0;c.phase=c.pendingPhase||c.phase;c.pendingPhase=null;c.phaseElapsed=0;c.pedestrianHold=false;changed=true;
         }
-        const j0=this.signalControllers.J0;this.phase=j0.phase;this.pendingPhase=j0.pendingPhase;this.transitionTimer=Math.max(...Object.values(this.signalControllers).map(c=>c.transitionTimer||0));this.pedestrianHold=Object.values(this.signalControllers).some(c=>c.pedestrianHold);if(changed){updateSignalIcon();updateHud();}return;
+        const j0=this.signalControllers.J0,j1=this.signalControllers.J1;this.phase=j0.phase;this.pendingPhase=j0.pendingPhase;this.transitionTimer=Math.max(j0.transitionTimer||0,j1.transitionTimer||0);this.pedestrianHold=Boolean(j0.pedestrianHold||j1.pedestrianHold);if(changed){updateSignalIcon();updateHud();}return;
       }
       if(this.transitionTimer<=0)return;this.transitionTimer-=dt;if(this.transitionTimer>0)return;
       const blockedByPedestrians=Boolean(this.pendingPhase&&this.pedestriansOnAxis(this.pendingPhase));const centerStart=365;
@@ -2448,16 +2468,25 @@
       // The player's existing H/V signal still meters entry; once a car is on the circle it keeps priority.
       let roundaboutOwner=roundabout&&this.roundaboutOwnerId?this.cars.find(c=>c.id===this.roundaboutOwnerId):null;
       if(roundaboutOwner&&!roundaboutOccupiesCircle(roundaboutOwner,laneCount)&&roundaboutOwner.progress>roundaboutRouteEndProgress(roundaboutOwner,laneCount)){this.roundaboutOwnerId=null;roundaboutOwner=null;}
-      if(roundabout&&!roundaboutOwner&&active){const candidates=this.cars.filter(c=>c.axis===active&&c.progress>=stopTargetProgress(c,laneCount)-26&&c.progress<turnBounds.start&&!this.pedestriansOnAxis(c.axis)).sort((a,b)=>(b.progress-a.progress)||(a.id-b.id));if(candidates[0]){roundaboutOwner=candidates[0];this.roundaboutOwnerId=roundaboutOwner.id;}}
+      if(roundabout&&!roundaboutOwner&&active){
+        // Preserve the greatest-progress / lowest-ID reservation without filter+sort.
+        for(const c of this.cars){
+          if(c.axis!==active||c.progress<stopTargetProgress(c,laneCount)-26||c.progress>=turnBounds.start||this.pedestriansOnAxis(c.axis))continue;
+          if(!roundaboutOwner||c.progress>roundaboutOwner.progress||(c.progress===roundaboutOwner.progress&&c.id<roundaboutOwner.id))roundaboutOwner=c;
+        }
+        if(roundaboutOwner)this.roundaboutOwnerId=roundaboutOwner.id;
+      }
 
       // One protected turning slot at a time. This keeps left/right turns readable and prevents
       // same-phase trajectories from cutting through each other without adding another control.
       let turnOwner=!roundabout&&this.turnOwnerId?this.cars.find(c=>c.id===this.turnOwnerId):null;
       if(turnOwner&&(!active||turnOwner.axis!==active||turnOwner.progress>turnBounds.end+16)){this.turnOwnerId=null;turnOwner=null;}
       if(!roundabout&&!turnOwner&&active&&!this.cars.some(c=>c.inside)){
-        const candidates=this.cars.filter(c=>c.turn&&c.turn!=='straight'&&c.axis===active&&c.progress>=stopTargetProgress(c,laneCount)-22&&c.progress<centerStart&&!this.pedestriansOnAxis(AXIS[c.turnOutDir||turnExitDir(c.dir,c.turn)]))
-          .sort((a,b)=>(b.progress-a.progress)||(a.id-b.id));
-        if(candidates[0]){turnOwner=candidates[0];this.turnOwnerId=turnOwner.id;}
+        for(const c of this.cars){
+          if(!c.turn||c.turn==='straight'||c.axis!==active||c.progress<stopTargetProgress(c,laneCount)-22||c.progress>=centerStart||this.pedestriansOnAxis(AXIS[c.turnOutDir||turnExitDir(c.dir,c.turn)]))continue;
+          if(!turnOwner||c.progress>turnOwner.progress||(c.progress===turnOwner.progress&&c.id<turnOwner.id))turnOwner=c;
+        }
+        if(turnOwner)this.turnOwnerId=turnOwner.id;
       }
 
       // Smooth parking-lot merges and visible lane changes are presentation + traffic-flow features.
@@ -2501,8 +2530,11 @@
       // A service vehicle keeps priority until its whole body leaves the conflict zone. Its
       // progress can pass centerEnd while a wide road still places the body across another lane.
       const heldEmergency=this.cars.find(c=>c.id===this.emergencyPriorityId&&isEmergencyVehicle(c)&&c.inside);
-      let emergencyOwner=heldEmergency||this.cars.filter(c=>isEmergencyVehicle(c)&&signalStateForAxis(c.axis,this)==='red'&&c.progress>=stopTargetProgress(c,laneCount)-150&&c.progress<centerEnd+32)
-        .sort((a,b)=>(b.progress-a.progress)||(a.id-b.id))[0]||null;
+      let emergencyOwner=heldEmergency||null;
+      if(!emergencyOwner)for(const c of this.cars){
+        if(!isEmergencyVehicle(c)||signalStateForAxis(c.axis,this)!=='red'||c.progress<stopTargetProgress(c,laneCount)-150||c.progress>=centerEnd+32)continue;
+        if(!emergencyOwner||c.progress>emergencyOwner.progress||(c.progress===emergencyOwner.progress&&c.id<emergencyOwner.id))emergencyOwner=c;
+      }
       this.emergencyPriorityId=emergencyOwner?.id||null;
       for(const c of this.cars)c.emergencyPriorityActive=false;
 
@@ -2620,7 +2652,10 @@
         else if(p.kind==='debris'){p.vy+=90*dt;p.rot=(p.rot||0)+(p.spin||0)*dt;p.vx*=.985;}
         else {p.vx*=.96;p.vy*=.96;}
       }
-      this.particles=this.particles.filter(p=>p.life>0);
+      // M205: avoid a fresh transient array at every fixed-step, even on empty scenes.
+      const particles=this.particles;let kept=0;
+      for(let i=0;i<particles.length;i++)if(particles[i].life>0)particles[kept++]=particles[i];
+      particles.length=kept;
       if(this.crashFx){this.crashFx.life-=dt;if(this.crashFx.life<=0)this.crashFx=null;} this.cameraKick=Math.max(0,(this.cameraKick||0)-dt*1.65);
     },
     emitCrashFx(a,b){
@@ -2671,16 +2706,16 @@
         const def=this.scenarioDirector?.def||scenarioDefinition(this.scenarioId);if(!def)return;
         stars=1;if(this.maxObservedQueue<=def.starThresholds.twoStarQueue)stars=2;if(stars>=2&&this.switches<=def.starThresholds.threeStarSwitches)stars=3;if(this.rescueUsed)stars=Math.min(stars,2);
         const priorityReq=def.objectives?.priorityRequired||0;if(priorityReq&&this.prioritySaved<priorityReq)stars=Math.min(stars,this.prioritySaved>=Math.max(1,priorityReq-1)?2:1);const key=scenarioSaveKey(def),prev=save.scenarioProgress?.[key]||null,result={stars,bestQueue:this.maxObservedQueue,bestSwitches:this.switches,bestPriority:this.prioritySaved||0,clears:(prev?.clears||0)+1},best=betterScenario(prev,result);
-        save.scenarioProgress=save.scenarioProgress||{};save.scenarioProgress[key]={...best,clears:result.clears};persist();showScenarioWin(def,stars,prev,best);return;
+        save.scenarioProgress=save.scenarioProgress||{};save.scenarioProgress[key]={...best,clears:result.clears};persistCheckpoint();showScenarioWin(def,stars,prev,best);return;
       }
       if(this.mode==='greenwave'){
-        const def=greenWaveDefinition(this.greenWaveId)||greenWaveDefinition(),stats=this.greenWaveStats||{throughTotal:0,throughNoStop:0,maxSideQueue:999},ratio=(stats.throughNoStop||0)/Math.max(1,stats.throughTotal||0);stars=1;if(ratio>=(def.objectives?.twoStarRatio||.55))stars=2;if(ratio>=(def.objectives?.threeStarRatio||.70)&&(stats.maxSideQueue||0)<=(def.objectives?.maxSideQueue3||3))stars=3;const priorityReq=def.objectives?.priorityRequired||0;if(priorityReq&&this.prioritySaved<priorityReq)stars=Math.min(stars,this.prioritySaved>0?2:1);const key=greenWaveSaveKey(def),prev=save.greenWaveProgress?.[key]||null,result={stars,throughNoStop:stats.throughNoStop||0,throughTotal:stats.throughTotal||0,bestSideQueue:stats.maxSideQueue||0,bestSwitches:this.switches,bestPriority:this.prioritySaved||0,clears:(prev?.clears||0)+1},best=betterGreenWave(prev,result);save.greenWaveProgress=save.greenWaveProgress||{};save.greenWaveProgress[key]={...best,clears:result.clears};persist();showGreenWaveWin(def,stars,prev,result,best);return;
+        const def=greenWaveDefinition(this.greenWaveId)||greenWaveDefinition(),stats=this.greenWaveStats||{throughTotal:0,throughNoStop:0,maxSideQueue:999},ratio=(stats.throughNoStop||0)/Math.max(1,stats.throughTotal||0);stars=1;if(ratio>=(def.objectives?.twoStarRatio||.55))stars=2;if(ratio>=(def.objectives?.threeStarRatio||.70)&&(stats.maxSideQueue||0)<=(def.objectives?.maxSideQueue3||3))stars=3;const priorityReq=def.objectives?.priorityRequired||0;if(priorityReq&&this.prioritySaved<priorityReq)stars=Math.min(stars,this.prioritySaved>0?2:1);const key=greenWaveSaveKey(def),prev=save.greenWaveProgress?.[key]||null,result={stars,throughNoStop:stats.throughNoStop||0,throughTotal:stats.throughTotal||0,bestSideQueue:stats.maxSideQueue||0,bestSwitches:this.switches,bestPriority:this.prioritySaved||0,clears:(prev?.clears||0)+1},best=betterGreenWave(prev,result);save.greenWaveProgress=save.greenWaveProgress||{};save.greenWaveProgress[key]={...best,clears:result.clears};persistCheckpoint();showGreenWaveWin(def,stars,prev,result,best);return;
       }
       if(this.mode==='weekly'){
         const key=this.weeklyKey||weekStartKey(),prev=save.weeklyBest[key]||null,pb=typeof PersonalBestService!=='undefined'?PersonalBestService.finish(this,stars):{record:null,comparison:null},record=pb.record||{stars,switches:this.switches,maxQueue:this.maxObservedQueue};
         const improved=isBetterBest(record,prev);if(improved)save.weeklyBest[key]=record;
         const firstReward=!save.weeklyRewards[key],weeklyReward=weeklyFirstClearReward(stars,key),reward=firstReward?weeklyReward.reward:0;if(firstReward){save.weeklyRewards[key]=true;save.coins+=reward;recordVkCloudReward(`weekly:${key}`,reward);}
-        persist();showWeeklyWin(stars,reward,improved,pb.comparison,weeklyReward.streak,firstReward?weeklyReward.streakBonus:0);return;
+        persistCheckpoint();showWeeklyWin(stars,reward,improved,pb.comparison,weeklyReward.streak,firstReward?weeklyReward.streakBonus:0);return;
       }
       if(this.mode==='daily'){
         const key=this.dailyKey||todayDailyKey(),prev=save.dailyBest[key]||null,pb=typeof PersonalBestService!=='undefined'?PersonalBestService.finish(this,stars):{record:null,comparison:null},record=pb.record||{stars,switches:this.switches,maxQueue:this.maxObservedQueue};
@@ -2688,7 +2723,7 @@
         const firstReward=!save.dailyRewards[key],streak=firstReward?dailyStreakIfCleared(key):dailyStreakEnding(key,save.dailyRewards);
         const streakBonus=firstReward?Math.min(6,Math.max(0,streak-1))*15:0,reward=firstReward?(120+stars*35+streakBonus):0;
         if(firstReward){save.dailyRewards[key]=true;save.coins+=reward;recordVkCloudReward(`daily:${key}`,reward);}
-        persist(); showDailyWin(stars,reward,improved,streak,streakBonus,pb.comparison); return;
+        persistCheckpoint(); showDailyWin(stars,reward,improved,streak,streakBonus,pb.comparison); return;
       }
       const old=Number(save.starsByLevel[this.level]||0),starImprovement=Math.max(0,stars-old); if(stars>old){save.totalStars+=stars-old;save.starsByLevel[this.level]=stars;}
       const firstClear=TrafficPulseCampaign.firstClear(this.level,old,save);platform.noteCampaignCompletion(firstClear);this.lastCampaignFirstClear=firstClear;
@@ -2716,7 +2751,7 @@
       let unlocked='';
       const availableIndex=CAR_REQUIREMENTS.findIndex((req,i)=>i>0&&req===this.level);
       if(firstClear&&availableIndex>0&&save.level>CAR_REQUIREMENTS[availableIndex]&&!ownedStyleIds().includes(availableIndex))unlocked=T[CAR_NAMES[availableIndex]];
-      const district=firstClear&&save.level>this.level?nextDistrictUnlock(this.level):''; persist(); showWin(stars,reward,unlocked,district,starBonus,flowBonus,priorityBonus,newFlowRecord,missionSuccess,missionBonus,missionMilestoneBonus,unlockedAchievements,achievementBonus,syncBonus,firstClear,starImprovement,rewardedBonus);
+      const district=firstClear&&save.level>this.level?nextDistrictUnlock(this.level):''; persistCheckpoint(); showWin(stars,reward,unlocked,district,starBonus,flowBonus,priorityBonus,newFlowRecord,missionSuccess,missionBonus,missionMilestoneBonus,unlockedAchievements,achievementBonus,syncBonus,firstClear,starImprovement,rewardedBonus);
     },
     async next(){
       if(this.nextPending||platform.adBusy||platform.purchaseBusy)return false;
@@ -5090,6 +5125,25 @@
     return null;
   }
   const HUD_CACHE=Object.create(null);
+  const SIGNAL_PROGRESS_CACHE=Object.create(null);
+  // M204: show the actual clearance countdown in the existing signal buttons.
+  // UI only; no buffered inputs, no change to yellow/all-red simulation rules.
+  function updateSignalProgress(){
+    const total=Game.config?.clearance;
+    const update=(id,controller)=>{
+      // 20 coarse ticks, updated at the regular HUD cadence, not per fixed simulation step.
+      const steps=TrafficPulseGuidance.signalProgressSteps(controller?.transitionTimer,total);
+      // M205: most frames are steady-state; skip DOM lookup as well as the style write.
+      if(SIGNAL_PROGRESS_CACHE[id]===steps)return;
+      const b=$(id);if(!b)return;
+      SIGNAL_PROGRESS_CACHE[id]=steps;
+      b.style.setProperty('--signal-progress',String(steps/20));
+    };
+    if(independentSignals(Game)){
+      update('signal-j0-btn',Game.signalControllers.J0);
+      update('signal-j1-btn',Game.signalControllers.J1);
+    }else update('signal-btn',Game);
+  }
   function setHudText(key,id,value){if(HUD_CACHE[key]===value)return;HUD_CACHE[key]=value;$(id).textContent=value;}
   function phaseLabelText(axis){return axis==='H'?`↔ ${T.phaseH}`:`↕ ${T.phaseV}`;}
 
@@ -5127,14 +5181,15 @@
     if(HUD_CACHE.flowShown!==flowShown){HUD_CACHE.flowShown=flowShown;$('flow-badge').classList.toggle('show',flowShown);}if(HUD_CACHE.hotFlow!==hotFlow){HUD_CACHE.hotFlow=hotFlow;$('flow-badge').classList.toggle('hot',hotFlow);document.querySelector('.game-card')?.classList.toggle('hot-flow',hotFlow);}
     const flowHot=Game.flowStreak>=6;if(HUD_CACHE.flowHot!==flowHot){HUD_CACHE.flowHot=flowHot;document.querySelector('.game-card')?.classList.toggle('flow-hot',flowHot);}
     const signalKey=independentSignals(Game)?`ind:${Object.entries(Game.signalControllers).map(([k,c])=>`${k}:${c.phase}:${c.transitionTimer>0?'t':'s'}`).join('|')}:${lang}`:`${Game.phase}:${Game.transitionTimer>0?'t':'s'}:${lang}`;if(HUD_CACHE.signalKey!==signalKey){HUD_CACHE.signalKey=signalKey;updateSignalIcon();}
+    updateSignalProgress();
     if(typeof PersonalBestService!=='undefined')PersonalBestService.renderBadge(Game);
     // Coalescing bookkeeping. Explicit calls are also treated as a completed refresh, so the rAF
     // loop will not immediately duplicate the same DOM work on the next frame.
     Game.hudDirty=false;Game.lastHudTs=performance.now();Game.hudRefreshCount=(Game.hudRefreshCount||0)+1;
   }
   function updateSignalIcon(){
-    const indicator=$('phase-indicator'),label=$('phase-label'),button=$('signal-btn'),dual=$('greenwave-controls'),panel=$('controls-panel');if(!button)return;const independent=independentSignals(Game);button.classList.toggle('ui-hidden',independent);dual?.classList.toggle('ui-hidden',!independent);panel?.classList.toggle('greenwave-active',independent);
-    if(independent){let anyTransition=false;for(const [id,name] of [['J0',T.greenWaveLeft],['J1',T.greenWaveRight]]){const c=Game.signalControllers[id],b=$(id==='J0'?'signal-j0-btn':'signal-j1-btn'),icon=b?.querySelector('.signal-icon'),txt=$(id==='J0'?'signal-j0-label':'signal-j1-label');if(!b||!icon)continue;const tr=(c.transitionTimer||0)>0;anyTransition=anyTransition||tr;icon.classList.toggle('transition',tr);icon.style.transform=c.phase==='H'?'rotate(0deg)':'rotate(90deg)';b.disabled=tr;b.classList.toggle('ready',!tr);b.setAttribute('aria-busy',tr?'true':'false');const state=tr?T.phaseChanging:phaseLabelText(c.phase);if(txt)txt.textContent=`${name} · ${state}`;b.setAttribute('aria-label',`${name}: ${state}`);}indicator.classList.toggle('transition',anyTransition);label.textContent=`${T.greenWaveLeft}: ${phaseLabelText(Game.signalControllers.J0.phase)} · ${T.greenWaveRight}: ${phaseLabelText(Game.signalControllers.J1.phase)}`;return;}
+    const indicator=$('phase-indicator'),label=$('phase-label'),button=$('signal-btn'),dual=$('greenwave-controls'),panel=$('controls-panel');if(!button)return;updateSignalProgress();const independent=independentSignals(Game);button.classList.toggle('ui-hidden',independent);dual?.classList.toggle('ui-hidden',!independent);panel?.classList.toggle('greenwave-active',independent);
+    if(independent){let anyTransition=false;for(const [id,name] of [['J0',T.greenWaveLeft],['J1',T.greenWaveRight]]){const c=Game.signalControllers[id],b=$(id==='J0'?'signal-j0-btn':'signal-j1-btn'),icon=b?.querySelector('.signal-icon'),txt=$(id==='J0'?'signal-j0-label':'signal-j1-label');if(!b||!icon)continue;const tr=(c.transitionTimer||0)>0;anyTransition=anyTransition||tr;icon.classList.toggle('transition',tr);icon.style.transform=c.phase==='H'?'rotate(0deg)':'rotate(90deg)';b.disabled=tr;b.classList.toggle('ready',!tr);b.setAttribute('aria-busy',tr?'true':'false');const state=tr?(c.pedestrianHold?T.phasePedestrianClearing:T.phaseChanging):phaseLabelText(c.phase);b.dataset.waiting=tr&&c.pedestrianHold?'pedestrians':'';if(txt)txt.textContent=`${name} · ${state}`;b.setAttribute('aria-label',`${name}: ${state}`);}indicator.classList.toggle('transition',anyTransition);label.textContent=`${T.greenWaveLeft}: ${phaseLabelText(Game.signalControllers.J0.phase)} · ${T.greenWaveRight}: ${phaseLabelText(Game.signalControllers.J1.phase)}`;return;}
     const icon=button.querySelector('.signal-icon'),tr=Game.transitionTimer>0;icon?.classList.toggle('transition',tr);indicator.classList.toggle('transition',tr);button.disabled=tr;button.classList.toggle('ready',!tr);button.setAttribute('aria-busy',tr?'true':'false');if(tr){const transitionText=Game.pedestrianHold?T.phasePedestrianClearing:T.phaseChanging;label.textContent=transitionText;button.setAttribute('aria-label',transitionText);return;}if(icon)icon.style.transform=Game.phase==='H'?'rotate(0deg)':'rotate(90deg)';label.textContent=phaseLabelText(Game.phase);button.setAttribute('aria-label',`${T.switchLight}: ${phaseLabelText(Game.phase)}`);
   }
   function toast(msg){const el=$('toast');el.textContent=msg;el.classList.add('show');clearTimeout(toast._t);toast._t=setTimeout(()=>el.classList.remove('show'),1900);}
@@ -5517,7 +5572,7 @@
   }
 
   function showFail(type){
-    $('modal-kicker').textContent='TRAFFIC PULSE';$('modal-title').textContent=type==='crash'?T.crash:T.trafficJam;const baseText=type==='crash'?T.crashText:T.jamText;const willAssist=Game.mode==='campaign'&&(sessionFailCounts.get(Game.level)||0)>=2;$('modal-text').textContent=willAssist?`${baseText} ${T.assistNext}`:baseText;$('modal-stars').textContent='';$('modal-reward').classList.add('hidden');const failExtra=$('modal-extra');failExtra.classList.remove('hidden');failExtra.textContent=type==='crash'?`🎬 ${T.failureReplayCrash}`:`🎬 ${T.failureReplayJam}`;
+    $('modal-kicker').textContent='TRAFFIC PULSE';$('modal-title').textContent=type==='crash'?T.crash:T.trafficJam;const baseText=type==='crash'?T.crashText:T.jamText;const earlyTip=type==='jam'&&firstSessionCoachActive()?T.tutorialCoachOpenWaiting:'';const willAssist=Game.mode==='campaign'&&(sessionFailCounts.get(Game.level)||0)>=2;$('modal-text').textContent=[baseText,earlyTip,willAssist?T.assistNext:''].filter(Boolean).join(' ');$('modal-stars').textContent='';$('modal-reward').classList.add('hidden');const failExtra=$('modal-extra');failExtra.classList.remove('hidden');failExtra.textContent=type==='crash'?`🎬 ${T.failureReplayCrash}`:`🎬 ${T.failureReplayJam}`;
     const failActions=[{text:T.tryAgain,cls:'primary',fn:()=>Game.restart()}];if(Game.mode!=='greenwave'&&(Game.failureReplayFrames?.length||0)>=2)failActions.push({text:`🎬 ${T.failureReplay}`,fn:()=>Game.playFailureReplay()});actions(failActions);openOverlay('fail');
   }
   async function claimWinRewardedCoins(bonus,baseReward,button){
@@ -5526,7 +5581,7 @@
     try{
       const rewarded=await platform.showRewarded();if(!rewarded){toast(T.adUnavailable);return false;}
       if(Game.rewardedWinClaimed)return true;
-      Game.rewardedWinClaimed=true;save.coins+=amount;persist();updateHud();
+      Game.rewardedWinClaimed=true;save.coins+=amount;persistCheckpoint();updateHud();
       const rw=$('modal-reward');if(rw){rw.textContent=`+${Math.max(0,baseReward)+amount} ${T.coins}`;rw.classList.remove('hidden');}
       if(button){button.textContent=`✓ +${amount} ${T.coins}`;button.disabled=true;}
       toast(`${T.adCoinsAdded}: +${amount} ${T.coins}`);return true;
@@ -5534,10 +5589,25 @@
       Game.rewardedWinClaiming=false;if(button&&!Game.rewardedWinClaimed)button.disabled=false;
     }
   }
+  // M211: one actionable, localized hint about the current run's next star.
+  // Does not alter any scoring thresholds, progression or coin rewards.
+  function campaignStarFeedbackText(stars,game=Game){
+    const tip=TrafficPulseGuidance.campaignStarFeedback(stars,game,game?.config);
+    if(!tip)return '';
+    if(tip.kind==='queue')return lang==='ru'
+      ?`Для ${tip.targetStars}★: пик очереди не выше ${tip.target} (сейчас ${tip.actual})`
+      :`For ${tip.targetStars}★: peak queue at most ${tip.target} (now ${tip.actual})`;
+    if(tip.kind==='switches')return lang==='ru'
+      ?`Для 3★: не более ${tip.target} переключений (сейчас ${tip.actual})`
+      :`For 3★: no more than ${tip.target} switches (now ${tip.actual})`;
+    return lang==='ru'
+      ?'Для 3★ пройди уровень без спасения или адаптивной помощи'
+      :'For 3★, clear the level without rescue or adaptive assist';
+  }
   function showWin(stars,reward,unlocked,district,starBonus=0,flowBonus=0,priorityBonus=0,newFlowRecord=false,missionSuccess=false,missionBonus=0,missionMilestoneBonus=0,unlockedAchievements=[],achievementBonus=0,syncBonus=0,firstClear=true,starImprovement=0,rewardedBonus=0){
-    $('modal-kicker').textContent='TRAFFIC PULSE';$('modal-title').textContent=stars===3?T.perfect:stars===2?T.good:T.survived;$('modal-text').textContent=T.completeText;$('modal-stars').textContent='⭐'.repeat(stars)+'☆'.repeat(3-stars);
+    $('modal-kicker').textContent='TRAFFIC PULSE';$('modal-title').textContent=stars===3?T.perfect:stars===2?T.good:T.survived;const nextLesson=firstSessionNextLesson(Game.level,firstClear);$('modal-text').textContent=nextLesson?`${T.completeText} ${T.next}: ${nextLesson}`:T.completeText;$('modal-stars').textContent='⭐'.repeat(stars)+'☆'.repeat(3-stars);
     const rw=$('modal-reward');if(reward>0){rw.textContent=`+${reward} ${T.coins}`;rw.classList.remove('hidden');}else{rw.textContent='';rw.classList.add('hidden');}
-    const extra=$('modal-extra');const extras=[`🚦 ${T.queueShort}: ${Game.maxObservedQueue} · ${T.switchesShort}: ${Game.switches}`];if(firstClear)extras.push(`🪙 ${T.campaignFirstClear}`);else extras.push(`↻ ${T.campaignBaseAlreadyPaid}`);if(!firstClear&&starImprovement)extras.push(`⭐ ${T.campaignStarImprove}: +${starImprovement*15} ${T.coins}`);if(starBonus)extras.push(`⭐ ${T.starBonus}: +${starBonus} ${T.coins}`);if(flowBonus)extras.push(`⚡ ${T.flowBonus}: +${flowBonus} ${T.coins}`);if(priorityBonus)extras.push(`🚑 ${T.priorityBonus}: +${priorityBonus} ${T.coins}`);if(syncBonus)extras.push(`⚡ ${T.syncBonus}: +${syncBonus} ${T.coins}`);if(newFlowRecord)extras.push(`⚡ ${T.newFlowRecord}: ×${save.bestFlow}`);if(missionSuccess)extras.push(`🎯 ${T.missionDone}${missionBonus?`: +${missionBonus} ${T.coins}`:''}`);if(missionMilestoneBonus)extras.push(`🏆 ${T.missionMilestone}: +${missionMilestoneBonus} ${T.coins}`);if(Game.lastMedalResult){extras.push(`🏅 ${T.medals}: ${Game.lastMedalResult.count}/3`);if(Game.lastMedalResult.newCount)extras.push(`✨ ${T.medalNew}: ${Game.lastMedalResult.newLabels.join(', ')}`);}if(unlockedAchievements.length)extras.push(`🏅 ${T.achievement}: ${unlockedAchievements.map(a=>a.label).join(', ')}${achievementBonus?` · +${achievementBonus} ${T.coins}`:''}`);if(unlocked)extras.push(`🚗 ${T.newCar} ${unlocked}`);if(district)extras.push(`🌆 ${T.newDistrict} ${district}`);if(Game.mode==='campaign'){const cityNow=districtGrowthSummaryForLevel(Game.level),cityBefore=firstClear?districtGrowthSummaryForLevel(Game.level,-1):cityNow;if(firstClear&&cityNow.stage>cityBefore.stage)extras.push(`🏙️ ${T.cityGrowthWin}: ${T[cityNow.labelKey]}`);else extras.push(`🏙️ ${T.cityGrowth}: ${cityNow.completed}/${cityNow.total} · ${T[cityNow.labelKey]}`);extras.push(`🗺️ ${T.campaignNextReward}: ${campaignNextGoalText()}`);}extra.textContent=extras.join('  •  ');extra.classList.toggle('hidden',extras.length===0);
+    const extra=$('modal-extra');const extras=[`🚦 ${T.queueShort}: ${Game.maxObservedQueue} · ${T.switchesShort}: ${Game.switches}`];const starTip=campaignStarFeedbackText(stars);if(starTip)extras.push(`⭐ ${starTip}`);if(firstClear)extras.push(`🪙 ${T.campaignFirstClear}`);else extras.push(`↻ ${T.campaignBaseAlreadyPaid}`);if(!firstClear&&starImprovement)extras.push(`⭐ ${T.campaignStarImprove}: +${starImprovement*15} ${T.coins}`);if(starBonus)extras.push(`⭐ ${T.starBonus}: +${starBonus} ${T.coins}`);if(flowBonus)extras.push(`⚡ ${T.flowBonus}: +${flowBonus} ${T.coins}`);if(priorityBonus)extras.push(`🚑 ${T.priorityBonus}: +${priorityBonus} ${T.coins}`);if(syncBonus)extras.push(`⚡ ${T.syncBonus}: +${syncBonus} ${T.coins}`);if(newFlowRecord)extras.push(`⚡ ${T.newFlowRecord}: ×${save.bestFlow}`);if(missionSuccess)extras.push(`🎯 ${T.missionDone}${missionBonus?`: +${missionBonus} ${T.coins}`:''}`);if(missionMilestoneBonus)extras.push(`🏆 ${T.missionMilestone}: +${missionMilestoneBonus} ${T.coins}`);if(Game.lastMedalResult){extras.push(`🏅 ${T.medals}: ${Game.lastMedalResult.count}/3`);if(Game.lastMedalResult.newCount)extras.push(`✨ ${T.medalNew}: ${Game.lastMedalResult.newLabels.join(', ')}`);}if(unlockedAchievements.length)extras.push(`🏅 ${T.achievement}: ${unlockedAchievements.map(a=>a.label).join(', ')}${achievementBonus?` · +${achievementBonus} ${T.coins}`:''}`);if(unlocked)extras.push(`🚗 ${T.newCar} ${unlocked}`);if(district)extras.push(`🌆 ${T.newDistrict} ${district}`);if(Game.mode==='campaign'){const cityNow=districtGrowthSummaryForLevel(Game.level),cityBefore=firstClear?districtGrowthSummaryForLevel(Game.level,-1):cityNow;if(firstClear&&cityNow.stage>cityBefore.stage)extras.push(`🏙️ ${T.cityGrowthWin}: ${T[cityNow.labelKey]}`);else extras.push(`🏙️ ${T.cityGrowth}: ${cityNow.completed}/${cityNow.total} · ${T[cityNow.labelKey]}`);extras.push(`🗺️ ${T.campaignNextReward}: ${campaignNextGoalText()}`);}extra.textContent=extras.join('  •  ');extra.classList.toggle('hidden',extras.length===0);
     const winActions=[{text:T.next,cls:'primary',fn:()=>Game.next()}];if(rewardedBonus>0&&!Game.rewardedWinClaimed)winActions.push({text:`${T.adDoubleCoins} +${rewardedBonus} ${T.coins}`,cls:'rewarded-action',fn:(b)=>void claimWinRewardedCoins(rewardedBonus,reward,b)});winActions.push({text:`🗺️ ${T.campaignMap}`,fn:()=>showCampaignMap('result',save.level)});actions(winActions);openOverlay('win');
   }
   function actions(items){const box=$('modal-actions');box.innerHTML='';items.forEach(it=>{const b=document.createElement('button');b.type='button';b.textContent=it.text;b.className=it.cls||'';b.onclick=()=>it.fn?.(b);box.appendChild(b);});}
@@ -5590,11 +5660,26 @@
     const state=String(AudioFx.ctx?.state||'');
     if(!AudioFx.ctx||AudioFx.needsGestureResume||state==='suspended'||state==='interrupted'||state==='closed'){YandexAudit.state.audio.gestureFallbacks++;YandexAudit.mark('audio:gesture-fallback',state||'none');AudioFx.ensure();}
   },{capture:true,passive:true});
-  $('signal-btn').addEventListener('click',()=>{AudioFx.ensure();Game.toggle();});
-  canvas.addEventListener('pointerup',(e)=>{if(e.isPrimary===false||e.button!==0)return;e.preventDefault();AudioFx.ensure();if(independentSignals(Game)){toast(T.greenWaveChoose);return;}Game.toggle();});
-  $('signal-j0-btn')?.addEventListener('click',()=>{AudioFx.ensure();Game.toggle('J0');});$('signal-j1-btn')?.addEventListener('click',()=>{AudioFx.ensure();Game.toggle('J1');});
+  let lastClearanceHintAt=-Infinity;
+  function togglePlayerSignal(junctionId=null){
+    if(Game.toggle(junctionId))return true;
+    // Canvas and keyboard remain clickable while the existing button is disabled.
+    // Explain why the input was ignored, without queuing an unexpected future switch.
+    const c=independentSignals(Game)?Game.signalControllers?.[junctionId]:Game;
+    if(Game.state==='playing'&&!Game.userPaused&&!Game.externalPaused&&(c?.transitionTimer||0)>0){
+      const now=performance.now();
+      if(now-lastClearanceHintAt>=1000){
+        lastClearanceHintAt=now;
+        toast(c.pedestrianHold?T.phasePedestrianClearing:T.phaseChanging);
+      }
+    }
+    return false;
+  }
+  $('signal-btn').addEventListener('click',()=>{AudioFx.ensure();togglePlayerSignal();});
+  canvas.addEventListener('pointerup',(e)=>{if(e.isPrimary===false||e.button!==0)return;e.preventDefault();AudioFx.ensure();if(independentSignals(Game)){toast(T.greenWaveChoose);return;}togglePlayerSignal();});
+  $('signal-j0-btn')?.addEventListener('click',()=>{AudioFx.ensure();togglePlayerSignal('J0');});$('signal-j1-btn')?.addEventListener('click',()=>{AudioFx.ensure();togglePlayerSignal('J1');});
   $('restart-btn').addEventListener('click',()=>Game.restart());$('hint-btn').addEventListener('click',()=>Game.hint());$('pause-btn').addEventListener('click',()=>Game.pause());
-  document.addEventListener('keydown',(e)=>{if(trapOverlayFocus(e))return;if(e.key==='Escape'){if(Game.userPaused)Game.resume();else if(!overlayVisible())Game.pause();return;}if(overlayVisible())return;if(independentSignals(Game)&&(e.key==='1'||e.code==='Digit1')){e.preventDefault();AudioFx.ensure();Game.toggle('J0');}else if(independentSignals(Game)&&(e.key==='2'||e.code==='Digit2')){e.preventDefault();AudioFx.ensure();Game.toggle('J1');}else if(e.code==='Space'){e.preventDefault();AudioFx.ensure();if(independentSignals(Game))toast(T.greenWaveChoose);else Game.toggle();}else if(e.key.toLowerCase()==='r')Game.restart();});
+  document.addEventListener('keydown',(e)=>{if(trapOverlayFocus(e))return;if(e.key==='Escape'){if(Game.userPaused)Game.resume();else if(!overlayVisible())Game.pause();return;}if(overlayVisible())return;if(independentSignals(Game)&&(e.key==='1'||e.code==='Digit1')){e.preventDefault();AudioFx.ensure();togglePlayerSignal('J0');}else if(independentSignals(Game)&&(e.key==='2'||e.code==='Digit2')){e.preventDefault();AudioFx.ensure();togglePlayerSignal('J1');}else if(e.code==='Space'){e.preventDefault();AudioFx.ensure();if(independentSignals(Game))toast(T.greenWaveChoose);else togglePlayerSignal();}else if(e.key.toLowerCase()==='r')Game.restart();});
   function pauseForFocusLoss(commitManual=true){
     const manualPause=commitManual&&Game.state==='playing'&&!Game.userPaused&&!platform.adBusy&&!platform.adPaused;
     platform.browserPaused=true;
