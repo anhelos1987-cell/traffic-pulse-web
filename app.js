@@ -2198,14 +2198,16 @@
     updateSignalControllers(dt){
       const laneCount=Math.max(1,this.config?.lanes||1),linked=isLinkedJunctionType(this.config?.junctionType);
       if(independentSignals(this)){
-        let changed=false;for(const [junctionId,c] of Object.entries(this.signalControllers)){
+        // M210: exactly two Green Wave controllers; avoid allocating Object.entries
+        // on every 60Hz update. Preserve the J0 then J1 transition order.
+        let changed=false;for(let i=0;i<2;i++){const junctionId=i===0?'J0':'J1',c=this.signalControllers[junctionId];
           if((c.transitionTimer||0)<=0)continue;c.transitionTimer-=dt;if(c.transitionTimer>0)continue;
           const blockedByPedestrians=Boolean(c.pendingPhase&&this.pedestriansOnAxis(c.pendingPhase,junctionId));
           const blockedByCommittedVehicle=Boolean(c.pendingPhase&&this.cars.some(v=>v.axis!==c.pendingPhase&&(v.linkedCommittedJunction===junctionId||linkedJunctionInside(v,junctionId,laneCount))));
           if(blockedByPedestrians||blockedByCommittedVehicle){c.transitionTimer=.04;if(c.pedestrianHold!==blockedByPedestrians){c.pedestrianHold=blockedByPedestrians;changed=true;}continue;}
           c.transitionTimer=0;c.phase=c.pendingPhase||c.phase;c.pendingPhase=null;c.phaseElapsed=0;c.pedestrianHold=false;changed=true;
         }
-        const j0=this.signalControllers.J0;this.phase=j0.phase;this.pendingPhase=j0.pendingPhase;this.transitionTimer=Math.max(...Object.values(this.signalControllers).map(c=>c.transitionTimer||0));this.pedestrianHold=Object.values(this.signalControllers).some(c=>c.pedestrianHold);if(changed){updateSignalIcon();updateHud();}return;
+        const j0=this.signalControllers.J0,j1=this.signalControllers.J1;this.phase=j0.phase;this.pendingPhase=j0.pendingPhase;this.transitionTimer=Math.max(j0.transitionTimer||0,j1.transitionTimer||0);this.pedestrianHold=Boolean(j0.pedestrianHold||j1.pedestrianHold);if(changed){updateSignalIcon();updateHud();}return;
       }
       if(this.transitionTimer<=0)return;this.transitionTimer-=dt;if(this.transitionTimer>0)return;
       const blockedByPedestrians=Boolean(this.pendingPhase&&this.pedestriansOnAxis(this.pendingPhase));const centerStart=365;
@@ -2466,16 +2468,25 @@
       // The player's existing H/V signal still meters entry; once a car is on the circle it keeps priority.
       let roundaboutOwner=roundabout&&this.roundaboutOwnerId?this.cars.find(c=>c.id===this.roundaboutOwnerId):null;
       if(roundaboutOwner&&!roundaboutOccupiesCircle(roundaboutOwner,laneCount)&&roundaboutOwner.progress>roundaboutRouteEndProgress(roundaboutOwner,laneCount)){this.roundaboutOwnerId=null;roundaboutOwner=null;}
-      if(roundabout&&!roundaboutOwner&&active){const candidates=this.cars.filter(c=>c.axis===active&&c.progress>=stopTargetProgress(c,laneCount)-26&&c.progress<turnBounds.start&&!this.pedestriansOnAxis(c.axis)).sort((a,b)=>(b.progress-a.progress)||(a.id-b.id));if(candidates[0]){roundaboutOwner=candidates[0];this.roundaboutOwnerId=roundaboutOwner.id;}}
+      if(roundabout&&!roundaboutOwner&&active){
+        // Preserve the greatest-progress / lowest-ID reservation without filter+sort.
+        for(const c of this.cars){
+          if(c.axis!==active||c.progress<stopTargetProgress(c,laneCount)-26||c.progress>=turnBounds.start||this.pedestriansOnAxis(c.axis))continue;
+          if(!roundaboutOwner||c.progress>roundaboutOwner.progress||(c.progress===roundaboutOwner.progress&&c.id<roundaboutOwner.id))roundaboutOwner=c;
+        }
+        if(roundaboutOwner)this.roundaboutOwnerId=roundaboutOwner.id;
+      }
 
       // One protected turning slot at a time. This keeps left/right turns readable and prevents
       // same-phase trajectories from cutting through each other without adding another control.
       let turnOwner=!roundabout&&this.turnOwnerId?this.cars.find(c=>c.id===this.turnOwnerId):null;
       if(turnOwner&&(!active||turnOwner.axis!==active||turnOwner.progress>turnBounds.end+16)){this.turnOwnerId=null;turnOwner=null;}
       if(!roundabout&&!turnOwner&&active&&!this.cars.some(c=>c.inside)){
-        const candidates=this.cars.filter(c=>c.turn&&c.turn!=='straight'&&c.axis===active&&c.progress>=stopTargetProgress(c,laneCount)-22&&c.progress<centerStart&&!this.pedestriansOnAxis(AXIS[c.turnOutDir||turnExitDir(c.dir,c.turn)]))
-          .sort((a,b)=>(b.progress-a.progress)||(a.id-b.id));
-        if(candidates[0]){turnOwner=candidates[0];this.turnOwnerId=turnOwner.id;}
+        for(const c of this.cars){
+          if(!c.turn||c.turn==='straight'||c.axis!==active||c.progress<stopTargetProgress(c,laneCount)-22||c.progress>=centerStart||this.pedestriansOnAxis(AXIS[c.turnOutDir||turnExitDir(c.dir,c.turn)]))continue;
+          if(!turnOwner||c.progress>turnOwner.progress||(c.progress===turnOwner.progress&&c.id<turnOwner.id))turnOwner=c;
+        }
+        if(turnOwner)this.turnOwnerId=turnOwner.id;
       }
 
       // Smooth parking-lot merges and visible lane changes are presentation + traffic-flow features.
@@ -2519,8 +2530,11 @@
       // A service vehicle keeps priority until its whole body leaves the conflict zone. Its
       // progress can pass centerEnd while a wide road still places the body across another lane.
       const heldEmergency=this.cars.find(c=>c.id===this.emergencyPriorityId&&isEmergencyVehicle(c)&&c.inside);
-      let emergencyOwner=heldEmergency||this.cars.filter(c=>isEmergencyVehicle(c)&&signalStateForAxis(c.axis,this)==='red'&&c.progress>=stopTargetProgress(c,laneCount)-150&&c.progress<centerEnd+32)
-        .sort((a,b)=>(b.progress-a.progress)||(a.id-b.id))[0]||null;
+      let emergencyOwner=heldEmergency||null;
+      if(!emergencyOwner)for(const c of this.cars){
+        if(!isEmergencyVehicle(c)||signalStateForAxis(c.axis,this)!=='red'||c.progress<stopTargetProgress(c,laneCount)-150||c.progress>=centerEnd+32)continue;
+        if(!emergencyOwner||c.progress>emergencyOwner.progress||(c.progress===emergencyOwner.progress&&c.id<emergencyOwner.id))emergencyOwner=c;
+      }
       this.emergencyPriorityId=emergencyOwner?.id||null;
       for(const c of this.cars)c.emergencyPriorityActive=false;
 
