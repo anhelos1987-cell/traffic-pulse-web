@@ -106,6 +106,16 @@ try{
         assert.ok(pauseMetrics.scrollHeight<=pauseMetrics.clientHeight+2,
           'desktop pause should fit without internal scrolling: '+JSON.stringify(pauseMetrics));
       }
+      if(viewport.width===390&&viewport.height===844){
+        assert.equal(pauseMetrics.columns,2,'phone portrait pause should fit two secondary action columns');
+        assert.ok(pauseMetrics.scrollHeight<=pauseMetrics.clientHeight+2,
+          'portrait pause should fit all actions: '+JSON.stringify(pauseMetrics));
+      }
+      if(viewport.width===844&&viewport.height===390){
+        assert.equal(pauseMetrics.columns,3,'phone landscape pause should use a compact 3-column grid');
+        assert.ok(pauseMetrics.scrollHeight<=pauseMetrics.clientHeight+2,
+          'landscape pause should fit all actions: '+JSON.stringify(pauseMetrics));
+      }
       await mkdir(resolve(root,'artifacts/browser-smoke'),{recursive:true});
       await page.screenshot({path:resolve(root,'artifacts/browser-smoke',viewport.width+'x'+viewport.height+'-pause.png'),fullPage:false});
       console.log('PASS M214 pause layout',viewport.width+'x'+viewport.height,pauseMetrics);
