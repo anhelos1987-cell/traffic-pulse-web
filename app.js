@@ -204,7 +204,7 @@
       }
       this.node.textContent='FPS ~'+snapshot.fps+'   p95 '+snapshot.p95Ms+' ms'+
         '\nSlow frames '+snapshot.slowFramesPct+'%   Draw p95 '+snapshot.drawP95Ms+' ms'+
-        '\\nQuality '+['Low','Medium','High'][quality];
+        '\nQuality '+['Low','Medium','High'][quality];
     }
   };
 
