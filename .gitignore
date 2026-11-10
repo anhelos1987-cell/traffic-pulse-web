@@ -6,6 +6,7 @@
 *.db
 *.db-*
 node_modules/
+artifacts/
 
 __pycache__/
 *.pyc
