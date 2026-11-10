@@ -53,10 +53,10 @@ test('M207: 20-step clearance meter handles steady, half and invalid durations d
 
 test('M207: script load order and asset cache keys include the extracted policy',()=>{
   const iGuidance=html.indexOf('src="player-guidance-core.js?v=M211"');
-  const iApp=html.indexOf('src="app.js?v=M219-VKGAMES-CAMPAIGN-READABILITY-RC"');
+  const iApp=html.indexOf('src="app.js?v=M220-VKGAMES-JAM-RECOVERY-RC"');
   assert.ok(iGuidance>0&&iApp>iGuidance);
   assert.match(html,/href="style\.css\?v=M216-VKGAMES-RC"/);
-  assert.match(app,/const BUILD_VERSION = 'M219-VKGAMES-CAMPAIGN-READABILITY-RC';/);
+  assert.match(app,/const BUILD_VERSION = 'M220-VKGAMES-JAM-RECOVERY-RC';/);
   assert.match(html,/src="vk-games\.js\?v=M209-VKGAMES-CLOUD-RC"/);
   assert.match(app,/TrafficPulseGuidance\.nextLessonLevel\(/);
   assert.match(app,/TrafficPulseGuidance\.firstSessionActive\(/);

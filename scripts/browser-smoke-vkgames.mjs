@@ -350,7 +350,7 @@ try{
         const cueCleared=!texts.some(([text])=>text==='Waiting for pedestrians'||text==='Ждём пешеходов');
         game.startLevel(6);game.externalPaused=false;
         game.config.maxQueue=1;
-        for(let i=0;i<65&&game.state==='playing';i++)game.update(1/60);
+        for(let i=0;i<180&&game.state==='playing';i++)game.update(1/60);
         texts.length=0;game.draw();
         return {bottomQueue,firstWave,waitCue,holding,cueCleared,jam:game.lastFailType==='jam',
           jamText:document.querySelector('#modal-text').textContent,
@@ -361,6 +361,61 @@ try{
     assert.ok(cue.bottomQueue&&cue.waitCue&&cue.holding&&cue.cueCleared&&cue.jam&&cue.jamBadge,JSON.stringify(cue));
     assert.match(cue.jamText,/bottom approach\. Vehicles: 2, limit: 1|снизу\. Машин: 2, лимит: 1/);
     console.log('PASS M219 playable openings, pedestrian hold and jam direction',openingChecks,cue);
+
+    const jam=await winPage.evaluate(()=>{
+      const {game}=window.__tpQA;
+      const step=()=>game.update(1/60);
+      function until(predicate,limit=200){
+        for(let i=0;i<limit&&!predicate()&&game.state==='playing';i++)step();
+      }
+      function start(level,mode='campaign'){
+        game.startLevel(level,false,mode);
+        game.externalPaused=false;
+      }
+      start(6);
+      game.config.maxQueue=1;
+      until(()=>game.jamRecovery);
+      const startedAt=game.elapsed,deadline=game.jamRecovery.deadline;
+      const original=CanvasRenderingContext2D.prototype.fillText,labels=[];
+      CanvasRenderingContext2D.prototype.fillText=function(text,x,y,...rest){
+        labels.push([text,x,y]);
+        return original.call(this,text,x,y,...rest);
+      };
+      try{game.draw();}finally{CanvasRenderingContext2D.prototype.fillText=original;}
+      const badge=labels.some(([text,x,y])=>text==='2/1'&&x===450&&y===782)&&
+        labels.some(([text,x,y])=>['1.5s','1,5 с'].includes(text)&&x===450&&y===810);
+      game.userPaused=true;
+      for(let i=0;i<120;i++)step();
+      const froze=game.elapsed===startedAt&&game.jamRecovery.deadline===deadline;
+      game.userPaused=false;
+      const switched=game.toggle();step();
+      const switchDeadline=game.jamRecovery.deadline;
+      until(()=>!game.jamRecovery);
+      const saved=game.state==='playing'&&!game.jamRecovery&&game.maxObservedQueue===2;
+
+      start(6);game.config.maxQueue=1;
+      until(()=>game.jamRecovery);
+      const lostStart=game.elapsed;
+      until(()=>game.state==='failed');
+      const timeout=game.elapsed-lostStart;
+      const expired=game.lastFailType==='jam'&&game.failedQueue?.dir==='N'&&!game.jamRecovery;
+      const failCopy=document.querySelector('#modal-text').textContent;
+
+      start(103);until(()=>game.jamRecovery,600);
+      const naturalOverload=game.jamRecovery&&game.maxObservedQueue>game.config.maxQueue;
+      until(()=>!game.jamRecovery);
+      const naturalRecovery=game.state==='playing'&&!game.jamRecovery;
+
+      start(28,'daily');game.config.maxQueue=0;
+      until(()=>game.maxObservedQueue>0,600);
+      const dailyImmediate=game.maxObservedQueue>0&&game.lastFailType==='jam'&&!game.jamRecovery;
+      return {badge,froze,switched,extension:switchDeadline-deadline,saved,expired,timeout,failCopy,naturalOverload,naturalRecovery,dailyImmediate};
+    });
+    assert.ok(jam.badge&&jam.froze&&jam.switched&&jam.saved&&jam.expired,JSON.stringify(jam));
+    assert.ok(Math.abs(jam.extension-1.5)<1e-7&&Math.abs(jam.timeout-1.5)<1e-7,JSON.stringify(jam));
+    assert.ok(jam.naturalOverload&&jam.naturalRecovery&&jam.dailyImmediate,JSON.stringify(jam));
+    assert.match(jam.failCopy,/Time to clear the queue ran out|Время на разгрузку вышло/);
+    console.log('PASS M220 jam recovery, clearance allowance, pause and timeout',jam);
     assert.deepEqual(winErrors,[],'real win page must have zero errors');
   }finally{await winPage.close();}
 }finally{

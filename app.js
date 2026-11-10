@@ -13,7 +13,7 @@
   }catch(_){}
 
   const BUILD_MODE = 'production';
-  const BUILD_VERSION = 'M219-VKGAMES-CAMPAIGN-READABILITY-RC';
+  const BUILD_VERSION = 'M220-VKGAMES-JAM-RECOVERY-RC';
   const IS_DEVELOPMENT = BUILD_MODE === 'development';
   const PLATFORM_TARGET = 'vkgames'; // VK Games / VK Mini Apps, not VK Play
   const YANDEX_PUBLIC_LEADERBOARD_NAME = 'TrafficPulseStars';
@@ -1025,6 +1025,8 @@
 
   const DIRS = ['N','S','E','W'];
   const AXIS = { N:'V', S:'V', E:'H', W:'H' };
+  const CAMPAIGN_JAM_GRACE_SECONDS = 1.5;
+  const CAMPAIGN_JAM_SWITCH_SECONDS = 1.5;
   const COLORS = ['#ff5964','#55d5ff','#ffd166','#7be495','#b28cff','#ff9f68','#f6f7fb','#31d2b3'];
   const CAR_NAMES = ['car1','car2','car3','car4','car5','car6','car7','car8','car9','car10'];
   const CAR_COSTS = [0,180,330,580,850,1200,1750,2500,3500,5000];
@@ -2083,7 +2085,7 @@
 
   const Game = {
     state:'boot', mode:'campaign', dailyKey:'', weeklyKey:'', scenarioId:'', scenarioDirector:null, incidentDirector:null, greenWaveId:'', greenWaveDirector:null, signalMode:'shared', signalControllers:null, greenWaveStats:null, level:save.level, config:null, cars:[], spawned:0, exited:0, phase:'H', pendingPhase:null, transitionTimer:0, endlessWave:0, endlessScore:0, endlessSessionSeed:0,
-    switches:0, spawnTimer:0, maxObservedQueue:0, elapsed:0, externalPaused:false, userPaused:false, rescueUsed:false, assistActive:false,
+    switches:0, spawnTimer:0, maxObservedQueue:0, jamRecovery:null, elapsed:0, externalPaused:false, userPaused:false, rescueUsed:false, assistActive:false,
     firstInput:false, tutorialCueTimer:0, noticeTimers:[], failureUiTimer:0, coachFlags:{}, crashPair:null, crashFx:null, cameraKick:0, turnOwnerId:null, roundaboutOwnerId:null, rng:Math.random, lastTs:0, lastDrawTs:0, lastHudTs:0, hudDirty:true, hudRefreshCount:0, frameId:0, accumulator:0, renderAlpha:1, particles:[], pedestrians:[], pedestrianSerial:0, pedestrianSpawnTimer:.4, pedestrianHold:false, phaseElapsed:0, emergencyPriorityId:null, flowStreak:0, maxFlowStreak:0, syncStreak:0, maxSyncStreak:0, prioritySaved:0, mission:null, lastMedalResult:null, lastPassAt:-99, failureReplayFrames:[], failureReplayClock:0, replayPlayback:null, replayTimer:0, lastFailType:'', failedQueue:null, lastCampaignFirstClear:false, rewardedWinClaimed:false, rewardedWinClaiming:false, rewardedWinBonus:0,
 
     clearNoticeTimers(){for(const id of this.noticeTimers||[])clearTimeout(id);this.noticeTimers=[];},
@@ -2105,7 +2107,7 @@
       this.rng=seeded(this.config.seed); this.cars=[]; this.spawned=0; this.exited=0;
       this.phase=this.config.startPhase; this.pendingPhase=null; this.transitionTimer=0; this.switches=0; this.spawnTimer=.42; this.phaseElapsed=0; this.pedestrians=[]; this.pedestrianSerial=0; this.pedestrianSpawnTimer=this.config.opening?.firstPedestrianDelay??.38; this.pedestrianHold=false; this.emergencyPriorityId=null; AudioFx.stopTransientAudio();AudioFx.refreshMusicTheme();
       this.maxObservedQueue=0; this.elapsed=0; this.accumulator=0; this.renderAlpha=1; this.state='playing'; this.externalPaused=Boolean(platform.pausedByPlatform||platform.browserPaused||platform.adPaused||platform.paymentPaused); this.userPaused=false;
-      this.rescueUsed=rescued; this.crashPair=null; this.crashFx=null; this.cameraKick=0; this.turnOwnerId=null; this.particles=[]; this.flowStreak=0; this.maxFlowStreak=0; this.prioritySaved=0; this.lastPassAt=-99; this.failureReplayFrames=[];this.failureReplayClock=0;this.replayPlayback=null;clearTimeout(this.replayTimer);this.lastFailType='';this.failedQueue=null; this.lastCampaignFirstClear=false;this.rewardedWinClaimed=false;this.rewardedWinClaiming=false;this.rewardedWinBonus=0; this.firstInput=this.mode!=='campaign'||this.level>1; this.coachFlags={};
+      this.rescueUsed=rescued; this.crashPair=null; this.crashFx=null; this.cameraKick=0; this.turnOwnerId=null; this.particles=[]; this.flowStreak=0; this.maxFlowStreak=0; this.prioritySaved=0; this.lastPassAt=-99; this.failureReplayFrames=[];this.failureReplayClock=0;this.replayPlayback=null;clearTimeout(this.replayTimer);this.lastFailType='';this.failedQueue=null;this.jamRecovery=null; this.lastCampaignFirstClear=false;this.rewardedWinClaimed=false;this.rewardedWinClaiming=false;this.rewardedWinBonus=0; this.firstInput=this.mode!=='campaign'||this.level>1; this.coachFlags={};
       if(typeof PersonalBestService!=='undefined')PersonalBestService.begin(this.mode,this.mode==='daily'?this.dailyKey:this.mode==='weekly'?this.weeklyKey:'',this.config,this);
       clearTimeout(this.tutorialCueTimer);this.tutorialCueTimer=0;
       const cue=this.mode==='campaign'?tutorialCueForLevel(this.level):'',hint=$('tap-hint');
@@ -2125,7 +2127,7 @@
       const def=scenarioDefinition(id);if(!def){toast(T.scenarioMode);return false;}if(!scenarioUnlocked(def)){toast(T.scenarioLocked);return false;}
       this.mode='scenario';this.scenarioId=def.id;this.incidentDirector=null;this.greenWaveId='';this.greenWaveDirector=null;this.signalMode='shared';this.signalControllers=null;this.greenWaveStats=null;this.dailyKey='';this.weeklyKey='';this.level=def.board.level;this.config=scenarioConfig(def);this.scenarioDirector=createScenarioDirector(def);this.assistActive=false;this.mission=null;
       this.rng=seeded(def.seed);this.cars=[];this.spawned=0;this.exited=0;this.phase=this.config.startPhase;this.pendingPhase=null;this.transitionTimer=0;this.switches=0;this.spawnTimer=.42;this.phaseElapsed=0;this.pedestrians=[];this.pedestrianSerial=0;this.pedestrianSpawnTimer=99;this.pedestrianHold=false;this.emergencyPriorityId=null;this.roundaboutOwnerId=null;AudioFx.stopTransientAudio();AudioFx.refreshMusicTheme();
-      this.maxObservedQueue=0;this.elapsed=0;this.accumulator=0;this.renderAlpha=1;this.state='playing';this.externalPaused=Boolean(platform.pausedByPlatform||platform.browserPaused||platform.adPaused||platform.paymentPaused);this.userPaused=false;this.rescueUsed=rescued;this.crashPair=null;this.crashFx=null;this.cameraKick=0;this.turnOwnerId=null;this.particles=[];this.flowStreak=0;this.maxFlowStreak=0;this.syncStreak=0;this.maxSyncStreak=0;this.prioritySaved=0;this.lastPassAt=-99;this.failureReplayFrames=[];this.failureReplayClock=0;this.replayPlayback=null;clearTimeout(this.replayTimer);this.lastFailType='';this.failedQueue=null;this.firstInput=true;if(typeof PersonalBestService!=='undefined')PersonalBestService.clear();
+      this.maxObservedQueue=0;this.elapsed=0;this.accumulator=0;this.renderAlpha=1;this.state='playing';this.externalPaused=Boolean(platform.pausedByPlatform||platform.browserPaused||platform.adPaused||platform.paymentPaused);this.userPaused=false;this.rescueUsed=rescued;this.crashPair=null;this.crashFx=null;this.cameraKick=0;this.turnOwnerId=null;this.particles=[];this.flowStreak=0;this.maxFlowStreak=0;this.syncStreak=0;this.maxSyncStreak=0;this.prioritySaved=0;this.lastPassAt=-99;this.failureReplayFrames=[];this.failureReplayClock=0;this.replayPlayback=null;clearTimeout(this.replayTimer);this.lastFailType='';this.failedQueue=null;this.jamRecovery=null;this.firstInput=true;if(typeof PersonalBestService!=='undefined')PersonalBestService.clear();
       clearTimeout(this.tutorialCueTimer);this.tutorialCueTimer=0;$('tap-hint').style.display='none';closeOverlay();applyDistrictTheme();this.scenarioDirector.update(0,this);updateHud();this.primeTraffic();toast(`${def.icon||'🎒'} ${T[def.nameKey]}`);this.scheduleNotice(()=>{if(this.state==='playing'&&this.mode==='scenario'&&this.scenarioId===def.id)toast(`⚙️ ${T[def.ruleKey]||T.scenarioRule}`);},1450);if(!this.externalPaused&&!platform.booting){platform.gameplayStart();AudioFx.recoverAfterExternalResume();}return true;
     },
     startGreenWave(id='catch_wave'){
@@ -2136,7 +2138,7 @@
       this.signalMode='independent';this.signalControllers={J0:createSignalController(def.board.startPhases?.J0||'H'),J1:createSignalController(def.board.startPhases?.J1||'V')};this.phase=this.signalControllers.J0.phase;this.pendingPhase=null;this.transitionTimer=0;this.phaseElapsed=0;this.pedestrianHold=false;
       this.rng=seeded(def.seed);this.cars=[];this.spawned=0;this.exited=0;this.switches=0;this.spawnTimer=.48;this.pedestrians=[];this.pedestrianSerial=0;this.pedestrianSpawnTimer=99;this.emergencyPriorityId=null;this.roundaboutOwnerId=null;AudioFx.stopTransientAudio();AudioFx.refreshMusicTheme();
       const throughTotal=def.plan.filter(x=>(linkedRouteSpec(x)?.junctions||[]).length>1).length;this.greenWaveStats={throughTotal,throughCompleted:0,throughNoStop:0,maxSideQueue:0,blockEvents:0,switches:{J0:0,J1:0}};
-      this.maxObservedQueue=0;this.elapsed=0;this.accumulator=0;this.renderAlpha=1;this.state='playing';this.externalPaused=Boolean(platform.pausedByPlatform||platform.browserPaused||platform.adPaused||platform.paymentPaused);this.userPaused=false;this.rescueUsed=false;this.crashPair=null;this.crashFx=null;this.cameraKick=0;this.turnOwnerId=null;this.particles=[];this.flowStreak=0;this.maxFlowStreak=0;this.syncStreak=0;this.maxSyncStreak=0;this.prioritySaved=0;this.lastPassAt=-99;this.failureReplayFrames=[];this.failureReplayClock=0;this.replayPlayback=null;clearTimeout(this.replayTimer);this.lastFailType='';this.failedQueue=null;this.firstInput=true;if(typeof PersonalBestService!=='undefined')PersonalBestService.clear();
+      this.maxObservedQueue=0;this.elapsed=0;this.accumulator=0;this.renderAlpha=1;this.state='playing';this.externalPaused=Boolean(platform.pausedByPlatform||platform.browserPaused||platform.adPaused||platform.paymentPaused);this.userPaused=false;this.rescueUsed=false;this.crashPair=null;this.crashFx=null;this.cameraKick=0;this.turnOwnerId=null;this.particles=[];this.flowStreak=0;this.maxFlowStreak=0;this.syncStreak=0;this.maxSyncStreak=0;this.prioritySaved=0;this.lastPassAt=-99;this.failureReplayFrames=[];this.failureReplayClock=0;this.replayPlayback=null;clearTimeout(this.replayTimer);this.lastFailType='';this.failedQueue=null;this.jamRecovery=null;this.firstInput=true;if(typeof PersonalBestService!=='undefined')PersonalBestService.clear();
       clearTimeout(this.tutorialCueTimer);this.tutorialCueTimer=0;$('tap-hint').style.display='none';closeOverlay();applyDistrictTheme();updateHud();this.primeTraffic();toast(`${def.icon||'🟢'} ${T[def.nameKey]}`);if(!this.externalPaused&&!platform.booting){platform.gameplayStart();AudioFx.recoverAfterExternalResume();}return true;
     },
     primeTraffic(){
@@ -2291,10 +2293,22 @@
       this.moveCars(dt); AudioFx.updateRoadBed(this.cars.length); this.captureFailureReplayFrame?.(dt); this.detectCollision(); if(this.state!=='playing') return;
       const queues=countQueues(); const mq=Math.max(queues.N,queues.S,queues.E,queues.W);
       this.maxObservedQueue=Math.max(this.maxObservedQueue,mq);if(this.mode==='greenwave'&&this.greenWaveStats)this.greenWaveStats.maxSideQueue=Math.max(this.greenWaveStats.maxSideQueue||0,queues.N||0,queues.S||0);if(typeof PersonalBestService!=='undefined')PersonalBestService.sample(this);
-      if(mq>this.config.maxQueue){
-        this.fail('jam',{dir:DIRS.find(dir=>queues[dir]===mq),count:mq,limit:this.config.maxQueue});
+      const limit=this.config.maxQueue;
+      if(mq>limit){
+        if(this.mode==='campaign'){
+          const recovery=this.jamRecovery??={deadline:this.elapsed+CAMPAIGN_JAM_GRACE_SECONDS,switchCovered:false};
+          // Give a timely request room for the safety clearance, once per overload.
+          const pendingQueue=this.pendingPhase==='V'?Math.max(queues.N,queues.S):Math.max(queues.E,queues.W);
+          if(this.pendingPhase&&pendingQueue>limit&&!recovery.switchCovered){
+            recovery.deadline+=CAMPAIGN_JAM_SWITCH_SECONDS;
+            recovery.switchCovered=true;
+          }
+          if(this.elapsed+1e-8<recovery.deadline)return;
+        }
+        this.fail('jam',{dir:DIRS.find(dir=>queues[dir]===mq),count:mq,limit});
         return;
       }
+      if(this.jamRecovery)this.jamRecovery=null;
       if(this.spawned>=this.config.total && this.cars.length===0){if(this.mode==='endless')this.advanceEndlessWave();else if(this.mode==='scenario'){if(this.scenarioDirector?.completeReady(this))this.win();}else if(this.mode==='greenwave'){if(!this.greenWaveDirector||this.greenWaveDirector.completeReady(this))this.win();}else this.win();}
     },
     trySpawn(){
@@ -2742,12 +2756,12 @@
         if(vehiclesOverlap(a,b,laneCount)){this.crashPair=[a,b];this.emitCrashFx(a,b);this.fail('crash');return;}
       }
     },
-    fail(type,queue=null){ if(this.state!=='playing')return; this.clearFailureUiTimer(); this.lastFailType=type; this.failedQueue=queue; this.captureFailureReplayFrame(.2); this.state='failed'; const crashAudio=type==='crash'&&this.crashPair; if(this.mode==='campaign')sessionFailCounts.set(this.level,(sessionFailCounts.get(this.level)||0)+1); if(this.mode==='endless'){const improved=this.endlessScore>(save.endlessBestScore||0)||(this.endlessScore===(save.endlessBestScore||0)&&this.endlessWave>(save.endlessBestWave||0));save.endlessBestScore=Math.max(save.endlessBestScore||0,this.endlessScore);save.endlessBestWave=Math.max(save.endlessBestWave||0,this.endlessWave);persist();platform.gameplayStop();if(crashAudio)AudioFx.crashImpact(this.crashPair[0],this.crashPair[1]);else AudioFx.fail();Haptics.fail();this.scheduleFailureUi(()=>{if(this.state==='failed'&&this.mode==='endless')showEndlessFail(type,improved);},type==='crash'?900:0);return;} platform.gameplayStop(); if(crashAudio)AudioFx.crashImpact(this.crashPair[0],this.crashPair[1]);else AudioFx.fail(); navigator.vibrate?.(80); document.querySelector('.game-card')?.classList.add('impact-flash'); setTimeout(()=>document.querySelector('.game-card')?.classList.remove('impact-flash'),900); if(type==='crash')this.scheduleFailureUi(()=>{if(this.state==='failed')showFail(type);},1180);else showFail(type); },
+    fail(type,queue=null){ if(this.state!=='playing')return; this.clearFailureUiTimer(); this.lastFailType=type; this.failedQueue=queue;this.jamRecovery=null; this.captureFailureReplayFrame(.2); this.state='failed'; const crashAudio=type==='crash'&&this.crashPair; if(this.mode==='campaign')sessionFailCounts.set(this.level,(sessionFailCounts.get(this.level)||0)+1); if(this.mode==='endless'){const improved=this.endlessScore>(save.endlessBestScore||0)||(this.endlessScore===(save.endlessBestScore||0)&&this.endlessWave>(save.endlessBestWave||0));save.endlessBestScore=Math.max(save.endlessBestScore||0,this.endlessScore);save.endlessBestWave=Math.max(save.endlessBestWave||0,this.endlessWave);persist();platform.gameplayStop();if(crashAudio)AudioFx.crashImpact(this.crashPair[0],this.crashPair[1]);else AudioFx.fail();Haptics.fail();this.scheduleFailureUi(()=>{if(this.state==='failed'&&this.mode==='endless')showEndlessFail(type,improved);},type==='crash'?900:0);return;} platform.gameplayStop(); if(crashAudio)AudioFx.crashImpact(this.crashPair[0],this.crashPair[1]);else AudioFx.fail(); navigator.vibrate?.(80); document.querySelector('.game-card')?.classList.add('impact-flash'); setTimeout(()=>document.querySelector('.game-card')?.classList.remove('impact-flash'),900); if(type==='crash')this.scheduleFailureUi(()=>{if(this.state==='failed')showFail(type);},1180);else showFail(type); },
     async rescue(){
       if(this.rescueUsed)return false;
       const rewarded=await platform.showRewarded();
       if(!rewarded)return false;
-      this.rescueUsed=true; this.failedQueue=null; this.crashPair=null; this.crashFx=null;
+      this.rescueUsed=true; this.failedQueue=null;this.jamRecovery=null; this.crashPair=null; this.crashFx=null;
       const insideIds=new Set(this.cars.filter(c=>c.inside).map(c=>c.id));
       if(insideIds.size)this.cars=this.cars.filter(c=>!insideIds.has(c.id));
       else {
@@ -3344,13 +3358,22 @@
   function drawQueueBadges(g,game){
     const q=countQueues(),max=Math.max(1,game.config?.maxQueue||4);
     const failed=game.state==='failed'&&!game.replayPlayback?game.failedQueue:null;
-    g.save();g.textAlign='center';g.textBaseline='middle';g.font='900 18px system-ui';
+    const campaign=game.mode==='campaign',countdown=jamCountdownText(game);
+    g.save();g.textAlign='center';g.textBaseline='middle';g.font='900 22px system-ui';
     const closed=junctionClosedArm(game.config?.junctionType||'cross');
     for(const dir of DIRS){
       const arm=physicalEntryArm(dir);
       if(arm===closed||dir===failed?.dir)continue;
       const n=q[dir]||0;if(!n)continue;
       const [x,y]=QUEUE_BADGE_POSITION[arm];
+      if(countdown&&n>max){drawJamCountdown(g,x,y,n,max,countdown);continue;}
+      if(campaign&&n>=Math.max(1,max-1)){
+        const color=n>=max?'#ff8890':'#ffd166';
+        g.fillStyle='#172032';g.strokeStyle=color;g.lineWidth=3;
+        roundRect(g,x-37,y-21,74,42,15,true);roundRect(g,x-37,y-21,74,42,15,false);
+        g.fillStyle='#fff';g.fillText(`${n}/${max}`,x,y+1);
+        continue;
+      }
       const ratio=n/max,hot=ratio>=.8,warm=ratio>=.5;
       const color=hot?'#ff5964':warm?'#ffd166':'#55d5ff';
       g.shadowColor=color;g.shadowBlur=hot?18:10;g.fillStyle='rgba(6,18,29,.78)';g.beginPath();g.arc(x,y,23,0,Math.PI*2);g.fill();
@@ -3362,6 +3385,20 @@
   }
   // Positions are physical entry arms; N/S vehicle codes describe travel direction.
   const QUEUE_BADGE_POSITION={N:[450,105],S:[450,795],W:[105,450],E:[795,450]};
+  const QUEUE_ARM_ARROW={N:'↑',S:'↓',W:'←',E:'→'};
+  function jamCountdownText(game){
+    if(!game.jamRecovery||game.state!=='playing')return '';
+    const tenths=Math.max(1,Math.ceil((game.jamRecovery.deadline-game.elapsed)*10-1e-7));
+    const seconds=(tenths/10).toFixed(1);
+    return lang==='ru'?`${seconds.replace('.',',')} с`:`${seconds}s`;
+  }
+  function drawJamCountdown(g,x,y,count,limit,countdown,arrow=''){
+    g.save();g.fillStyle='#321121';g.strokeStyle='#ff8890';g.lineWidth=5;
+    roundRect(g,x-60,y-34,120,68,16,true);roundRect(g,x-60,y-34,120,68,16,false);
+    g.fillStyle='#fff';g.font='900 25px system-ui';g.textAlign='center';g.textBaseline='middle';
+    g.fillText(`${arrow}${count}/${limit}`,x,y-13);
+    g.fillStyle='#ffd166';g.fillText(countdown,x,y+15);g.restore();
+  }
   function drawFailedQueueBadge(g,{dir,count,limit}){
     const [x,y]=QUEUE_BADGE_POSITION[physicalEntryArm(dir)];
     g.save();g.fillStyle='#2c0f20';g.strokeStyle='#ff7380';g.lineWidth=5;
@@ -4725,6 +4762,11 @@
     if(game.cars.some(c=>c.connectorBlocked)){g.save();g.fillStyle='rgba(255,145,98,.13)';roundRect(g,330,yA+8,240,w-16,16,true);g.strokeStyle='rgba(255,145,98,.82)';g.lineWidth=3;roundRect(g,330,yA+8,240,w-16,16,false);g.fillStyle='#ffe0cf';g.font='900 16px system-ui';g.textAlign='center';g.textBaseline='middle';g.fillText(T.greenWaveBlocked,450,450);g.restore();}
     drawLinkedPedestrianSignals(g,game);drawPedestrians(g,game);
     {const focus=emergencyFocusVehicle(game);game.renderEmergencyFocusId=focus?.car?.id||null;}game.cars.forEach(c=>drawCar(g,c));drawRain(g,game);drawWeatherOverlay(g,game);
+    const countdown=jamCountdownText(game);
+    if(countdown){
+      const q=countQueues(),max=Math.max(q.N,q.S,q.E,q.W),dir=DIRS.find(dir=>q[dir]===max);
+      drawJamCountdown(g,450,105,max,game.config.maxQueue,countdown,`${QUEUE_ARM_ARROW[physicalEntryArm(dir)]} `);
+    }
     if(independentSignals(game)){
       drawPedestrianWaitCue(g,game,230,yA-100,'J0');
       drawPedestrianWaitCue(g,game,670,yA-100,'J1');
@@ -5321,7 +5363,8 @@
     setHudText('insightFlow','insight-flow',`${T.insightFlow}: ×${Math.max(0,save.bestFlow||0,Game.maxFlowStreak||0)}`);
     const missionCount=Object.keys(save.missionCompleted||{}).length;setHudText('insightMission','insight-mission',`${T.missionMastery}: ${missionCount} · ${missionCount%5}/5`);
     const progressTotal=Game.mode==='scenario'?(Game.scenarioDirector?.totalTraffic||Game.config?.scenarioTotalTraffic||1):(Game.config?.total||1),p=Game.config?Math.min(100,Math.round((Game.exited/progressTotal)*100)):0;if(HUD_CACHE.progress!==p){HUD_CACHE.progress=p;$('progress-bar').style.width=`${p}%`;const progressEl=document.querySelector('.progress');if(progressEl)progressEl.setAttribute('aria-valuenow',String(p));}
-    const q=countQueues(),mq=Math.max(q.N,q.S,q.E,q.W);setHudText('queue','queue-label',`${T.jam}: ${mq}/${Game.config?.maxQueue||4}`);setHudText('switches','switch-label',`${T.switches}: ${Game.switches}`);
+    const q=countQueues(),mq=Math.max(q.N,q.S,q.E,q.W),countdown=jamCountdownText(Game);
+    setHudText('queue','queue-label',`${T.jam}: ${mq}/${Game.config?.maxQueue||4}${countdown?` · ${countdown}`:''}`);setHudText('switches','switch-label',`${T.switches}: ${Game.switches}`);
     const warnQueue=Boolean(Game.config&&mq>=Math.max(1,Game.config.maxQueue-1));
     if(HUD_CACHE.warnQueue!==warnQueue){HUD_CACHE.warnQueue=warnQueue;document.querySelector('.game-card')?.classList.toggle('queue-warning',warnQueue);}
     const occupied=Game.cars.some(c=>c.inside);
@@ -5745,7 +5788,7 @@
     return `Jam on the ${side} approach. Vehicles: ${count}, limit: ${limit}.`;
   }
   function showFail(type){
-    $('modal-kicker').textContent='TRAFFIC PULSE';$('modal-title').textContent=type==='crash'?T.crash:T.trafficJam;const queue=type==='jam'?Game.failedQueue:null;const baseText=queue?jamApproachText(queue):type==='crash'?T.crashText:T.jamText;const earlyTip=type==='jam'&&firstSessionCoachActive()?T.tutorialCoachOpenWaiting:'';const willAssist=Game.mode==='campaign'&&(sessionFailCounts.get(Game.level)||0)>=2;$('modal-text').textContent=[baseText,earlyTip,willAssist?T.assistNext:''].filter(Boolean).join(' ');$('modal-stars').textContent='';$('modal-reward').classList.add('hidden');const failExtra=$('modal-extra');failExtra.classList.remove('hidden');failExtra.textContent=type==='crash'?`🎬 ${T.failureReplayCrash}`:`🎬 ${T.failureReplayJam}`;
+    $('modal-kicker').textContent='TRAFFIC PULSE';$('modal-title').textContent=type==='crash'?T.crash:T.trafficJam;const queue=type==='jam'?Game.failedQueue:null;const baseText=queue?jamApproachText(queue):type==='crash'?T.crashText:T.jamText;const timeoutNote=queue&&Game.mode==='campaign'?(lang==='ru'?'Время на разгрузку вышло.':'Time to clear the queue ran out.'):'';const earlyTip=type==='jam'&&firstSessionCoachActive()?T.tutorialCoachOpenWaiting:'';const willAssist=Game.mode==='campaign'&&(sessionFailCounts.get(Game.level)||0)>=2;$('modal-text').textContent=[baseText,timeoutNote,earlyTip,willAssist?T.assistNext:''].filter(Boolean).join(' ');$('modal-stars').textContent='';$('modal-reward').classList.add('hidden');const failExtra=$('modal-extra');failExtra.classList.remove('hidden');failExtra.textContent=type==='crash'?`🎬 ${T.failureReplayCrash}`:`🎬 ${T.failureReplayJam}`;
     const failActions=[{text:T.tryAgain,cls:'primary',fn:()=>Game.restart()}];if(Game.mode!=='greenwave'&&(Game.failureReplayFrames?.length||0)>=2)failActions.push({text:`🎬 ${T.failureReplay}`,fn:()=>Game.playFailureReplay()});actions(failActions);openOverlay('fail');
   }
   async function claimWinRewardedCoins(bonus,baseReward,button){
