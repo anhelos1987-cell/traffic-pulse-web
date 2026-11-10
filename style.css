@@ -124,7 +124,15 @@ canvas { display:block; width:100%; height:100%; min-width:0; min-height:0; touc
 .control:active { transform:scale(.97); }
 .control:disabled { opacity:.62; cursor:default; }
 .control.secondary { flex:1; color:#dceaf5; background:linear-gradient(180deg,rgba(17,35,62,.96),rgba(11,26,46,.92)); }
-.control.signal { flex:1.72; background:linear-gradient(145deg,#33c8e4,#226c9e 64%,#274c7d); border-color:rgba(90,225,255,.40); box-shadow:0 12px 30px rgba(28,111,145,.26), inset 0 1px 0 rgba(255,255,255,.10); }
+.control.signal { position:relative; overflow:hidden; flex:1.72; background:linear-gradient(145deg,#33c8e4,#226c9e 64%,#274c7d); border-color:rgba(90,225,255,.40); box-shadow:0 12px 30px rgba(28,111,145,.26), inset 0 1px 0 rgba(255,255,255,.10); }
+/* M204: the existing control reports clearance progress without adding a second action. */
+.control.signal::before {
+  content:''; position:absolute; left:0; right:0; bottom:0; height:4px;
+  background:#ffd166; transform-origin:left center; transform:scaleX(var(--signal-progress,0));
+  opacity:0; pointer-events:none; z-index:2; transition:transform .08s linear,opacity .08s linear;
+}
+.control.signal[aria-busy="true"]::before { opacity:1; }
+@media (prefers-reduced-motion: reduce) { .control.signal::before { transition:none; } }
 .control::after { content:''; position:absolute; inset:0; pointer-events:none; background:linear-gradient(180deg,rgba(255,255,255,.08),transparent 36%); }
 .control.signal.ready { box-shadow:0 8px 24px rgba(85,213,255,.18), inset 0 0 24px rgba(85,213,255,.04); }
 .control span:not(.signal-icon) { font-size:21px; flex:0 0 auto; }
@@ -834,3 +842,58 @@ body.vk-supporter .garage-showcase strong{background:linear-gradient(180deg,#fff
 /* M199: permanent map access offer, separate from earned campaign progress. */
 .campaign-purchase{display:grid;gap:8px;padding:14px;border:1px solid rgba(85,213,255,.35);border-radius:16px;background:linear-gradient(145deg,rgba(28,77,105,.6),rgba(9,25,44,.8));text-align:left}
 .campaign-purchase>strong{font-size:16px}.campaign-purchase>p{margin:0;font-size:12px;line-height:1.45;color:#c2d9e7}.campaign-purchase>button{min-height:44px;padding:10px 12px;border:1px solid rgba(255,255,255,.18);border-radius:12px;background:#17354b;cursor:pointer;font-weight:800}.campaign-purchase>button.primary{color:#061423;background:linear-gradient(110deg,#37c8ed,#3b8ef4)}.campaign-purchase>button:disabled{opacity:.65;cursor:default}.campaign-purchase>small{color:#ffd166;line-height:1.4}
+
+
+/* M214 — pause menu responsiveness (desktop, phone portrait, phone landscape).
+   Only the pause dialog gets this layout; other dialogs retain their own grid.
+   Keep the Continue command prominent and preserve all twelve actions. */
+.modal.pause-modal .modal-stars{display:none}
+.modal.pause-modal > p{max-width:100%}
+@media (min-width:760px) and (min-height:560px){
+  .modal.pause-modal{width:min(92vw,760px);padding:22px 26px 24px}
+  .modal.pause-modal > p{margin-bottom:12px}
+  .modal.pause-modal .modal-extra{margin:6px 0 12px}
+  .modal.pause-modal .modal-actions{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+  .modal.pause-modal .modal-actions button:first-child,
+  .modal.pause-modal .modal-actions button:last-child{grid-column:1/-1}
+}
+@media (max-width:759px) and (min-height:500px){
+  .modal.pause-modal{padding:18px 16px}
+  .modal.pause-modal > p{margin-bottom:9px}
+  .modal.pause-modal .modal-extra{margin:6px 0 10px;padding:8px}
+  .modal.pause-modal .modal-actions{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+  .modal.pause-modal .modal-actions button{min-height:46px;padding:5px;font-size:clamp(11px,2.9vw,13px);line-height:1.25;white-space:normal;overflow-wrap:anywhere}
+  .modal.pause-modal .modal-actions button:first-child,
+  .modal.pause-modal .modal-actions button:last-child{grid-column:1/-1}
+}
+@media (max-height:499px) and (orientation:landscape){
+  .modal.pause-modal{width:min(96vw,760px);padding:10px 16px;border-radius:22px}
+  .modal.pause-modal h2{font-size:22px;margin:3px 0 3px}
+  .modal.pause-modal > p{font-size:11px;margin-bottom:5px}
+  .modal.pause-modal .modal-extra{margin:4px 0 7px;padding:6px;font-size:10px}
+  .modal.pause-modal .modal-actions{grid-template-columns:repeat(4,minmax(0,1fr));gap:5px}
+  .modal.pause-modal .modal-actions button{min-height:44px;padding:4px;font-size:11px;line-height:1.15;white-space:normal;overflow-wrap:anywhere;border-radius:11px}
+  .modal.pause-modal .modal-actions button:first-child{grid-column:1/-1}
+  .modal.pause-modal .modal-actions button:last-child{grid-column:span 2}
+}
+
+
+/* M215 — desktop HUD legibility audit.
+   Readability only: no changes to simulation Canvas dimensions or gameplay.
+   Scope to desktop to retain the compact phone layouts and stable 70px header. */
+@media (min-width:900px) and (min-height:650px){
+  .level-head .level-copy{gap:10px}
+  .level-head .eyebrow{font-size:11px;line-height:1.2;letter-spacing:.08em}
+  .level-head #level-label{font-size:22px;line-height:1.1}
+  .level-head .goal{font-size:14px;line-height:1.25;color:#edf7ff}
+  .level-head .progress{margin-top:7px;height:7px}
+  .controls > .control b{font-size:15px}
+  .controls .greenwave-controls .control b{font-size:12px}
+  .controls .desktop-insight .insight-title{font-size:10px;color:#c2e8f6}
+  .controls .desktop-insight .insight-row{font-size:11px;color:#d8eaf6}
+  .mini-status{font-size:13px;line-height:1.2;color:#d3e9f5;padding-inline:10px}
+  .mini-status span{
+    padding:2px 8px;border-radius:9px;background:rgba(9,29,48,.8);
+    border:1px solid rgba(122,203,236,.17);font-variant-numeric:tabular-nums;
+  }
+}
