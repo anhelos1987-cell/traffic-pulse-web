@@ -871,8 +871,8 @@ body.vk-supporter .garage-showcase strong{background:linear-gradient(180deg,#fff
   .modal.pause-modal h2{font-size:22px;margin:3px 0 3px}
   .modal.pause-modal > p{font-size:11px;margin-bottom:5px}
   .modal.pause-modal .modal-extra{margin:4px 0 7px;padding:6px;font-size:10px}
-  .modal.pause-modal .modal-actions{grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}
-  .modal.pause-modal .modal-actions button{min-height:38px;padding:4px;font-size:11px;line-height:1.15;white-space:normal;overflow-wrap:anywhere;border-radius:11px}
+  .modal.pause-modal .modal-actions{grid-template-columns:repeat(4,minmax(0,1fr));gap:5px}
+  .modal.pause-modal .modal-actions button{min-height:44px;padding:4px;font-size:11px;line-height:1.15;white-space:normal;overflow-wrap:anywhere;border-radius:11px}
   .modal.pause-modal .modal-actions button:first-child{grid-column:1/-1}
   .modal.pause-modal .modal-actions button:last-child{grid-column:span 2}
 }
