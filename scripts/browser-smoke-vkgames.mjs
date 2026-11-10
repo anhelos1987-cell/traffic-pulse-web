@@ -246,7 +246,7 @@ try{
         const anchor='  function startApp(){';
         assert.equal(original.split(anchor).length-1,1);
         const instrumented=original.replace(anchor,
-          '  window.__tpQA={win:()=>Game.win(),game:Game,perf:PerfProbe};\\n'+anchor);
+          '  window.__tpQA={win:()=>Game.win(),game:Game,perf:PerfProbe};\n'+anchor);
         await request.respond({status:200,contentType:'application/javascript',body:instrumented});
       }catch(error){console.error(error);await request.abort();}
     }else await request.continue();
