@@ -45,6 +45,11 @@ try{
     page.on('response',res=>{if(res.url().startsWith(address)&&!res.url().endsWith('/favicon.ico')&&res.status()>=400)missing.push(res.url()+' '+res.status());});
     try{
       await page.setViewport(viewport);
+      // M214: run desktop and short-landscape screenshot checks with real RU UI
+      // strings, which are longer than EN. Portrait remains EN for both locales.
+      if(viewport.width!==390)await page.evaluateOnNewDocument(()=>{
+        Object.defineProperty(navigator,'language',{configurable:true,get:()=> 'ru-RU'});
+      });
       await page.goto(address,{waitUntil:'networkidle2',timeout:20000});
       try{
         await page.waitForFunction(()=>{
@@ -97,12 +102,18 @@ try{
           isPause:m.classList.contains('pause-modal'),
           columns:styles.gridTemplateColumns.trim().split(/\s+/).length,
           buttonCount:buttons.length,
+          language:document.querySelector('#modal-title')?.textContent,
+          minButtonHeight:Math.min(...buttons.map(b=>b.getBoundingClientRect().height)),
+          maxButtonOverflow:Math.max(...buttons.map(b=>b.scrollWidth-b.clientWidth)),
           firstButtonVisible:buttons[0].getBoundingClientRect().height>=44
         };
       });
       assert.equal(pauseMetrics.isPause,true,'pause dialog must select its own layout');
       assert.equal(pauseMetrics.buttonCount,12,'all twelve pause actions must remain available');
       assert.equal(pauseMetrics.firstButtonVisible,true,'Continue remains touchable');
+      assert.ok(pauseMetrics.minButtonHeight>=44,'all pause actions must be at least 44 CSS px tall: '+JSON.stringify(pauseMetrics));
+      assert.ok(pauseMetrics.maxButtonOverflow<=2,'localized button text must fit: '+JSON.stringify(pauseMetrics));
+      if(viewport.width!==390)assert.equal(pauseMetrics.language,'Пауза','desktop and landscape should test Russian localization');
       if(viewport.width>=1000&&viewport.height>=700){
         assert.ok(pauseMetrics.width>=650,'desktop pause should use available horizontal space');
         assert.equal(pauseMetrics.columns,2,'desktop pause must present two action columns');
