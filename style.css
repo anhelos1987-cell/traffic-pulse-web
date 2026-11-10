@@ -842,3 +842,23 @@ body.vk-supporter .garage-showcase strong{background:linear-gradient(180deg,#fff
 /* M199: permanent map access offer, separate from earned campaign progress. */
 .campaign-purchase{display:grid;gap:8px;padding:14px;border:1px solid rgba(85,213,255,.35);border-radius:16px;background:linear-gradient(145deg,rgba(28,77,105,.6),rgba(9,25,44,.8));text-align:left}
 .campaign-purchase>strong{font-size:16px}.campaign-purchase>p{margin:0;font-size:12px;line-height:1.45;color:#c2d9e7}.campaign-purchase>button{min-height:44px;padding:10px 12px;border:1px solid rgba(255,255,255,.18);border-radius:12px;background:#17354b;cursor:pointer;font-weight:800}.campaign-purchase>button.primary{color:#061423;background:linear-gradient(110deg,#37c8ed,#3b8ef4)}.campaign-purchase>button:disabled{opacity:.65;cursor:default}.campaign-purchase>small{color:#ffd166;line-height:1.4}
+
+
+/* M214 — desktop pause layout. The twelve commands no longer form a long
+   narrow scroll column on PCs. Keep touch/mobile portrait and all other
+   dialogs unchanged. The modal remains scrollable on short viewports. */
+@media (min-width:760px) and (min-height:560px){
+  .modal.pause-modal{
+    width:min(92vw,760px);
+    padding:22px 26px 24px;
+  }
+  .modal.pause-modal .modal-stars{display:none}
+  .modal.pause-modal > p{max-width:100%;margin-bottom:12px}
+  .modal.pause-modal .modal-extra{margin:6px 0 12px}
+  .modal.pause-modal .modal-actions{
+    grid-template-columns:repeat(2,minmax(0,1fr));
+    gap:9px;
+  }
+  .modal.pause-modal .modal-actions button:first-child,
+  .modal.pause-modal .modal-actions button:last-child{grid-column:1/-1}
+}
