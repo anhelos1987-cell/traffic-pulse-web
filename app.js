@@ -181,17 +181,23 @@
   // account, save, SDK, URL or private data is collected.
   const PerfProbe={
     enabled:new URLSearchParams(location.search).get('tpperf')==='1',
-    frames:[],draws:[],lastReport:0,node:null,
+    frames:[],draws:[],simCosts:[],loopCosts:[],stepCounts:[],lastReport:0,node:null,
     push(values,v){values.push(v);if(values.length>180)values.shift();},
     percentile(values,q){if(!values.length)return 0;const sorted=values.slice().sort((a,b)=>a-b);return sorted[Math.min(sorted.length-1,Math.floor((sorted.length-1)*q))];},
     draw(ms){if(this.enabled&&Number.isFinite(ms))this.push(this.draws,ms);},
+    sim(ms,steps){if(!this.enabled)return;this.push(this.simCosts,ms);this.push(this.stepCounts,steps);},
+    loopWork(ms){if(this.enabled&&Number.isFinite(ms))this.push(this.loopCosts,ms);},
     frame(ms,quality){
       if(!this.enabled||!Number.isFinite(ms)||ms<=0||ms>250)return;
       this.push(this.frames,ms);const now=performance.now();if(now-this.lastReport<1500)return;this.lastReport=now;
       const median=this.percentile(this.frames,.5),p95=this.percentile(this.frames,.95);
       const drawP95=this.percentile(this.draws,.95),over25=this.frames.filter(v=>v>25).length;
-      const snapshot={fps:Math.round(1000/Math.max(1,median)),p95Ms:Math.round(p95*10)/10,
-        drawP95Ms:Math.round(drawP95*10)/10,slowFramesPct:Math.round(over25/Math.max(1,this.frames.length)*100),
+      const roundMs=v=>Math.round(v*10)/10;
+      const snapshot={fps:Math.round(1000/Math.max(1,median)),p95Ms:roundMs(p95),
+        drawP95Ms:roundMs(drawP95),simP95Ms:roundMs(this.percentile(this.simCosts,.95)),
+        loopP95Ms:roundMs(this.percentile(this.loopCosts,.95)),
+        catchupPct:Math.round(100*this.stepCounts.filter(v=>v>1).length/Math.max(1,this.stepCounts.length)),
+        slowFramesPct:Math.round(over25/Math.max(1,this.frames.length)*100),
         quality,samples:this.frames.length};
       window.__trafficPulsePerfSnapshot=snapshot;
       if(!this.node){
@@ -204,7 +210,8 @@
       }
       this.node.textContent='FPS ~'+snapshot.fps+'   p95 '+snapshot.p95Ms+' ms'+
         '\nSlow frames '+snapshot.slowFramesPct+'%   Draw p95 '+snapshot.drawP95Ms+' ms'+
-        '\nQuality '+['Low','Medium','High'][quality];
+        '\nLoop p95 '+snapshot.loopP95Ms+' ms   Sim p95 '+snapshot.simP95Ms+' ms'+
+        '\nCatch-up frames '+snapshot.catchupPct+'%   Quality '+['Low','Medium','High'][quality];
     }
   };
 
@@ -1126,8 +1133,9 @@
     // turning out in the approach/corner area on narrow one-lane intersections.
     return {start:layout.edgeMin+70,end:layout.edgeMax+70};
   }
-  function pedestrianPose(ped,lanes=(Game.config?.lanes||1)){
-    const layout=roadLayout(lanes),a=layout.edgeMin,b=layout.edgeMax,t=Math.max(0,Math.min(1,ped?.t||0)),side=ped?.laneSide||0;
+  function pedestrianPose(ped,lanes=(Game.config?.lanes||1),tOverride){
+    const progress=Number.isFinite(tOverride)?tOverride:(ped?.t||0);
+    const layout=roadLayout(lanes),a=layout.edgeMin,b=layout.edgeMax,t=Math.max(0,Math.min(1,progress)),side=ped?.laneSide||0;
     if(ped?.junctionId){
       const center=linkedJunctionCenter(ped.junctionId),half=(b-a)/2,u=ped.reverse?1-t:t;
       const from=-half-22,to=half+22,offset=ped.crossing?half+17:-half-17;
@@ -2155,6 +2163,8 @@
     },
     updatePedestrians(dt){
       for(const p of this.pedestrians){
+        // M217: visual snapshots never enter pedestrian collision/signal logic.
+        p.prevRenderT=p.t||0;
         const controller=signalControllerState(this,p.junctionId||null),clearing=(controller.transitionTimer||0)>0&&controller.pendingPhase===p.roadAxis,rate=clearing?1.55:1;
         p.t=Math.min(1,(p.t||0)+(dt*rate)/Math.max(.8,p.duration||2.3));
       }
@@ -2820,15 +2830,18 @@
       if(PerfProbe.enabled)PerfProbe.draw(performance.now()-measureDraw);
     },
     loop(ts){
+      const startedWork=PerfProbe.enabled?performance.now():0;
       const rawDt=Math.max(0,Math.min(.25,(ts-(this.lastTs||ts))/1000)); this.lastTs=ts;
       const active=this.state==='playing'&&!this.externalPaused&&!this.userPaused;
       if(PerfProbe.enabled&&active)PerfProbe.frame(rawDt*1000,RenderQuality.level);
       RenderQuality.observe(rawDt*1000,active);if(active)YandexAudit.sampleFrame(rawDt*1000);
       if(active){
         platform.noteActiveGameplay(rawDt*1000);
+        const startedSim=PerfProbe.enabled?performance.now():0;
         this.accumulator=Math.min(.25,this.accumulator+rawDt); let steps=0;
         while(this.accumulator>=SIM_STEP&&steps<MAX_CATCHUP_STEPS){ this.update(SIM_STEP); this.accumulator-=SIM_STEP; steps++; if(this.state!=='playing')break; }
         if(steps===MAX_CATCHUP_STEPS&&this.accumulator>=SIM_STEP)this.accumulator=0;
+        if(PerfProbe.enabled)PerfProbe.sim(performance.now()-startedSim,steps);
         this.renderAlpha=Math.max(0,Math.min(1,this.accumulator/SIM_STEP));
       } else { this.accumulator=0; this.renderAlpha=1; this.updateParticles(Math.min(.05,rawDt)); }
       // HUD is presentation state, not simulation state. Refresh at ~12.5 Hz and at most once
@@ -2844,6 +2857,7 @@
       // Low quality now actually honors the intended ~30 FPS Canvas cap instead of
       // drawing every animation frame because of the previous `active || ...` shortcut.
       if(minDrawInterval===0||ts-(this.lastDrawTs||0)>=minDrawInterval){this.draw();this.lastDrawTs=ts;}
+      if(PerfProbe.enabled)PerfProbe.loopWork(performance.now()-startedWork);
       this.frameId=requestAnimationFrame(t=>this.loop(t));
     }
   };
@@ -3134,6 +3148,23 @@
     return{x:previous.x+(current.x-previous.x)*t,y:previous.y+(current.y-previous.y)*t,rot:lerpAngle(previous.rot,current.rot,t)};
   }
 
+  // M217: interpolate crossing pedestrians on the same clock as vehicles. Simulation
+  // keeps its authoritative p.t for crossing safety, collisions and signal holds.
+  function renderPedestrianPose(ped,lanes=(Game.config?.lanes||1),alpha=Game.renderAlpha){
+    const previous=ped?.prevRenderT,current=ped?.t||0;
+    if(!Number.isFinite(previous)||!Number.isFinite(alpha))return pedestrianPose(ped,lanes);
+    const t=Math.max(0,Math.min(1,alpha));
+    return pedestrianPose(ped,lanes,previous+(current-previous)*t);
+  }
+
+  // Decorative walkers, animals, weather and bobbing use interpolated simulation time
+  // rather than advancing in discrete fixed-step bursts. No gameplay time is changed.
+  function presentationElapsed(game){
+    const elapsed=Math.max(0,Number(game?.elapsed)||0),alpha=Number(game?.renderAlpha);
+    if(game?.state!=='playing'||game?.userPaused||game?.externalPaused||!Number.isFinite(alpha))return elapsed;
+    return Math.max(0,elapsed-SIM_STEP*(1-Math.max(0,Math.min(1,alpha))));
+  }
+
   function drawExtendedBackdrop(g,game,ox,oy,visW,visH){
     // M67: never extend legacy road geometry outside the canonical 900x900 scene.
     // If a browser momentarily gives the canvas a non-square box, fill only with the district surround.
@@ -3246,11 +3277,11 @@
       const rg=g.createLinearGradient(0,0,900,900);rg.addColorStop(0,'rgba(255,174,104,.15)');rg.addColorStop(.5,'rgba(255,120,92,.07)');rg.addColorStop(1,'rgba(89,79,162,.08)');g.fillStyle=rg;g.fillRect(0,0,900,900);
       g.globalAlpha=.14;g.fillStyle='#ffe4a1';g.beginPath();g.arc(735,120,52,0,Math.PI*2);g.fill();
     }else if(kind==='fog'){
-      const t=(game.elapsed||0)*12;g.globalAlpha=.12;g.fillStyle='#d9edf5';g.fillRect(0,0,900,900);
+      const t=(presentationElapsed(game)||0)*12;g.globalAlpha=.12;g.fillStyle='#d9edf5';g.fillRect(0,0,900,900);
       const fogCount=RenderQuality.level>=2?5:RenderQuality.level===1?3:1;for(let i=0;i<fogCount;i++){const x=((i*173+t*(i%2?1:-1))%1100)-100,y=150+i*145;const grad=g.createRadialGradient(x,y,10,x,y,150);grad.addColorStop(0,'rgba(235,248,255,.18)');grad.addColorStop(1,'rgba(235,248,255,0)');g.fillStyle=grad;g.fillRect(x-160,y-80,320,160);}
     }else if(kind==='snow'){
       g.globalAlpha=.08;g.fillStyle='#dff5ff';g.fillRect(0,0,900,900);
-      const count=RenderQuality.level>=2?52:RenderQuality.level===1?30:8,t=(game.elapsed||0)*34;g.fillStyle='rgba(244,252,255,.80)';g.shadowColor='rgba(190,235,255,.55)';g.shadowBlur=RenderQuality.level>=1?5:0;
+      const count=RenderQuality.level>=2?52:RenderQuality.level===1?30:8,t=(presentationElapsed(game)||0)*34;g.fillStyle='rgba(244,252,255,.80)';g.shadowColor='rgba(190,235,255,.55)';g.shadowBlur=RenderQuality.level>=1?5:0;
       for(let i=0;i<count;i++){const x=((i*83+t*(.35+(i%5)*.05))%970)-35,y=((i*59+t*(1.15+(i%3)*.12))%970)-35,r=1.6+(i%4)*.65;g.beginPath();g.arc(x,y,r,0,Math.PI*2);g.fill();}
       g.shadowBlur=0;
     }else if(kind==='rain'){
@@ -3277,7 +3308,7 @@
   }
   function drawRain(g,game){
     if(weatherForLevel(game.level)!=='rain'||reducedMotion||RenderQuality.level===0)return;
-    const count=RenderQuality.level>=2?38:22,t=(game.elapsed||0)*260;
+    const count=RenderQuality.level>=2?38:22,t=(presentationElapsed(game)||0)*260;
     g.save();g.strokeStyle='rgba(194,231,255,.30)';g.lineWidth=2;
     for(let i=0;i<count;i++){
       const x=((i*97+t*.17)%980)-40,y=((i*61+t+i*19)%980)-40;
@@ -3337,8 +3368,9 @@
     if(!game.pedestrians?.length)return;
     const shirts=['#ffd166','#f6fbff','#55d5ff','#ff7c8a','#8fd19e','#b28cff'];
     g.save();g.lineWidth=3.2;g.lineCap='round';
+    const visualTime=presentationElapsed(game);
     for(const ped of game.pedestrians){
-      const pose=pedestrianPose(ped,game.config?.lanes||1),x=pose.x,y=pose.y,bob=reducedMotion?0:Math.sin((game.elapsed||0)*7+ped.id)*.8;
+      const pose=renderPedestrianPose(ped,game.config?.lanes||1,game.renderAlpha),x=pose.x,y=pose.y,bob=reducedMotion?0:Math.sin(visualTime*7+ped.id)*.8;
       g.fillStyle='rgba(0,0,0,.15)';g.beginPath();g.ellipse(x+2,y+18,8,3.8,0,0,Math.PI*2);g.fill();
       g.fillStyle=shirts[ped.shirt%shirts.length];g.beginPath();g.arc(x,y-10+bob,8,0,Math.PI*2);g.fill();
       g.strokeStyle='rgba(20,40,52,.92)';g.lineWidth=4;g.beginPath();g.moveTo(x,y-1+bob);g.lineTo(x,y+13+bob);g.moveTo(x,y+3+bob);g.lineTo(x-6,y+9+bob);g.moveTo(x,y+3+bob);g.lineTo(x+6,y+9+bob);g.moveTo(x,y+13+bob);g.lineTo(x-5,y+22+bob);g.moveTo(x,y+13+bob);g.lineTo(x+5,y+22+bob);g.stroke();
@@ -3381,7 +3413,7 @@
 
   function drawSidewalkPedestrians(g,game){
     if(reducedMotion)return;
-    const quality=RenderQuality.level,count=quality===2?10:quality===1?6:1,t=(game.elapsed||0),layout=roadLayout(game.config?.lanes||1),a=layout.edgeMin,b=layout.edgeMax,pad=16,type=game.config?.junctionType||'cross';
+    const quality=RenderQuality.level,count=quality===2?10:quality===1?6:1,t=(presentationElapsed(game)||0),layout=roadLayout(game.config?.lanes||1),a=layout.edgeMin,b=layout.edgeMax,pad=16,type=game.config?.junctionType||'cross';
     const candidates=[
       ['W',48,a-pad,a-26,a-pad],['E',b+26,a-pad,852,a-pad],['W',48,b+pad,a-26,b+pad],['E',b+26,b+pad,852,b+pad],
       ['N',a-pad,48,a-pad,a-26],['N',b+pad,48,b+pad,a-26],['S',a-pad,b+26,a-pad,852],['S',b+pad,b+26,b+pad,852]
@@ -3442,7 +3474,7 @@
   function drawLivingCityAmbient(g,game){
     if(reducedMotion||RenderQuality.level===0)return;
     if(isLinkedJunctionType(game.config?.junctionType))return;
-    const id=districtInfo(game.level).id,t=Math.max(0,game.elapsed||0);
+    const id=districtInfo(game.level).id,t=Math.max(0,presentationElapsed(game)||0);
     // Walkers and dogs remain in park blocks; no collision or gameplay state is added.
     const routes=id==='park'?[[72,194,210,122],[660,738,793,785]]:
       ['oldtown','coast','tech','airport','winter'].includes(id)?[[665,735,788,786]]:[];
@@ -3481,7 +3513,7 @@
   // modes skip the layer entirely so the living city remains performance-scalable.
   function drawDistrictMicroLife(g,game){
     if(reducedMotion||RenderQuality.level===0||isLinkedJunctionType(game.config?.junctionType))return;
-    const id=districtInfo(game.level).id,t=Math.max(0,game.elapsed||0),high=RenderQuality.level>=2;
+    const id=districtInfo(game.level).id,t=Math.max(0,presentationElapsed(game)||0),high=RenderQuality.level>=2;
     g.save();g.lineCap='round';g.lineJoin='round';
 
     if(id==='park'||id==='oldtown'){
@@ -3553,7 +3585,7 @@
   // reduced-motion devices so traffic readability and frame budget remain the priority.
   function drawStreetLifeActivity(g,game){
     if(reducedMotion||RenderQuality.level===0||isLinkedJunctionType(game.config?.junctionType))return;
-    const id=districtInfo(game.level).id,t=Math.max(0,game.elapsed||0),high=RenderQuality.level>=2;
+    const id=districtInfo(game.level).id,t=Math.max(0,presentationElapsed(game)||0),high=RenderQuality.level>=2;
     const layout=roadLayout(game.config?.lanes||1),a=layout.edgeMin,b=layout.edgeMax,type=game.config?.junctionType||'cross';
     const skin=['#f1c9a5','#d9aa86','#b97b60','#ead0b8'],shirts=['#ff7c8a','#55d5ff','#ffd166','#8fd19e','#b28cff','#f7f9fb'];
     const person=(x,y,i=0,scale=1,pose=0)=>{
@@ -3632,7 +3664,7 @@
   // bounded to outer blocks and fully disabled for reduced-motion / Low quality / linked boards.
   function drawDistrictSignatureEvents(g,game){
     if(reducedMotion||RenderQuality.level===0||isLinkedJunctionType(game.config?.junctionType))return;
-    const id=districtInfo(game.level).id,t=Math.max(0,game.elapsed||0),high=RenderQuality.level>=2;
+    const id=districtInfo(game.level).id,t=Math.max(0,presentationElapsed(game)||0),high=RenderQuality.level>=2;
     const cycle=t%28,fade=Math.min(1,cycle/1.5,(28-cycle)/1.8);
     if(fade<=0)return;
     g.save();g.globalAlpha=Math.max(0,fade);g.lineCap='round';g.lineJoin='round';
@@ -3705,7 +3737,7 @@
 
   function drawTrafficAwareCityReactions(g,game){
     if(reducedMotion||RenderQuality.level===0||isLinkedJunctionType(game.config?.junctionType))return;
-    const s=cityReactionState(game),t=Math.max(0,game.elapsed||0),high=RenderQuality.level>=2,id=districtInfo(game.level).id;
+    const s=cityReactionState(game),t=Math.max(0,presentationElapsed(game)||0),high=RenderQuality.level>=2,id=districtInfo(game.level).id;
     if(!s.queueLevel&&!s.emergency&&!s.crash&&s.flow<4&&s.progress<.72)return;
     g.save();g.lineCap='round';g.lineJoin='round';
 
@@ -3770,7 +3802,7 @@
   function drawWeatherResponsiveCity(g,game){
     if(reducedMotion||RenderQuality.level===0||isLinkedJunctionType(game.config?.junctionType))return;
     const kind=weatherForLevel(game.level);if(kind==='clear')return;
-    const t=Math.max(0,game.elapsed||0),high=RenderQuality.level>=2,id=districtInfo(game.level).id;
+    const t=Math.max(0,presentationElapsed(game)||0),high=RenderQuality.level>=2,id=districtInfo(game.level).id;
     g.save();g.lineCap='round';g.lineJoin='round';
 
     if(kind==='rain'){
@@ -3822,7 +3854,7 @@
   function cityRhythmState(game){
     const base={phase:'day',phaseIndex:1,cycle:.35,commute:.2,commerce:1,service:.25,evening:0,weather:'clear',district:'park',trafficLoad:0};
     if(!game||isLinkedJunctionType(game.config?.junctionType))return base;
-    const elapsed=Math.max(0,Number(game.elapsed)||0),district=districtInfo(game.level).id,weather=weatherForLevel(game.level);
+    const elapsed=Math.max(0,Number(presentationElapsed(game))||0),district=districtInfo(game.level).id,weather=weatherForLevel(game.level);
     const cycle=((Number(game.level||1)%5)*.073+elapsed/92)%1;
     let phase='day',phaseIndex=1;
     if(cycle<.20){phase='morning';phaseIndex=0;}else if(cycle<.56){phase='day';phaseIndex=1;}else if(cycle<.80){phase='evening';phaseIndex=2;}else{phase='night';phaseIndex=3;}
@@ -3837,7 +3869,7 @@
 
   function drawDailyCityRhythm(g,game){
     if(reducedMotion||RenderQuality.level===0||isLinkedJunctionType(game.config?.junctionType))return;
-    const s=cityRhythmState(game),t=Math.max(0,game.elapsed||0),high=RenderQuality.level>=2,id=s.district;
+    const s=cityRhythmState(game),t=Math.max(0,presentationElapsed(game)||0),high=RenderQuality.level>=2,id=s.district;
     g.save();g.lineCap='round';g.lineJoin='round';
 
     // Morning municipal/service activity. The cart stays deep inside the upper-left city block.
@@ -3912,7 +3944,7 @@
 
   function drawCivicServicePulse(g,game){
     if(reducedMotion||RenderQuality.level===0||isLinkedJunctionType(game.config?.junctionType))return;
-    const s=civicServicePulseState(game),t=Math.max(0,game.elapsed||0),high=RenderQuality.level>=2;
+    const s=civicServicePulseState(game),t=Math.max(0,presentationElapsed(game)||0),high=RenderQuality.level>=2;
     g.save();g.lineCap='round';g.lineJoin='round';g.globalAlpha=.38+.42*s.activity;
     // A compact municipal/service vehicle loops only through deep outer-block service space.
     const u=((t*(10+7*s.activity)+game.level*11)%180)/180,x=66+u*118,y=s.district==='harbor'||s.district==='airport'?704:154;
@@ -3935,7 +3967,7 @@
   // This is presentation-only: no decorative passenger or transit marker enters Game.cars,
   // consumes road capacity, changes signals, spawning, collisions, score, save data or RNG.
   function transitStopPulseState(game){
-    const r=cityRhythmState(game),id=r.district,t=Math.max(0,Number(game?.elapsed)||0);
+    const r=cityRhythmState(game),id=r.district,t=Math.max(0,Number(presentationElapsed(game))||0);
     const period=18+((Number(game?.level)||1)%4)*2,cycle=((t+(Number(game?.level)||1)*3.7)%period)/period;
     let stage='quiet';
     if(cycle<.22)stage='approaching';else if(cycle<.48)stage='boarding';else if(cycle<.68)stage='departing';
@@ -3948,7 +3980,7 @@
 
   function drawTransitStopPulse(g,game){
     if(reducedMotion||RenderQuality.level===0||isLinkedJunctionType(game.config?.junctionType))return;
-    const s=transitStopPulseState(game),t=Math.max(0,game.elapsed||0),high=RenderQuality.level>=2;
+    const s=transitStopPulseState(game),t=Math.max(0,presentationElapsed(game)||0),high=RenderQuality.level>=2;
     // Two safe decorative shelter zones remain inside outer blocks and never overlap crossings.
     const stops=s.district==='airport'||s.district==='tech'?[[704,214,1],[112,704,-1]]:[[112,214,1],[704,704,-1]];
     g.save();g.lineCap='round';g.lineJoin='round';
@@ -3976,7 +4008,7 @@
   // blocks a working-day cadence without entering the road simulation. All actors remain inside
   // outer-block service space and are derived only from visual rhythm/time.
   function storefrontDeliveryState(game){
-    const r=cityRhythmState(game),t=Math.max(0,Number(game?.elapsed)||0),level=Math.max(1,Number(game?.level)||1);
+    const r=cityRhythmState(game),t=Math.max(0,Number(presentationElapsed(game))||0),level=Math.max(1,Number(game?.level)||1);
     const period=24+(level%3)*3,cycle=((t+level*2.9)%period)/period;
     let stage='closed';
     if(cycle<.20)stage='arriving';else if(cycle<.52)stage='unloading';else if(cycle<.72)stage='departing';
@@ -3990,7 +4022,7 @@
 
   function drawStorefrontDeliveryLifecycle(g,game){
     if(reducedMotion||RenderQuality.level===0||isLinkedJunctionType(game.config?.junctionType))return;
-    const s=storefrontDeliveryState(game),t=Math.max(0,game.elapsed||0),high=RenderQuality.level>=2;
+    const s=storefrontDeliveryState(game),t=Math.max(0,presentationElapsed(game)||0),high=RenderQuality.level>=2;
     if(s.activity<.12)return;
     const zones=s.district==='harbor'?[[744,168,-1],[748,726,-1]]:s.district==='airport'?[[126,168,1],[742,726,-1]]:[[116,168,1],[748,726,-1]];
     g.save();g.lineCap='round';g.lineJoin='round';
@@ -4018,7 +4050,7 @@
   // now changes through arriving, parked, loading and departing states. These vehicles never
   // enter Game.cars, reserve lanes, affect collisions/signals/spawning, score, save data or RNG.
   function neighborhoodParkingState(game){
-    const r=cityRhythmState(game),t=Math.max(0,Number(game?.elapsed)||0),level=Math.max(1,Number(game?.level)||1);
+    const r=cityRhythmState(game),t=Math.max(0,Number(presentationElapsed(game))||0),level=Math.max(1,Number(game?.level)||1);
     const period=27+(level%4)*2,cycle=((t+level*4.1)%period)/period;
     let stage='parked';
     if(cycle<.16)stage='arriving';else if(cycle>.78)stage='departing';else if(cycle>.56&&cycle<.70)stage='loading';
@@ -4032,7 +4064,7 @@
 
   function drawNeighborhoodParkingTurnover(g,game){
     if(reducedMotion||RenderQuality.level===0||isLinkedJunctionType(game.config?.junctionType))return;
-    const s=neighborhoodParkingState(game),t=Math.max(0,game.elapsed||0),high=RenderQuality.level>=2;
+    const s=neighborhoodParkingState(game),t=Math.max(0,presentationElapsed(game)||0),high=RenderQuality.level>=2;
     const zones=s.district==='airport'?[[126,735,1],[742,142,-1]]:s.district==='harbor'?[[742,142,-1],[126,735,1]]:[[126,142,1],[742,735,-1]];
     g.save();g.lineCap='round';g.lineJoin='round';
     for(let k=0;k<(high?2:1);k++){
@@ -4062,7 +4094,7 @@
   // a readable daily cadence: leaving, arriving, social pause and quiet. The layer is deterministic
   // and presentation-only; figures never enter crossings, Game.cars, routing, signals, score or save.
   function buildingEntranceActivityState(game){
-    const r=cityRhythmState(game),t=Math.max(0,Number(game?.elapsed)||0),level=Math.max(1,Number(game?.level)||1);
+    const r=cityRhythmState(game),t=Math.max(0,Number(presentationElapsed(game))||0),level=Math.max(1,Number(game?.level)||1);
     const period=21+(level%5)*2,cycle=((t+level*3.3)%period)/period;
     let stage='quiet';
     if(r.phase==='morning')stage=cycle<.68?'leaving':'quiet';
@@ -4078,7 +4110,7 @@
 
   function drawBuildingEntranceActivity(g,game){
     if(reducedMotion||RenderQuality.level===0||isLinkedJunctionType(game.config?.junctionType))return;
-    const s=buildingEntranceActivityState(game),t=Math.max(0,game.elapsed||0),high=RenderQuality.level>=2;
+    const s=buildingEntranceActivityState(game),t=Math.max(0,presentationElapsed(game)||0),high=RenderQuality.level>=2;
     const entrances=s.district==='harbor'||s.district==='airport'?[[758,174,-1],[142,724,1]]:[[142,174,1],[758,724,-1]];
     g.save();g.lineCap='round';g.lineJoin='round';
     for(let k=0;k<(high?2:1);k++){
@@ -4103,7 +4135,7 @@
   // deterministic daily cadence of strolling, resting, exercise and quiet periods. Everything
   // remains deep in decorative outer blocks and never participates in traffic simulation.
   function publicSpaceLeisureState(game){
-    const r=cityRhythmState(game),t=Math.max(0,Number(game?.elapsed)||0),level=Math.max(1,Number(game?.level)||1);
+    const r=cityRhythmState(game),t=Math.max(0,Number(presentationElapsed(game))||0),level=Math.max(1,Number(game?.level)||1);
     const period=26+(level%4)*3,cycle=((t+level*2.7)%period)/period;
     let stage='quiet';
     if(r.phase==='morning')stage=cycle<.46?'exercise':cycle<.78?'stroll':'rest';
@@ -4120,7 +4152,7 @@
   function drawPublicSpaceLeisure(g,game){
     if(reducedMotion||RenderQuality.level===0||isLinkedJunctionType(game.config?.junctionType))return;
     const s=publicSpaceLeisureState(game);if(s.stage==='quiet'||s.people<=0)return;
-    const t=Math.max(0,game.elapsed||0),high=RenderQuality.level>=2;
+    const t=Math.max(0,presentationElapsed(game)||0),high=RenderQuality.level>=2;
     const zones=s.district==='park'?[[118,692,1],[782,204,-1]]:s.district==='coast'?[[116,196,1],[784,704,-1]]:[[118,704,1],[782,196,-1]];
     g.save();g.lineCap='round';g.lineJoin='round';
     for(let k=0;k<(high?2:1);k++){
@@ -4146,7 +4178,7 @@
   // deterministic opening, serving, dining, clearing and closed cadence. Weather and daily
   // rhythm affect occupancy only; this layer never touches traffic simulation, score or save.
   function cafeTerraceLifecycleState(game){
-    const r=cityRhythmState(game),t=Math.max(0,Number(game?.elapsed)||0),level=Math.max(1,Number(game?.level)||1);
+    const r=cityRhythmState(game),t=Math.max(0,Number(presentationElapsed(game))||0),level=Math.max(1,Number(game?.level)||1);
     const period=31+(level%5)*2,cycle=((t+level*2.35)%period)/period;
     let stage='closed';
     if(r.phase==='morning')stage=cycle<.18?'opening':cycle<.70?'serving':'clearing';
@@ -4165,7 +4197,7 @@
   function drawCafeTerraceLifecycle(g,game){
     if(reducedMotion||RenderQuality.level===0||isLinkedJunctionType(game.config?.junctionType))return;
     const s=cafeTerraceLifecycleState(game);if(s.stage==='closed'||s.tables<=0)return;
-    const t=Math.max(0,game.elapsed||0),high=RenderQuality.level>=2;
+    const t=Math.max(0,presentationElapsed(game)||0),high=RenderQuality.level>=2;
     const zones=s.district==='coast'?[[116,236,1],[784,664,-1]]:s.district==='oldtown'?[[116,664,1],[784,236,-1]]:[[116,236,1],[784,664,-1]];
     g.save();g.lineCap='round';g.lineJoin='round';
     for(let k=0;k<(high?2:1);k++){
@@ -4192,7 +4224,7 @@
   // now cycle through setup, trading, busy, packing and closed states. The layer reads daily rhythm,
   // district and weather only; it never enters traffic lanes or mutates simulation, score or save.
   function streetMarketLifecycleState(game){
-    const r=cityRhythmState(game),t=Math.max(0,Number(game?.elapsed)||0),level=Math.max(1,Number(game?.level)||1);
+    const r=cityRhythmState(game),t=Math.max(0,Number(presentationElapsed(game))||0),level=Math.max(1,Number(game?.level)||1);
     const period=37+(level%4)*3,cycle=((t+level*1.9)%period)/period;
     let stage='closed';
     if(r.phase==='morning')stage=cycle<.18?'setup':cycle<.72?'trading':'packing';
@@ -4210,7 +4242,7 @@
   function drawStreetMarketLifecycle(g,game){
     if(reducedMotion||RenderQuality.level===0||isLinkedJunctionType(game.config?.junctionType))return;
     const s=streetMarketLifecycleState(game);if(s.stage==='closed'||s.stalls<=0)return;
-    const t=Math.max(0,game.elapsed||0),high=RenderQuality.level>=2;
+    const t=Math.max(0,presentationElapsed(game)||0),high=RenderQuality.level>=2;
     const zones=s.district==='oldtown'?[[126,628,1],[774,272,-1]]:s.district==='coast'?[[126,272,1],[774,628,-1]]:[[126,628,1],[774,272,-1]];
     g.save();g.lineCap='round';g.lineJoin='round';
     for(let k=0;k<(high?2:1);k++){
@@ -4239,7 +4271,7 @@
   // surveying, active work, delivery, finishing and idle states. This is deterministic presentation
   // only: cranes, workers and materials never enter traffic lanes or mutate gameplay/save state.
   function constructionSiteLifecycleState(game){
-    const r=cityRhythmState(game),t=Math.max(0,Number(game?.elapsed)||0),level=Math.max(1,Number(game?.level)||1);
+    const r=cityRhythmState(game),t=Math.max(0,Number(presentationElapsed(game))||0),level=Math.max(1,Number(game?.level)||1);
     const period=43+(level%5)*3,cycle=((t+level*2.15)%period)/period;
     let stage='idle';
     if(r.phase==='morning')stage=cycle<.16?'surveying':cycle<.72?'active':'delivery';
@@ -4257,7 +4289,7 @@
   function drawConstructionSiteLifecycle(g,game){
     if(reducedMotion||RenderQuality.level===0||isLinkedJunctionType(game.config?.junctionType))return;
     const s=constructionSiteLifecycleState(game);if(s.stage==='idle'||s.workers<=0)return;
-    const t=Math.max(0,game.elapsed||0),high=RenderQuality.level>=2;
+    const t=Math.max(0,presentationElapsed(game)||0),high=RenderQuality.level>=2;
     const zones=s.district==='downtown'?[[142,168,1],[758,732,-1]]:s.district==='harbor'?[[142,732,1],[758,168,-1]]:[[142,168,1],[758,732,-1]];
     g.save();g.lineCap='round';g.lineJoin='round';
     for(let k=0;k<(high?2:1);k++){
@@ -4281,7 +4313,7 @@
   // make the surrounding blocks visibly wake, work and settle through the day. Deterministic
   // presentation only: no gameplay actor, path, signal, spawn RNG, score or save state is touched.
   function buildingOccupancyRhythmState(game){
-    const r=cityRhythmState(game),level=Math.max(1,Number(game?.level)||1),t=Math.max(0,Number(game?.elapsed)||0);
+    const r=cityRhythmState(game),level=Math.max(1,Number(game?.level)||1),t=Math.max(0,Number(presentationElapsed(game))||0);
     const phaseBase=r.phase==='morning'?.48:r.phase==='day'?.58:r.phase==='evening'?.86:.68;
     const districtBias=['downtown','tech','airport'].includes(r.district)?.12:['oldtown','night'].includes(r.district)?.08:0;
     const weatherBoost=r.weather==='rain'?.08:r.weather==='snow'?.11:r.weather==='fog'?.05:0;
@@ -4319,7 +4351,7 @@
   // M190: rooftop evening life. A small deterministic presentation layer adds rooftop
   // gardens, residents and maintenance activity without creating gameplay actors or RNG.
   function rooftopLifeState(game){
-    const r=cityRhythmState(game),level=Math.max(1,Number(game?.level)||1),t=Math.max(0,Number(game?.elapsed)||0);
+    const r=cityRhythmState(game),level=Math.max(1,Number(game?.level)||1),t=Math.max(0,Number(presentationElapsed(game))||0);
     const phaseBase=r.phase==='morning'?.34:r.phase==='day'?.28:r.phase==='evening'?.78:.16;
     const districtBias=['downtown','tech','oldtown','coast'].includes(r.district)?.14:r.district==='night'?.20:0;
     const weatherPenalty=r.weather==='rain'?.30:r.weather==='snow'?.38:r.weather==='fog'?.10:0;
@@ -4356,7 +4388,7 @@
   // M192: neighborhood pet-walk life. Deterministic presentation-only walkers and pets
   // add morning/evening neighborhood rhythm without becoming simulation actors.
   function neighborhoodPetWalkState(game){
-    const r=cityRhythmState(game),level=Math.max(1,Number(game?.level)||1),t=Math.max(0,Number(game?.elapsed)||0);
+    const r=cityRhythmState(game),level=Math.max(1,Number(game?.level)||1),t=Math.max(0,Number(presentationElapsed(game))||0);
     const phaseBase=r.phase==='morning'?.72:r.phase==='day'?.30:r.phase==='evening'?.82:.12;
     const districtBias=['park','coast','oldtown'].includes(r.district)?.14:r.district==='downtown'?.05:0;
     const weatherPenalty=r.weather==='rain'?.34:r.weather==='snow'?.42:r.weather==='fog'?.08:0;
@@ -4391,7 +4423,7 @@
   // after-school/evening cadence to safe outer-block playgrounds. This is deterministic,
   // presentation-only scenery: no gameplay actors, routing, signal timing, RNG, score or save changes.
   function neighborhoodPlaygroundState(game){
-    const r=cityRhythmState(game),level=Math.max(1,Number(game?.level)||1),t=Math.max(0,Number(game?.elapsed)||0);
+    const r=cityRhythmState(game),level=Math.max(1,Number(game?.level)||1),t=Math.max(0,Number(presentationElapsed(game))||0);
     const phaseBase=r.phase==='morning'?.18:r.phase==='day'?.66:r.phase==='evening'?.78:.06;
     const districtBias=['park','coast','oldtown'].includes(r.district)?.16:['downtown','tech'].includes(r.district)?.06:0;
     const weatherPenalty=r.weather==='rain'?.48:r.weather==='snow'?.58:r.weather==='fog'?.10:0;
@@ -4438,7 +4470,7 @@
   // morning exercise, daytime reading and evening social cadence. Presentation only:
   // no gameplay actors, routing, traffic rules, RNG, score or persistence changes.
   function pocketParkLifeState(game){
-    const r=cityRhythmState(game),level=Math.max(1,Number(game?.level)||1),t=Math.max(0,Number(game?.elapsed)||0);
+    const r=cityRhythmState(game),level=Math.max(1,Number(game?.level)||1),t=Math.max(0,Number(presentationElapsed(game))||0);
     const phaseBase=r.phase==='morning'?.62:r.phase==='day'?.48:r.phase==='evening'?.72:.10;
     const districtBias=['park','coast','oldtown'].includes(r.district)?.15:['downtown','tech'].includes(r.district)?.05:0;
     const weatherPenalty=r.weather==='rain'?.40:r.weather==='snow'?.52:r.weather==='fog'?.09:0;
@@ -4482,7 +4514,7 @@
   // daytime plants/laundry, evening residents and night quiet. Presentation only:
   // no gameplay actors, routing, traffic rules, RNG, score or persistence changes.
   function balconyLifeState(game){
-    const r=cityRhythmState(game),level=Math.max(1,Number(game?.level)||1),t=Math.max(0,Number(game?.elapsed)||0);
+    const r=cityRhythmState(game),level=Math.max(1,Number(game?.level)||1),t=Math.max(0,Number(presentationElapsed(game))||0);
     const phaseBase=r.phase==='morning'?.46:r.phase==='day'?.34:r.phase==='evening'?.68:.12;
     const districtBias=['oldtown','coast','park'].includes(r.district)?.16:['downtown','night'].includes(r.district)?.07:0;
     const weatherPenalty=r.weather==='rain'?.26:r.weather==='snow'?.38:r.weather==='fog'?.05:0;
@@ -4514,7 +4546,7 @@
   function drawLivingCityFire(g,game){
     if(reducedMotion||RenderQuality.level<2||isLinkedJunctionType(game.config?.junctionType))return;
     if(districtInfo(game.level).id!=='oldtown'||game.level%5!==2)return;
-    const t=(game.elapsed||0)-18;if(t<0||t>=29)return;
+    const t=(presentationElapsed(game)||0)-18;if(t<0||t>=29)return;
     const arrival=Math.min(1,Math.max(0,(t-2)/4)),spray=Math.min(1,Math.max(0,(t-8)/3));
     const fade=Math.min(1,Math.max(0,(t-17)/9)),flame=Math.max(0,1-fade);
     const truckX=805-110*arrival;
