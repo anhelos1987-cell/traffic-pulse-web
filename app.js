@@ -1068,11 +1068,11 @@
   // slot used is the one immediately after staging the opening traffic.
   const CAMPAIGN_OPENINGS = {
     3: {plan:'WNNWESWN', staged:3, delays:[.35,1.4,1.0,1.2,1.0],
-      goalRu:'Последняя машина · следи за боковой очередью', goalEn:'Last car · watch the side queue'},
+      goalRu:'Последняя машина · очередь ждёт', goalEn:'Last car · watch the side queue'},
     6: {plan:'WNNESWNNESSW', staged:3, delays:[.45,.85,1.1,1.0,.9,1.05,.9,.85,1.0], firstPedestrianDelay:1.05,
-      goalRu:'Пешеходный переход · выбери момент для смены сигнала', goalEn:'Crosswalk · time your signal change'},
+      goalRu:'Пешеходы · выбери момент', goalEn:'Crosswalk · time your switch'},
     10:{plan:'NNWEWENSSNWE', staged:4, delays:[.25,.65,.9,.75,1.0,1.1,1.0,.8],
-      goalRu:'Час пик · пропустить группу или разгрузить очередь?', goalEn:'Rush hour · let the group pass or clear the queue?'}
+      goalRu:'Час пик · группа или очередь?', goalEn:'Rush hour · group or queue?'}
   };
 
   function seeded(seed){ let s=seed>>>0; return ()=>((s=(s*1664525+1013904223)>>>0)/4294967296); }
