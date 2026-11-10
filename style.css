@@ -876,3 +876,24 @@ body.vk-supporter .garage-showcase strong{background:linear-gradient(180deg,#fff
   .modal.pause-modal .modal-actions button:first-child{grid-column:1/-1}
   .modal.pause-modal .modal-actions button:last-child{grid-column:span 2}
 }
+
+
+/* M215 — desktop HUD legibility audit.
+   Readability only: no changes to simulation Canvas dimensions or gameplay.
+   Scope to desktop to retain the compact phone layouts and stable 70px header. */
+@media (min-width:900px) and (min-height:650px){
+  .level-head .level-copy{gap:10px}
+  .level-head .eyebrow{font-size:11px;line-height:1.2;letter-spacing:.08em}
+  .level-head #level-label{font-size:22px;line-height:1.1}
+  .level-head .goal{font-size:14px;line-height:1.25;color:#edf7ff}
+  .level-head .progress{margin-top:7px;height:7px}
+  .controls > .control b{font-size:15px}
+  .controls .greenwave-controls .control b{font-size:12px}
+  .controls .desktop-insight .insight-title{font-size:10px;color:#c2e8f6}
+  .controls .desktop-insight .insight-row{font-size:11px;color:#d8eaf6}
+  .mini-status{font-size:13px;line-height:1.2;color:#d3e9f5;padding-inline:10px}
+  .mini-status span{
+    padding:2px 8px;border-radius:9px;background:rgba(9,29,48,.8);
+    border:1px solid rgba(122,203,236,.17);font-variant-numeric:tabular-nums;
+  }
+}
