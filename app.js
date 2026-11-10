@@ -176,6 +176,37 @@
     particleCount(){ return reducedMotion?0:(this.level===2?6:this.level===1?3:1); }
   };
   const SIM_STEP=1/60, MAX_CATCHUP_STEPS=8, HUD_REFRESH_MS=80;
+  // M216: opt-in local frame diagnostics (?tpperf=1). Never enabled for
+  // regular players. Records frame pacing and Canvas draw time only; no
+  // account, save, SDK, URL or private data is collected.
+  const PerfProbe={
+    enabled:new URLSearchParams(location.search).get('tpperf')==='1',
+    frames:[],draws:[],lastReport:0,node:null,
+    push(values,v){values.push(v);if(values.length>180)values.shift();},
+    percentile(values,q){if(!values.length)return 0;const sorted=values.slice().sort((a,b)=>a-b);return sorted[Math.min(sorted.length-1,Math.floor((sorted.length-1)*q))];},
+    draw(ms){if(this.enabled&&Number.isFinite(ms))this.push(this.draws,ms);},
+    frame(ms,quality){
+      if(!this.enabled||!Number.isFinite(ms)||ms<=0||ms>250)return;
+      this.push(this.frames,ms);const now=performance.now();if(now-this.lastReport<1500)return;this.lastReport=now;
+      const median=this.percentile(this.frames,.5),p95=this.percentile(this.frames,.95);
+      const drawP95=this.percentile(this.draws,.95),over25=this.frames.filter(v=>v>25).length;
+      const snapshot={fps:Math.round(1000/Math.max(1,median)),p95Ms:Math.round(p95*10)/10,
+        drawP95Ms:Math.round(drawP95*10)/10,slowFramesPct:Math.round(over25/Math.max(1,this.frames.length)*100),
+        quality,samples:this.frames.length};
+      window.__trafficPulsePerfSnapshot=snapshot;
+      if(!this.node){
+        this.node=document.createElement('div');this.node.setAttribute('aria-label','Диагностика плавности / Frame diagnostics');
+        this.node.style.cssText='position:fixed;right:8px;bottom:8px;z-index:9999;pointer-events:none;'+
+          'background:rgba(4,18,32,.91);color:#d5faff;border:1px solid #55d5ff7d;'+
+          'border-radius:9px;padding:8px 10px;font:12px/1.35 monospace;white-space:pre;text-align:left;'+
+          'box-shadow:0 3px 15px #0008';
+        document.body.appendChild(this.node);
+      }
+      this.node.textContent='FPS ~'+snapshot.fps+'   p95 '+snapshot.p95Ms+' ms'+
+        '\\nSlow frames '+snapshot.slowFramesPct+'%   Draw p95 '+snapshot.drawP95Ms+' ms'+
+        '\\nQuality '+['Low','Medium','High'][quality];
+    }
+  };
 
   const $ = (id) => document.getElementById(id);
   const canvas = $('game');
@@ -2765,6 +2796,7 @@
     },
     draw(){
       this.presentationDrawCount=(this.presentationDrawCount||0)+1;
+      const measureDraw=PerfProbe.enabled?performance.now():0;
       resizeCanvas(); const w=canvas.width,h=canvas.height,s=Math.min(w,h)/900;
       ctx.save();ctx.setTransform(1,0,0,1,0,0);ctx.fillStyle='#07101e';ctx.fillRect(0,0,w,h);ctx.restore();
       const hotFlow=Math.min(1,Math.max(0,((this.flowStreak||0)-4)/8));
@@ -2785,10 +2817,12 @@
         ctx.setTransform(fs,0,0,fs,fox*fs,foy*fs);drawCoreWorldFallback(ctx,this);ctx.setTransform(1,0,0,1,0,0);
       }
       if(!drawFailed)ctx.restore();
+      if(PerfProbe.enabled)PerfProbe.draw(performance.now()-measureDraw);
     },
     loop(ts){
       const rawDt=Math.max(0,Math.min(.25,(ts-(this.lastTs||ts))/1000)); this.lastTs=ts;
       const active=this.state==='playing'&&!this.externalPaused&&!this.userPaused;
+      if(PerfProbe.enabled&&active)PerfProbe.frame(rawDt*1000,RenderQuality.level);
       RenderQuality.observe(rawDt*1000,active);if(active)YandexAudit.sampleFrame(rawDt*1000);
       if(active){
         platform.noteActiveGameplay(rawDt*1000);
