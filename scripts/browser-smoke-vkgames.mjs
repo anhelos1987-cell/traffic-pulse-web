@@ -115,7 +115,7 @@ try{
           'portrait pause should fit all actions: '+JSON.stringify(pauseMetrics));
       }
       if(viewport.width===844&&viewport.height===390){
-        assert.equal(pauseMetrics.columns,3,'phone landscape pause should use a compact 3-column grid');
+        assert.equal(pauseMetrics.columns,4,'phone landscape pause should use a compact 4-column grid');
         assert.ok(pauseMetrics.scrollHeight<=pauseMetrics.clientHeight+2,
           'landscape pause should fit all actions: '+JSON.stringify(pauseMetrics));
       }
