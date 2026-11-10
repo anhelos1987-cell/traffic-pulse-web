@@ -82,6 +82,33 @@ try{
       await page.waitForFunction(()=>document.querySelector('#overlay')?.getAttribute('aria-hidden')==='false',{timeout:2000});
       const modalTitle=await page.$eval('#modal-title',el=>el.textContent);
       assert.ok(modalTitle.trim(),'pause dialog must have a readable title');
+      // M214: independently capture the actual pause screen, not only gameplay.
+      // At desktop dimensions twelve actions must fit with a two-column grid
+      // and without the narrow internal scroll bar reported in manual QA.
+      const pauseMetrics=await page.evaluate(()=>{
+        const m=document.querySelector('.modal'),buttons=[...document.querySelectorAll('#modal-actions button')];
+        const styles=getComputedStyle(document.querySelector('#modal-actions'));
+        return {
+          width:m.getBoundingClientRect().width,scrollHeight:m.scrollHeight,
+          clientHeight:m.clientHeight,
+          isPause:m.classList.contains('pause-modal'),
+          columns:styles.gridTemplateColumns.trim().split(/\\s+/).length,
+          buttonCount:buttons.length,
+          firstButtonVisible:buttons[0].getBoundingClientRect().height>=44
+        };
+      });
+      assert.equal(pauseMetrics.isPause,true,'pause dialog must select its own layout');
+      assert.equal(pauseMetrics.buttonCount,12,'all twelve pause actions must remain available');
+      assert.equal(pauseMetrics.firstButtonVisible,true,'Continue remains touchable');
+      if(viewport.width>=1000&&viewport.height>=700){
+        assert.ok(pauseMetrics.width>=650,'desktop pause should use available horizontal space');
+        assert.equal(pauseMetrics.columns,2,'desktop pause must present two action columns');
+        assert.ok(pauseMetrics.scrollHeight<=pauseMetrics.clientHeight+2,
+          'desktop pause should fit without internal scrolling: '+JSON.stringify(pauseMetrics));
+      }
+      await mkdir(resolve(root,'artifacts/browser-smoke'),{recursive:true});
+      await page.screenshot({path:resolve(root,'artifacts/browser-smoke',viewport.width+'x'+viewport.height+'-pause.png'),fullPage:false});
+      console.log('PASS M214 pause layout',viewport.width+'x'+viewport.height,pauseMetrics);
       await page.click('#modal-actions button.primary');
       await page.waitForFunction(()=>document.querySelector('#overlay')?.getAttribute('aria-hidden')==='true',{timeout:2000});
       await page.waitForFunction(()=>document.querySelector('#signal-btn')?.disabled===false,{timeout:5000});
