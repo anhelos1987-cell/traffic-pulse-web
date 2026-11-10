@@ -51,17 +51,17 @@ jobs:
       - name: Upload M212 playable static test candidate
         uses: actions/upload-artifact@v4
         with:
-          name: traffic-pulse-m214-test-build
+          name: traffic-pulse-m215-test-build
           path: |
-            artifacts/TrafficPulse_M214_VKOK_TestBuild.zip
-            artifacts/TrafficPulse_M214_VKOK_TestBuild_manifest.json
+            artifacts/TrafficPulse_M215_VKOK_TestBuild.zip
+            artifacts/TrafficPulse_M215_VKOK_TestBuild_manifest.json
           retention-days: 14
           if-no-files-found: error
       - name: Upload browser screenshots for manual QA
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: traffic-pulse-m214-browser-smoke
+          name: traffic-pulse-m215-browser-smoke
           path: artifacts/browser-smoke/*.png
           retention-days: 7
           if-no-files-found: warn
