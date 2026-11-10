@@ -13,7 +13,7 @@
   }catch(_){}
 
   const BUILD_MODE = 'production';
-  const BUILD_VERSION = 'M211-VKGAMES-RC';
+  const BUILD_VERSION = 'M214-VKGAMES-RC';
   const IS_DEVELOPMENT = BUILD_MODE === 'development';
   const PLATFORM_TARGET = 'vkgames'; // VK Games / VK Mini Apps, not VK Play
   const YANDEX_PUBLIC_LEADERBOARD_NAME = 'TrafficPulseStars';
@@ -5197,7 +5197,7 @@
 
   function showPause(){
     $('modal-kicker').textContent='TRAFFIC PULSE';$('modal-title').textContent=T.paused;$('modal-text').textContent=T.pausedText;$('modal-stars').textContent='';$('modal-reward').classList.add('hidden');$('modal-extra').classList.remove('hidden');$('modal-extra').textContent=vkCloudStatusText();$('modal-extra').dataset.cloudStatus='1';
-    const pauseActions=[{text:T.continue,cls:'primary',fn:()=>Game.resume()},{text:`🎮 ${T.modesHub}`,fn:()=>showModeHub('pause')},{text:`🗺️ ${T.campaignMap}`,fn:()=>showCampaignMap('pause',save.level)},{text:`🚗 ${T.garage}`,fn:()=>showGarage('pause')},{text:`📊 ${T.stats}`,fn:()=>showStats('pause')},{text:`ℹ️ ${T.developer}`,fn:()=>showDeveloperInfo('pause')},{text:`${T.musicLevel}: ${AudioFx.musicLabel()}`,cls:'sound-toggle',fn:(b)=>{AudioFx.cycleMusic();b.textContent=`${T.musicLevel}: ${AudioFx.musicLabel()}`;}},{text:save.sfx?T.effectsOn:T.effectsOff,cls:'sound-toggle',fn:(b)=>{AudioFx.setSfxEnabled(!save.sfx);b.textContent=save.sfx?T.effectsOn:T.effectsOff;}},{text:`${T.language}: ${languageModeLabel()}`,cls:'sound-toggle',fn:()=>{cycleLanguageMode();showPause();}},{text:lang==='ru'?'☁ Синхронизировать VK':'☁ Sync VK',fn:async()=>{await VKGames.sync();toast(vkCloudStatusText());}},{text:lang==='ru'?'🔐 Данные игры':'🔐 Game data',fn:()=>showVkDataPanel('pause')},{text:T.restart,fn:()=>Game.restart()}];actions(pauseActions);openOverlay();
+    const pauseActions=[{text:T.continue,cls:'primary',fn:()=>Game.resume()},{text:`🎮 ${T.modesHub}`,fn:()=>showModeHub('pause')},{text:`🗺️ ${T.campaignMap}`,fn:()=>showCampaignMap('pause',save.level)},{text:`🚗 ${T.garage}`,fn:()=>showGarage('pause')},{text:`📊 ${T.stats}`,fn:()=>showStats('pause')},{text:`ℹ️ ${T.developer}`,fn:()=>showDeveloperInfo('pause')},{text:`${T.musicLevel}: ${AudioFx.musicLabel()}`,cls:'sound-toggle',fn:(b)=>{AudioFx.cycleMusic();b.textContent=`${T.musicLevel}: ${AudioFx.musicLabel()}`;}},{text:save.sfx?T.effectsOn:T.effectsOff,cls:'sound-toggle',fn:(b)=>{AudioFx.setSfxEnabled(!save.sfx);b.textContent=save.sfx?T.effectsOn:T.effectsOff;}},{text:`${T.language}: ${languageModeLabel()}`,cls:'sound-toggle',fn:()=>{cycleLanguageMode();showPause();}},{text:lang==='ru'?'☁ Синхронизировать VK':'☁ Sync VK',fn:async()=>{await VKGames.sync();toast(vkCloudStatusText());}},{text:lang==='ru'?'🔐 Данные игры':'🔐 Game data',fn:()=>showVkDataPanel('pause')},{text:T.restart,fn:()=>Game.restart()}];actions(pauseActions);openOverlay('pause');
   }
 
   function showVkDataPanel(origin='pause'){
@@ -5618,6 +5618,9 @@
   let overlayOpenSerial=0;
   function openOverlay(tone='neutral'){
     const o=$('overlay'),app=$('app'),wasHidden=o.classList.contains('hidden'),toneClass=tone==='win'?'win-glow':tone==='fail'?'fail-glow':'';
+    // M214: scope wide two-column pause layout to the pause dialog only.
+    const modal=document.querySelector('.modal');modal?.classList.toggle('pause-modal',tone==='pause');
+    if(tone==='pause')modal?.classList.remove('campaign-map-modal');
     if(wasHidden&&document.activeElement instanceof HTMLElement)overlayReturnFocus=document.activeElement;
     // M97 HF01: do not churn the tone class while an overlay is already visible. Re-applying
     // win-glow used to restart its compositor animation and looked like the result window blinked.
