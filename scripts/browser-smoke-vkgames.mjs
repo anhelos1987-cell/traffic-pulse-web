@@ -466,6 +466,55 @@ try{
     assert.match(feedback.clean.text,/No stops ×3|Без остановок ×3/);
     assert.match(feedback.summary,/Best no-stop streak ×3|Лучшая серия без остановок ×3/);
     console.log('PASS M221 flow, no-stop streak, perfect switch and retry reset',feedback.sync,feedback.clean);
+
+    const roadEvents=await winPage.evaluate(()=>{
+      const {game,updateHud}=window.__tpQA;
+      const labels=[],original=CanvasRenderingContext2D.prototype.fillText;
+      CanvasRenderingContext2D.prototype.fillText=function(text,x,y,...rest){
+        labels.push([text,x,y]);
+        return original.call(this,text,x,y,...rest);
+      };
+      function run(level){
+        game.startLevel(level);game.externalPaused=false;
+        let lastSwitch=0,early=null,warning=null,active=null,cleared=null;
+        const snapshot=()=>{labels.length=0;updateHud();game.draw();return [...labels];};
+        for(let i=1;i<60*50&&game.state==='playing';i++){
+          const now=i/60;
+          if(!game.transitionTimer&&now-lastSwitch>=2.3){
+            const waiting=game.cars.some(c=>c.axis!==game.phase&&c.progress>180&&c.progress<340);
+            const greenNear=game.cars.some(c=>c.axis===game.phase&&c.progress>120&&c.progress<620);
+            if(waiting&&(!greenNear||now-lastSwitch>=4.4)&&game.toggle())lastSwitch=now;
+          }
+          game.update(1/60);
+          const ambulance=game.cars.find(c=>c.kind==='ambulance');
+          if(!early&&ambulance){
+            const tag=snapshot().find(([text])=>text.startsWith('🚑'));
+            if(tag)early={tag,dir:ambulance.dir,progress:ambulance.progress,preempting:ambulance.emergencyPriorityActive,
+              status:document.querySelector('#priority-badge').textContent};
+          }
+          const incident=game.incidentDirector;
+          if(incident?.warned&&!warning)warning=snapshot().filter(([text])=>/^⚠ \d/.test(text));
+          if(incident?.active&&!active)active=snapshot().filter(([text])=>/^⏱ \d/.test(text));
+          if(incident?.completed&&!cleared)cleared=snapshot().filter(([text])=>/^(⚠|⏱) \d/.test(text));
+        }
+        return {state:game.state,prioritySaved:game.prioritySaved,early,warning,active,cleared};
+      }
+      try{return [run(16),run(66),run(94),run(122)];}
+      finally{CanvasRenderingContext2D.prototype.fillText=original;}
+    });
+    const [ambulance,broken,works,slow]=roadEvents;
+    assert.ok(roadEvents.every(run=>run.state==='won'),'all four campaign levels should stay playable');
+    assert.equal(ambulance.early.tag[0],'🚑 ←');
+    assert.ok(ambulance.early.tag[1]>650&&ambulance.early.progress<70&&!ambulance.early.preempting);
+    assert.match(ambulance.early.status,/←/);
+    assert.equal(ambulance.prioritySaved,1);
+    assert.ok(broken.warning.length===1&&broken.warning[0][1]<250&&broken.active.length===1);
+    assert.ok(works.warning.length===2&&works.active.length===2);
+    assert.ok(works.warning.some(([, ,y])=>y<250)&&works.warning.some(([, ,y])=>y>650));
+    assert.equal(works.early.tag[0],'🚑 ↑');
+    assert.ok(slow.warning.length===2&&slow.active.length===2);
+    assert.ok([broken,works,slow].every(run=>run.cleared.length===0));
+    console.log('PASS M222 early emergency direction and incident countdown lifecycle',roadEvents.map(run=>({early:run.early,warning:run.warning,active:run.active})));
     assert.deepEqual(winErrors,[],'real win page must have zero errors');
   }finally{await winPage.close();}
 }finally{
