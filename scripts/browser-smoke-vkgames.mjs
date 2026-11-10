@@ -246,7 +246,7 @@ try{
         const anchor='  function startApp(){';
         assert.equal(original.split(anchor).length-1,1);
         const instrumented=original.replace(anchor,
-          '  window.__tpQA={win:()=>Game.win(),game:Game,perf:PerfProbe};\n'+anchor);
+          '  window.__tpQA={win:()=>Game.win(),game:Game,perf:PerfProbe,updateHud};\n'+anchor);
         await request.respond({status:200,contentType:'application/javascript',body:instrumented});
       }catch(error){console.error(error);await request.abort();}
     }else await request.continue();
@@ -305,7 +305,7 @@ try{
         game.startLevel(level);
         game.externalPaused=false;
         const opening=game.cars.map(c=>c.dir).join('');
-        let lastSwitch=0;
+        let lastSwitch=0,sawFlow=false;
         for(let i=1;i<60*40&&game.state==='playing';i++){
           const time=i/60;
           if(!game.switches){
@@ -316,14 +316,16 @@ try{
             if(waiting&&(!greenNear||time-lastSwitch>=4.4)&&game.toggle())lastSwitch=time;
           }
           tick();
+          sawFlow||=game.drivingFeedback?.kind==='flow';
         }
-        return {opening,state:game.state,elapsed:game.elapsed,switches:game.switches};
+        return {opening,state:game.state,elapsed:game.elapsed,switches:game.switches,sawFlow};
       }
       return [play(3,.75),play(3,3.85),play(6,1.08),play(10,.8),play(10,6.1),play(10,.8)];
     });
     assert.ok(openingChecks.every(run=>run.state==='won'),'all prototype schedules must be playable');
     assert.deepEqual(openingChecks.map(run=>run.opening),['WNN','WNN','WNN','NNWE','NNWE','NNWE']);
     assert.ok(openingChecks[0].switches>openingChecks[1].switches,'waiting for the last car should save a switch');
+    assert.ok(openingChecks[1].sawFlow,'ordinary play in level 3 should reach a flow milestone');
     assert.notEqual(openingChecks[3].switches,openingChecks[4].switches,'rush-hour strategies should have different results');
     assert.deepEqual(openingChecks[3],openingChecks[5],'same rush-hour strategy should replay identically');
 
@@ -416,6 +418,54 @@ try{
     assert.ok(jam.naturalOverload&&jam.naturalRecovery&&jam.dailyImmediate,JSON.stringify(jam));
     assert.match(jam.failCopy,/Time to clear the queue ran out|Время на разгрузку вышло/);
     console.log('PASS M220 jam recovery, clearance allowance, pause and timeout',jam);
+
+    await winPage.emulateMediaFeatures([{name:'prefers-reduced-motion',value:'reduce'}]);
+    const feedback=await winPage.evaluate(()=>{
+      const {game,updateHud}=window.__tpQA;
+      const badge=document.querySelector('#driving-feedback');
+      const phase=document.querySelector('#phase-indicator');
+      function badgeState(){
+        return {kind:badge.dataset.kind,text:badge.textContent.trim(),animation:getComputedStyle(badge).animationName};
+      }
+      game.startLevel(3);game.externalPaused=false;
+      const waiting=game.cars.find(car=>car.dir==='N');
+      game.cars=[{...waiting,stopped:true,inside:false}];
+      game.lastPassAt=game.elapsed;
+      document.querySelector('#toast').textContent='existing road notice';
+      document.querySelector('#signal-btn').click();
+      const sync=badgeState(),syncCount=game.maxSyncStreak;
+      const noticePreserved=document.querySelector('#toast').textContent==='existing road notice';
+      const rect=badge.getBoundingClientRect(),phaseRect=phase.getBoundingClientRect();
+      const unobstructed=rect.bottom<phaseRect.top||rect.right<phaseRect.left;
+      game.restart();game.externalPaused=false;
+      const reset=badge.dataset.kind===''&&game.maxSyncStreak===0&&game.syncStreak===0;
+
+      const seedCar=game.cars[0];
+      function pass(waitTime){
+        game.elapsed+=.6;
+        game.cars=[{...seedCar,progress:960,waitTime,stopped:false,inside:false}];
+        game.moveCars(1/60);updateHud();
+      }
+      pass(0);pass(.25);pass(0);
+      const queuedFlow=badgeState(),chainBroken=game.cleanFlowStreak===1;
+      pass(0);pass(0);
+      const clean=badgeState();
+      game.elapsed+=2;updateHud();
+      const expired=badge.dataset.kind==='';
+      game.win();
+      const summary=document.querySelector('.win-breakdown')?.textContent||'';
+      return {sync,syncCount,noticePreserved,unobstructed,reset,queuedFlow,chainBroken,clean,expired,summary};
+    });
+    assert.equal(feedback.sync.kind,'sync');
+    assert.match(feedback.sync.text,/Perfect switch ×1|Точная смена ×1/);
+    assert.equal(feedback.sync.animation,'none');
+    assert.equal(feedback.syncCount,1);
+    assert.ok(feedback.noticePreserved&&feedback.unobstructed&&feedback.reset&&feedback.chainBroken&&feedback.expired,JSON.stringify(feedback));
+    assert.equal(feedback.queuedFlow.kind,'flow');
+    assert.equal(feedback.clean.kind,'clean');
+    assert.match(feedback.clean.text,/No stops ×3|Без остановок ×3/);
+    assert.match(feedback.summary,/Best no-stop streak ×3|Лучшая серия без остановок ×3/);
+    console.log('PASS M221 flow, no-stop streak, perfect switch and retry reset',feedback.sync,feedback.clean);
     assert.deepEqual(winErrors,[],'real win page must have zero errors');
   }finally{await winPage.close();}
 }finally{
