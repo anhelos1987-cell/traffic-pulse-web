@@ -13,7 +13,7 @@
   }catch(_){}
 
   const BUILD_MODE = 'production';
-  const BUILD_VERSION = 'M217-VKGAMES-PACING-RC';
+  const BUILD_VERSION = 'M218-VKGAMES-VISUAL-CACHE-RC';
   const IS_DEVELOPMENT = BUILD_MODE === 'development';
   const PLATFORM_TARGET = 'vkgames'; // VK Games / VK Mini Apps, not VK Play
   const YANDEX_PUBLIC_LEADERBOARD_NAME = 'TrafficPulseStars';
@@ -2819,12 +2819,16 @@
       if(renderFallbackActive){
         drawCoreWorldFallback(ctx,this);
       }else try{
+        beginVisualFrameSnapshot(this);
         drawExtendedBackdrop(ctx,this,ox,oy,visW,visH);drawWorld(ctx,this);if(this.replayPlayback)drawFailureReplayOverlay(ctx,this);
       }catch(error){
         drawFailed=true;noteRenderFault(error);
         const fw=canvas.width,fh=canvas.height;canvas.width=fw;canvas.height=fh;
         const fs=Math.min(fw,fh)/900,fox=(fw/fs-900)/2,foy=(fh/fs-900)/2;
         ctx.setTransform(fs,0,0,fs,fox*fs,foy*fs);drawCoreWorldFallback(ctx,this);ctx.setTransform(1,0,0,1,0,0);
+      }finally{
+        // Never leak a stale presentation cache into simulation or the next frame.
+        endVisualFrameSnapshot();
       }
       if(!drawFailed)ctx.restore();
       if(PerfProbe.enabled)PerfProbe.draw(performance.now()-measureDraw);
@@ -3157,9 +3161,34 @@
     return pedestrianPose(ped,lanes,previous+(current-previous)*t);
   }
 
+  // M218: all animated city layers share a single read-only snapshot *within a draw*.
+  // Before M218, 15+ layers independently constructed city rhythm and traffic reaction
+  // objects, repeatedly scanned the same cars and recomputed identical visual values.
+  // The snapshot is never active during the 60Hz simulation, UI or save callbacks.
+  const visualFrameSnapshot={active:false,game:null,elapsed:0,rhythm:null,reaction:null};
+  function visualSnapshotFor(game){
+    return visualFrameSnapshot.active&&visualFrameSnapshot.game===game?visualFrameSnapshot:null;
+  }
+  function beginVisualFrameSnapshot(game){
+    const elapsed=presentationElapsed(game);
+    visualFrameSnapshot.game=game;
+    visualFrameSnapshot.elapsed=elapsed;
+    visualFrameSnapshot.rhythm=null;
+    visualFrameSnapshot.reaction=null;
+    visualFrameSnapshot.active=true;
+  }
+  function endVisualFrameSnapshot(){
+    visualFrameSnapshot.active=false;
+    visualFrameSnapshot.game=null;
+    visualFrameSnapshot.rhythm=null;
+    visualFrameSnapshot.reaction=null;
+  }
+
   // Decorative walkers, animals, weather and bobbing use interpolated simulation time
   // rather than advancing in discrete fixed-step bursts. No gameplay time is changed.
   function presentationElapsed(game){
+    const snapshot=visualSnapshotFor(game);
+    if(snapshot)return snapshot.elapsed;
     const elapsed=Math.max(0,Number(game?.elapsed)||0),alpha=Number(game?.renderAlpha);
     if(game?.state!=='playing'||game?.userPaused||game?.externalPaused||!Number.isFinite(alpha))return elapsed;
     return Math.max(0,elapsed-SIM_STEP*(1-Math.max(0,Math.min(1,alpha))));
@@ -3724,6 +3753,8 @@
   // authoritative simulation but never writes back to it. It lets the city acknowledge congestion,
   // emergency priority, crashes and good flow without creating actors, collisions or RNG calls.
   function cityReactionState(game){
+    const snapshot=visualSnapshotFor(game);
+    if(snapshot?.reaction)return snapshot.reaction;
     const none={queuePressure:0,queueLevel:0,maxQueueNow:0,emergency:false,crash:false,flow:0,progress:0,weather:'clear'};
     if(!game||isLinkedJunctionType(game.config?.junctionType))return none;
     const queues={N:0,S:0,E:0,W:0};
@@ -3732,7 +3763,9 @@
     const emergency=Boolean(game.emergencyPriorityId||(game.cars||[]).some(c=>isEmergencyVehicle(c)&&(c.emergencyPriorityActive||c.priorityAnnounced)));
     const crash=Boolean(game.crashFx||(game.state==='failed'&&game.crashPair));
     const flow=Math.max(0,Number(game.flowStreak)||0),progress=Math.max(0,Math.min(1,(Number(game.exited)||0)/Math.max(1,Number(game.config?.total)||1)));
-    return {queuePressure,queueLevel:queuePressure>=.72?2:queuePressure>=.42?1:0,maxQueueNow,emergency,crash,flow,progress,weather:weatherForLevel(game.level)};
+    const result={queuePressure,queueLevel:queuePressure>=.72?2:queuePressure>=.42?1:0,maxQueueNow,emergency,crash,flow,progress,weather:weatherForLevel(game.level)};
+    if(snapshot)snapshot.reaction=result;
+    return result;
   }
 
   function drawTrafficAwareCityReactions(g,game){
@@ -3852,6 +3885,8 @@
   // The layer is deterministic, presentation-only, and reads traffic/weather state without
   // mutating gameplay actors, signal timing, spawning, collisions, save data, or simulation RNG.
   function cityRhythmState(game){
+    const snapshot=visualSnapshotFor(game);
+    if(snapshot?.rhythm)return snapshot.rhythm;
     const base={phase:'day',phaseIndex:1,cycle:.35,commute:.2,commerce:1,service:.25,evening:0,weather:'clear',district:'park',trafficLoad:0};
     if(!game||isLinkedJunctionType(game.config?.junctionType))return base;
     const elapsed=Math.max(0,Number(presentationElapsed(game))||0),district=districtInfo(game.level).id,weather=weatherForLevel(game.level);
@@ -3864,7 +3899,9 @@
     const service=phase==='morning'?.95:phase==='day'?.34:phase==='evening'?.16:.08;
     const evening=phase==='evening'?Math.min(1,(cycle-.56)/.24):phase==='night'?1:0;
     const trafficLoad=Math.min(1.2,Math.max(0,cityReactionState(game).queuePressure||0));
-    return {phase,phaseIndex,cycle,commute:Math.min(1,commute*(1+trafficLoad*.12)),commerce:Math.min(1,commerce),service,evening,weather,district,trafficLoad};
+    const result={phase,phaseIndex,cycle,commute:Math.min(1,commute*(1+trafficLoad*.12)),commerce:Math.min(1,commerce),service,evening,weather,district,trafficLoad};
+    if(snapshot)snapshot.rhythm=result;
+    return result;
   }
 
   function drawDailyCityRhythm(g,game){
