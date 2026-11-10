@@ -92,7 +92,7 @@ try{
           width:m.getBoundingClientRect().width,scrollHeight:m.scrollHeight,
           clientHeight:m.clientHeight,
           isPause:m.classList.contains('pause-modal'),
-          columns:styles.gridTemplateColumns.trim().split(/\\s+/).length,
+          columns:styles.gridTemplateColumns.trim().split(/\s+/).length,
           buttonCount:buttons.length,
           firstButtonVisible:buttons[0].getBoundingClientRect().height>=44
         };
