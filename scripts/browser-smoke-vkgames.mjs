@@ -257,7 +257,8 @@ try{
     await winPage.waitForFunction(()=>window.__trafficPulsePerfSnapshot?.samples>=20,{timeout:6000});
     const perf=await winPage.evaluate(()=>window.__trafficPulsePerfSnapshot);
     assert.ok(Number.isFinite(perf.fps)&&Number.isFinite(perf.p95Ms)&&Number.isFinite(perf.drawP95Ms));
-    assert.ok(Object.keys(perf).every(k=>['fps','p95Ms','drawP95Ms','slowFramesPct','quality','samples'].includes(k)),
+    assert.ok(Number.isFinite(perf.simP95Ms)&&Number.isFinite(perf.loopP95Ms)&&Number.isFinite(perf.catchupPct));
+    assert.ok(Object.keys(perf).every(k=>['fps','p95Ms','drawP95Ms','simP95Ms','loopP95Ms','catchupPct','slowFramesPct','quality','samples'].includes(k)),
       'performance diagnostic must not expose player IDs or save data');
     console.log('PASS M216 opt-in performance probe',perf);
     await winPage.evaluate(()=>window.__tpQA.win());
