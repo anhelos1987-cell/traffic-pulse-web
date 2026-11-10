@@ -897,3 +897,32 @@ body.vk-supporter .garage-showcase strong{background:linear-gradient(180deg,#fff
     border:1px solid rgba(122,203,236,.17);font-variant-numeric:tabular-nums;
   }
 }
+
+
+/* M216 — victory: first glance shows score, not a twelve-line wall of badges.
+   The original complete report remains in a native keyboard-accessible details
+   disclosure. No change to score, reward amounts or rewarded ad controls. */
+.modal-extra.win-summary-extra{padding:12px 13px;margin:8px 0 12px;text-align:left;font-size:13px}
+.win-summary-stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+.win-stat{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+  min-height:59px;padding:8px 10px;border-radius:11px;
+  background:rgba(8,27,47,.58);border:1px solid rgba(127,211,239,.14)}
+.win-stat span{font-size:12px;font-weight:750;color:#aec9e0}
+.win-stat strong{font-size:22px;font-weight:950;color:#f4fbff;font-variant-numeric:tabular-nums}
+.win-star-tip{margin-top:9px;border-radius:10px;padding:9px 11px;background:rgba(255,209,102,.12);
+  border:1px solid rgba(255,209,102,.20);color:#ffe8a0;font-weight:750;line-height:1.35}
+.win-highlights{display:flex;flex-wrap:wrap;justify-content:center;gap:5px 7px;margin-top:9px}
+.win-highlights span{border-radius:9px;padding:5px 8px;background:rgba(85,213,255,.09);
+  border:1px solid rgba(85,213,255,.15);font-size:12px;color:#deefff;line-height:1.3}
+.win-breakdown{margin-top:10px;border-top:1px solid rgba(125,210,237,.19);padding-top:9px}
+.win-breakdown summary{cursor:pointer;list-style:revert;font-size:13px;font-weight:800;
+  color:#9de5fb;min-height:28px;line-height:24px;user-select:none}
+.win-breakdown summary:focus-visible{outline:2px solid #55d5ff;outline-offset:3px;border-radius:4px}
+.win-breakdown-list{display:grid;gap:7px;margin-top:10px;color:#cfebfa;font-size:12px;line-height:1.42}
+.win-breakdown-list>div{padding-bottom:6px;border-bottom:1px solid rgba(118,191,221,.10)}
+.win-breakdown-list>div:last-child{border:0;padding-bottom:0}
+@media(max-height:499px){
+  .win-stat{min-height:46px;padding:4px 7px}
+  .win-stat strong{font-size:18px}
+  .modal-extra.win-summary-extra{padding:8px 9px}
+}
