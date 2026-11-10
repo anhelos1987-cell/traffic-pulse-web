@@ -295,6 +295,72 @@ try{
     const expanded=await winPage.$eval('.win-breakdown',el=>el.open);
     assert.equal(expanded,true,'reward details expand with a native accessible control');
     console.log('PASS M216 real campaign win dialog',result);
+
+    await winPage.setViewport({width:390,height:844,isMobile:true,hasTouch:true});
+    const openingChecks=await winPage.evaluate(()=>{
+      const {game}=window.__tpQA;
+      cancelAnimationFrame(game.frameId);
+      const tick=()=>game.update(1/60);
+      function play(level,firstSwitch){
+        game.startLevel(level);
+        game.externalPaused=false;
+        const opening=game.cars.map(c=>c.dir).join('');
+        let lastSwitch=0;
+        for(let i=1;i<60*40&&game.state==='playing';i++){
+          const time=i/60;
+          if(!game.switches){
+            if(time>=firstSwitch&&game.toggle())lastSwitch=time;
+          }else if(!game.transitionTimer&&time-lastSwitch>=2.3){
+            const waiting=game.cars.some(c=>c.axis!==game.phase&&c.progress>180&&c.progress<340);
+            const greenNear=game.cars.some(c=>c.axis===game.phase&&c.progress>120&&c.progress<620);
+            if(waiting&&(!greenNear||time-lastSwitch>=4.4)&&game.toggle())lastSwitch=time;
+          }
+          tick();
+        }
+        return {opening,state:game.state,elapsed:game.elapsed,switches:game.switches};
+      }
+      return [play(3,.75),play(3,3.85),play(6,1.08),play(10,.8),play(10,6.1),play(10,.8)];
+    });
+    assert.ok(openingChecks.every(run=>run.state==='won'),'all prototype schedules must be playable');
+    assert.deepEqual(openingChecks.map(run=>run.opening),['WNN','WNN','WNN','NNWE','NNWE','NNWE']);
+    assert.ok(openingChecks[0].switches>openingChecks[1].switches,'waiting for the last car should save a switch');
+    assert.notEqual(openingChecks[3].switches,openingChecks[4].switches,'rush-hour strategies should have different results');
+    assert.deepEqual(openingChecks[3],openingChecks[5],'same rush-hour strategy should replay identically');
+
+    const cue=await winPage.evaluate(()=>{
+      const {game}=window.__tpQA;
+      const original=CanvasRenderingContext2D.prototype.fillText,texts=[];
+      CanvasRenderingContext2D.prototype.fillText=function(text,x,y,...rest){
+        texts.push([text,x,y]);
+        return original.call(this,text,x,y,...rest);
+      };
+      try{
+        game.startLevel(6);game.externalPaused=false;
+        for(let i=0;i<65;i++)game.update(1/60);
+        game.draw();
+        const bottomQueue=texts.some(([text,x,y])=>text==='2'&&x===450&&y===796);
+        const firstWave=game.pedestrianSerial;
+        game.toggle();
+        for(let i=0;i<81;i++)game.update(1/60);
+        texts.length=0;game.draw();
+        const waitCue=texts.some(([text])=>text==='Waiting for pedestrians'||text==='Ждём пешеходов');
+        const holding=game.pedestrianHold;
+        for(let i=0;i<32;i++)game.update(1/60);
+        texts.length=0;game.draw();
+        const cueCleared=!texts.some(([text])=>text==='Waiting for pedestrians'||text==='Ждём пешеходов');
+        game.startLevel(6);game.externalPaused=false;
+        game.config.maxQueue=1;
+        for(let i=0;i<65&&game.state==='playing';i++)game.update(1/60);
+        texts.length=0;game.draw();
+        return {bottomQueue,firstWave,waitCue,holding,cueCleared,jam:game.lastFailType==='jam',
+          jamText:document.querySelector('#modal-text').textContent,
+          jamBadge:texts.some(([text,x,y])=>text==='2 / 1'&&x===450&&y===796)};
+      }finally{CanvasRenderingContext2D.prototype.fillText=original;}
+    });
+    assert.equal(cue.firstWave,1);
+    assert.ok(cue.bottomQueue&&cue.waitCue&&cue.holding&&cue.cueCleared&&cue.jam&&cue.jamBadge,JSON.stringify(cue));
+    assert.match(cue.jamText,/bottom approach\. Vehicles: 2, limit: 1|снизу\. Машин: 2, лимит: 1/);
+    console.log('PASS M219 playable openings, pedestrian hold and jam direction',openingChecks,cue);
     assert.deepEqual(winErrors,[],'real win page must have zero errors');
   }finally{await winPage.close();}
 }finally{
