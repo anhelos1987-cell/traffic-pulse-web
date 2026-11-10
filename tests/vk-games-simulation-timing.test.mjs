@@ -13,12 +13,13 @@ function extract(from,to){
   return app.slice(begin,end);
 }
 
-function renderLoop(fps,quality=2){
+function renderLoop(fps,quality=2,emaMs=16.7){
   const loop=extract('    loop(ts){','\n  };\n\n  function countQueues(){');
   const state={steps:0,draws:0,activeMs:0};
   const ctx={
     SIM_STEP:1/60,MAX_CATCHUP_STEPS:8,HUD_REFRESH_MS:80,
-    RenderQuality:{level:quality,observe(){}},
+    RenderQuality:{level:quality,emaMs,observe(){}},
+    PerfProbe:{enabled:false},
     YandexAudit:{sampleFrame(){}},
     platform:{noteActiveGameplay(ms){state.activeMs+=ms;}},
     updateHud(){},
@@ -48,7 +49,7 @@ test('M203: real fixed-step game loop advances identically at 20, 30 and 60 rend
 });
 
 test('M203: adaptive low-quality drawing does not slow down the 60Hz simulation',()=>{
-  const high=renderLoop(60,2),low=renderLoop(60,0);
+  const high=renderLoop(60,2),low=renderLoop(60,0,32);
   assert.equal(high.state.steps,low.state.steps);
   assert.equal(high.g.elapsed,low.g.elapsed);
   assert.ok(low.state.draws<high.state.draws);
@@ -59,7 +60,7 @@ test('M203: paused game runs no simulation, resumes without catch-up burst',()=>
   const loop=extract('    loop(ts){','\n  };\n\n  function countQueues(){');
   const ctx={
     SIM_STEP:1/60,MAX_CATCHUP_STEPS:8,HUD_REFRESH_MS:80,
-    RenderQuality:{level:2,observe(){}},
+    RenderQuality:{level:2,emaMs:16.7,observe(){}},PerfProbe:{enabled:false},
     YandexAudit:{sampleFrame(){}},platform:{noteActiveGameplay(){}},
     updateHud(){},requestAnimationFrame(){return 1;}
   };
@@ -83,7 +84,7 @@ test('M203: severely delayed browser frame executes bounded catch-up, not a deat
   const loop=extract('    loop(ts){','\n  };\n\n  function countQueues(){');
   const ctx={
     SIM_STEP:1/60,MAX_CATCHUP_STEPS:8,HUD_REFRESH_MS:80,
-    RenderQuality:{level:2,observe(){}},
+    RenderQuality:{level:2,emaMs:16.7,observe(){}},PerfProbe:{enabled:false},
     YandexAudit:{sampleFrame(){}},platform:{noteActiveGameplay(){}},
     updateHud(){},requestAnimationFrame(){return 1;}
   };
@@ -132,4 +133,19 @@ test('M203: failure replay history remains bounded and does not record during pa
   for(let i=0;i<60;i++)g.captureFailureReplayFrame(1/60);
   assert.equal(g.failureReplayFrames.length,36);
   assert.equal(g.failureReplayClock<.12,true);
+});
+
+test('M216: low detail at steady 60Hz no longer discards half of presentation frames',()=>{
+  const high=renderLoop(60,2,16.7),lowSmooth=renderLoop(60,0,16.7);
+  assert.equal(lowSmooth.state.draws,high.state.draws,
+    'adaptive visual-detail setting alone must not force 30fps on a stable PC');
+  assert.equal(lowSmooth.state.steps,high.state.steps,'fixed-step simulation remains identical');
+  assert.equal(lowSmooth.g.elapsed,high.g.elapsed);
+});
+
+test('M216: overloaded low-detail display still reduces Canvas work without changing simulation',()=>{
+  const high=renderLoop(60,2,16.7),lowOverloaded=renderLoop(60,0,31);
+  assert.ok(lowOverloaded.state.draws<high.state.draws);
+  assert.equal(lowOverloaded.state.steps,high.state.steps);
+  assert.equal(lowOverloaded.g.elapsed,high.g.elapsed);
 });
