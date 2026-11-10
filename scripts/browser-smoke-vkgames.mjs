@@ -38,7 +38,7 @@ let browser;
 try{
   browser=await puppeteer.launch({executablePath:browserBinary(),headless:true,
     args:['--no-sandbox','--disable-dev-shm-usage','--autoplay-policy=no-user-gesture-required']});
-  for(const viewport of [{width:1280,height:800,isMobile:false},{width:390,height:844,isMobile:true,hasTouch:true},{width:844,height:390,isMobile:true,hasTouch:true}]){
+  for(const viewport of [{width:1280,height:800,isMobile:false},{width:1366,height:768,isMobile:false},{width:390,height:844,isMobile:true,hasTouch:true},{width:844,height:390,isMobile:true,hasTouch:true}]){
     const page=await browser.newPage(),errors=[],missing=[],consoleErrors=[];
     page.on('pageerror',error=>errors.push(String(error?.stack||error?.message||error)));
     page.on('console',message=>{if(message.type()==='error')consoleErrors.push(message.text());});
@@ -77,6 +77,36 @@ try{
       assert.equal(initial.loaded,true,'M207 guidance module must load');
       assert.ok(initial.width>100&&initial.height>100,'Canvas should render a usable board');
       assert.ok(initial.overflow<=2,'shell must fit viewport');
+      // M215: compare actual computed HUD typography, not just source CSS.
+      // Both desktop aspect ratios must be readable without stealing space
+      // from the square game board or truncating the main signal action.
+      const hud=await page.evaluate(()=>{
+        const size=selector=>parseFloat(getComputedStyle(document.querySelector(selector)).fontSize);
+        const rect=selector=>document.querySelector(selector).getBoundingClientRect();
+        const signal=document.querySelector('#signal-label');
+        const gameRect=rect('.game-card'),controlsRect=rect('.controls');
+        return {
+          level:size('#level-label'),goal:size('.goal'),district:size('#district'),
+          signal:size('#signal-label'),queue:size('.mini-status'),
+          insight:size('.desktop-insight .insight-row'),
+          boardWidth:gameRect.width,boardBottom:gameRect.bottom,
+          controlsTop:controlsRect.top,
+          signalOverflow:signal.scrollWidth-signal.clientWidth,
+          footerOverflow:document.querySelector('.mini-status').scrollWidth
+            -document.querySelector('.mini-status').clientWidth
+        };
+      });
+      if(viewport.width>=900&&viewport.height>=650){
+        assert.ok(hud.level>=22&&hud.goal>=14&&hud.queue>=13,
+          'desktop level, objective and status must be readable: '+JSON.stringify(hud));
+        assert.ok(hud.signal>=15&&hud.insight>=11,
+          'desktop control and insight text must be readable: '+JSON.stringify(hud));
+        assert.ok(hud.boardWidth>=480&&hud.boardBottom<=hud.controlsTop+2,
+          'larger HUD must not overlap the game board: '+JSON.stringify(hud));
+        assert.ok(hud.signalOverflow<=2&&hud.footerOverflow<=2,
+          'main controls/status must not clip after scaling: '+JSON.stringify(hud));
+        console.log('PASS M215 desktop HUD',viewport.width+'x'+viewport.height,hud);
+      }
       await page.click('#signal-btn');
       await page.waitForFunction(
         ()=>document.querySelector('#signal-btn')?.getAttribute('aria-busy')==='true',
