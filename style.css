@@ -844,21 +844,35 @@ body.vk-supporter .garage-showcase strong{background:linear-gradient(180deg,#fff
 .campaign-purchase>strong{font-size:16px}.campaign-purchase>p{margin:0;font-size:12px;line-height:1.45;color:#c2d9e7}.campaign-purchase>button{min-height:44px;padding:10px 12px;border:1px solid rgba(255,255,255,.18);border-radius:12px;background:#17354b;cursor:pointer;font-weight:800}.campaign-purchase>button.primary{color:#061423;background:linear-gradient(110deg,#37c8ed,#3b8ef4)}.campaign-purchase>button:disabled{opacity:.65;cursor:default}.campaign-purchase>small{color:#ffd166;line-height:1.4}
 
 
-/* M214 — desktop pause layout. The twelve commands no longer form a long
-   narrow scroll column on PCs. Keep touch/mobile portrait and all other
-   dialogs unchanged. The modal remains scrollable on short viewports. */
+/* M214 — pause menu responsiveness (desktop, phone portrait, phone landscape).
+   Only the pause dialog gets this layout; other dialogs retain their own grid.
+   Keep the Continue command prominent and preserve all twelve actions. */
+.modal.pause-modal .modal-stars{display:none}
+.modal.pause-modal > p{max-width:100%}
 @media (min-width:760px) and (min-height:560px){
-  .modal.pause-modal{
-    width:min(92vw,760px);
-    padding:22px 26px 24px;
-  }
-  .modal.pause-modal .modal-stars{display:none}
-  .modal.pause-modal > p{max-width:100%;margin-bottom:12px}
+  .modal.pause-modal{width:min(92vw,760px);padding:22px 26px 24px}
+  .modal.pause-modal > p{margin-bottom:12px}
   .modal.pause-modal .modal-extra{margin:6px 0 12px}
-  .modal.pause-modal .modal-actions{
-    grid-template-columns:repeat(2,minmax(0,1fr));
-    gap:9px;
-  }
+  .modal.pause-modal .modal-actions{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
   .modal.pause-modal .modal-actions button:first-child,
   .modal.pause-modal .modal-actions button:last-child{grid-column:1/-1}
+}
+@media (max-width:759px) and (min-height:500px){
+  .modal.pause-modal{padding:18px 16px}
+  .modal.pause-modal > p{margin-bottom:9px}
+  .modal.pause-modal .modal-extra{margin:6px 0 10px;padding:8px}
+  .modal.pause-modal .modal-actions{grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+  .modal.pause-modal .modal-actions button{min-height:46px;padding:5px;font-size:clamp(11px,2.9vw,13px);line-height:1.25;white-space:normal;overflow-wrap:anywhere}
+  .modal.pause-modal .modal-actions button:first-child,
+  .modal.pause-modal .modal-actions button:last-child{grid-column:1/-1}
+}
+@media (max-height:499px) and (orientation:landscape){
+  .modal.pause-modal{width:min(96vw,760px);padding:10px 16px;border-radius:22px}
+  .modal.pause-modal h2{font-size:22px;margin:3px 0 3px}
+  .modal.pause-modal > p{font-size:11px;margin-bottom:5px}
+  .modal.pause-modal .modal-extra{margin:4px 0 7px;padding:6px;font-size:10px}
+  .modal.pause-modal .modal-actions{grid-template-columns:repeat(3,minmax(0,1fr));gap:5px}
+  .modal.pause-modal .modal-actions button{min-height:38px;padding:4px;font-size:11px;line-height:1.15;white-space:normal;overflow-wrap:anywhere;border-radius:11px}
+  .modal.pause-modal .modal-actions button:first-child{grid-column:1/-1}
+  .modal.pause-modal .modal-actions button:last-child{grid-column:span 2}
 }
