@@ -231,6 +231,71 @@ try{
       console.log('PASS browser boot/control',viewport.width+'x'+viewport.height,initial);
     }finally{await page.close();}
   }
+
+  // M216: take an actual campaign victory screenshot from shipping app.js.
+  // Expose the internal Game only in this CI response body; the committed
+  // production bundle has no QA hook or free-win command.
+  const winPage=await browser.newPage(),winErrors=[];
+  await winPage.setViewport({width:1280,height:800,isMobile:false});
+  winPage.on('pageerror',error=>winErrors.push(String(error?.message||error)));
+  await winPage.setRequestInterception(true);
+  winPage.on('request',async request=>{
+    if(new URL(request.url()).pathname==='/app.js'){
+      try{
+        const original=await readFile(resolve(root,'app.js'),'utf8');
+        const anchor='  function startApp(){';
+        assert.equal(original.split(anchor).length-1,1);
+        const instrumented=original.replace(anchor,
+          '  window.__tpQA={win:()=>Game.win(),game:Game,perf:PerfProbe};\\n'+anchor);
+        await request.respond({status:200,contentType:'application/javascript',body:instrumented});
+      }catch(error){console.error(error);await request.abort();}
+    }else await request.continue();
+  });
+  try{
+    await winPage.goto(address+'?tpperf=1',{waitUntil:'networkidle2',timeout:20000});
+    await winPage.waitForFunction(()=>window.__tpQA?.game?.state==='playing',{timeout:15000});
+    await winPage.waitForFunction(()=>window.__trafficPulsePerfSnapshot?.samples>=20,{timeout:6000});
+    const perf=await winPage.evaluate(()=>window.__trafficPulsePerfSnapshot);
+    assert.ok(Number.isFinite(perf.fps)&&Number.isFinite(perf.p95Ms)&&Number.isFinite(perf.drawP95Ms));
+    assert.ok(Object.keys(perf).every(k=>['fps','p95Ms','drawP95Ms','slowFramesPct','quality','samples'].includes(k)),
+      'performance diagnostic must not expose player IDs or save data');
+    console.log('PASS M216 opt-in performance probe',perf);
+    await winPage.evaluate(()=>window.__tpQA.win());
+    await winPage.waitForFunction(()=>document.querySelector('.win-breakdown')&&
+      document.querySelector('#overlay')?.getAttribute('aria-hidden')==='false',{timeout:5000});
+    await winPage.waitForFunction(()=>!document.querySelector('#overlay')?.classList.contains('overlay-opening'),{timeout:2000});
+    const result=await winPage.evaluate(()=>{
+      const extra=document.querySelector('#modal-extra');
+      const details=extra.querySelector('details.win-breakdown');
+      const list=details.querySelector('.win-breakdown-list');
+      const stats=[...extra.querySelectorAll('.win-stat')];
+      const box=extra.getBoundingClientRect(),modal=document.querySelector('.modal');
+      window.__tpQA.perf.node?.remove(); // hide opt-in diagnostic from the victory screenshot only
+      return {
+        summary:extra.classList.contains('win-summary-extra'),
+        stats:stats.map(s=>s.textContent),
+        detailsCollapsed:!details.open,rows:list.children.length,
+        summaryText:details.querySelector('summary').textContent,
+        reward:document.querySelector('#modal-reward').textContent,
+        actions:document.querySelectorAll('#modal-actions button').length,
+        boxHeight:box.height,modalClientHeight:modal.clientHeight,modalScrollHeight:modal.scrollHeight
+      };
+    });
+    assert.equal(result.summary,true,'player-facing win must use the readable M216 layout');
+    assert.equal(result.stats.length,2,'queue and switch should have distinct readable values');
+    assert.equal(result.detailsCollapsed,true,'full legacy report must initially be collapsed');
+    assert.ok(result.rows>=5,'the complete medals, awards, progression report must remain available');
+    assert.ok(result.actions>=2,'next-level and campaign map buttons retained');
+    assert.ok(result.modalScrollHeight<=result.modalClientHeight+2,
+      'collapsed victory report should not force a desktop modal scrollbar: '+JSON.stringify(result));
+    await mkdir(resolve(root,'artifacts/browser-smoke'),{recursive:true});
+    await winPage.screenshot({path:resolve(root,'artifacts/browser-smoke','1280x800-win.png')});
+    await winPage.click('.win-breakdown summary');
+    const expanded=await winPage.$eval('.win-breakdown',el=>el.open);
+    assert.equal(expanded,true,'reward details expand with a native accessible control');
+    console.log('PASS M216 real campaign win dialog',result);
+    assert.deepEqual(winErrors,[],'real win page must have zero errors');
+  }finally{await winPage.close();}
 }finally{
   if(browser)await browser.close();
   await new Promise(done=>server.close(done));
