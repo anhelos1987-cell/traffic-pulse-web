@@ -79,7 +79,7 @@ function harness(allVk,localMap,initialSave={},opts={}){
       };
       if(method==='VKWebAppStorageSet'){
         if(opts.rejectWrite?.(payload.key,payload.value))throw Error('simulated_write_failure');
-        vk.set(payload.key,payload.value);return {result:true};
+        vk.set(payload.key,payload.value);if(opts.afterStorageWrite)await opts.afterStorageWrite(payload);return {result:true};
       }
       if(method==='VKWebAppStorageGetKeys'){
         const keys=[...vk.keys()].slice(payload.offset||0,(payload.offset||0)+(payload.count||100));
@@ -519,4 +519,199 @@ test('OK local-only mode does not erase fresh offline progress at the next cloud
   assert.equal(await phone.instance.init(),true);
   assert.equal(phone.getSave().level,3);
   retry.cleanup();phone.cleanup();
+});
+
+
+test('M202: continuous progress changes cannot postpone the earliest pending cloud write',async()=>{
+  const h=harness(new Map(),new Map(),{}, {embedded:true});
+  try{
+    assert.equal(await h.instance.init(),true);
+    h.setSave({revision:1,level:2,coins:10});
+    h.instance.changed();
+    h.instance.schedule(100); // Bring the first upload forward for a short deterministic test.
+    const firstDue=h.instance.timerDueAt;
+    assert.ok(firstDue>Date.now());
+    for(let n=2;n<=6;n++){
+      await new Promise(resolve=>setTimeout(resolve,10));
+      h.setSave({revision:n,level:n+1,coins:n*10});
+      h.instance.changed(); // A classic trailing-edge debounce would postpone every write.
+      assert.equal(h.instance.timerDueAt,firstDue);
+    }
+    await new Promise(resolve=>setTimeout(resolve,160));
+    assert.ok(h.vk.get(manifestKey),'a pending save must reach VK storage despite new edits');
+    const cloud=await h.instance.readSnapshot();
+    assert.equal(cloud.progress.level,7);
+    assert.equal(cloud.progress.coins,60);
+    assert.equal(h.instance.dirty,false);
+  }finally{h.cleanup();}
+});
+
+test('M202: explicit cloud flush cancels the deferred write and persists immediately',async()=>{
+  const h=harness(new Map(),new Map(),{}, {embedded:true});
+  try{
+    await h.instance.init();
+    h.setSave({revision:2,level:5,coins:25});
+    h.instance.changed();
+    assert.ok(h.instance.timer);
+    assert.equal(await h.instance.sync(),true);
+    assert.equal(h.instance.timer,0);
+    assert.equal(h.instance.timerDueAt,0);
+    const snapshot=await h.instance.readSnapshot();
+    assert.equal(snapshot.progress.level,5);
+    assert.equal(snapshot.progress.coins,25);
+  }finally{h.cleanup();}
+});
+
+test('M202: malformed cloud manifest fails closed and preserves same-account local progress',async()=>{
+  const all=new Map(),local=new Map();
+  const a=harness(all,local,{}, {embedded:true});
+  try{
+    await a.instance.init();
+    a.setSave({revision:1,level:4,coins:40});a.instance.changed();
+    assert.equal(await a.instance.sync(),true);
+    a.vk.set(manifestKey,'{"version":2,');
+  }finally{a.cleanup();}
+  const b=harness(all,local,{revision:2,level:6,coins:50}, {embedded:true});
+  try{
+    assert.equal(await b.instance.init(),false,'corrupted remote data is not an empty cloud');
+    assert.ok(b.instance.error,'the corruption must be reported');
+    assert.equal(b.getSave().level,6);
+    assert.equal(b.getSave().coins,50);
+    assert.equal(b.vk.get(manifestKey),'{"version":2,','do not overwrite the damaged pointer');
+    assert.ok(!b.operations.includes('VKWebAppStorageSet'));
+  }finally{b.cleanup();}
+});
+
+test('M202: failed cloud sync keeps a bounded retry backoff while progress changes',async()=>{
+  const h=harness(new Map(),new Map(),{}, {embedded:true});
+  try{
+    assert.equal(await h.instance.init(),true);
+    h.instance.error='simulated-cloud-error';
+    h.setSave({revision:1,level:3,coins:8});
+    h.instance.changed();
+    const retryDue=h.instance.timerDueAt;
+    assert.ok(retryDue-Date.now()>10000,'cloud error must not retry in only 900 ms');
+    for(let i=0;i<8;i++)h.instance.changed();
+    assert.equal(h.instance.timerDueAt,retryDue);
+    assert.equal(h.operations.filter(m=>m==='VKWebAppStorageSet').length,0);
+  }finally{h.cleanup();}
+});
+
+test('M209: a clean device discovers remote saves during ordinary heartbeat sync',async()=>{
+  const all=new Map();
+  const a=harness(all,new Map(),{}, {embedded:true});
+  const b=harness(all,new Map(),{}, {embedded:true});
+  try{
+    assert.equal(await a.instance.init(),true);
+    assert.equal(await b.instance.init(),true);
+    a.setSave({revision:2,level:4,starsByLevel:{1:3,2:2,3:1}});
+    a.instance.changed();
+    assert.equal(await a.instance.sync(),true);
+    assert.equal(b.getSave().level,1);
+    // Previously sync() returned immediately when clean; no second device pull.
+    assert.equal(await b.instance.sync(),true);
+    assert.equal(b.getSave().level,4);
+    assert.equal(b.getSave().starsByLevel[3],1);
+    assert.equal(b.instance.head.generation,a.instance.head.generation);
+    assert.equal(b.instance.dirty,false);
+  }finally{a.cleanup();b.cleanup();}
+});
+
+test('M209: clean sync checks the lightweight index before downloading cloud chunks',async()=>{
+  const all=new Map(),h=harness(all,new Map(),{}, {embedded:true});
+  try{
+    await h.instance.init();
+    h.setSave({revision:2,level:4,starsByLevel:{1:3}});
+    h.instance.changed();await h.instance.sync();
+    const old=h.operations.length;
+    assert.equal(await h.instance.sync(),true);
+    const reads=h.operations.slice(old).filter(x=>x==='VKWebAppStorageGet');
+    assert.equal(reads.length,1,'unchanged pointer must not download and decode the save');
+  }finally{h.cleanup();}
+});
+
+test('M209: overwritten commit pointer is not acknowledged as a successful upload',async()=>{
+  const all=new Map();let notifyEntered,releaseA;
+  const entered=new Promise(resolve=>notifyEntered=resolve);
+  const blocked=new Promise(resolve=>releaseA=resolve);
+  let held=false;
+  const a=harness(all,new Map(),{}, {embedded:true,afterStorageWrite:async ({key})=>{
+    if(key===manifestKey&&!held){held=true;notifyEntered();await blocked;}
+  }});
+  const b=harness(all,new Map(),{}, {embedded:true});
+  try{
+    await a.instance.init();await b.instance.init();
+    a.setSave({revision:3,level:3,starsByLevel:{1:3,2:2}});
+    b.setSave({revision:3,level:5,starsByLevel:{1:3,4:3}});
+    a.instance.changed();b.instance.changed();
+    const aWrite=a.instance.sync();
+    await entered; // A pointer is committed, its acknowledgment is held.
+    assert.equal(await b.instance.sync(),true); // B reads A, merges, commits its own pointer.
+    releaseA();
+    assert.equal(await aWrite,false,'A must detect that B replaced A pointer before acknowledgment');
+    assert.equal(a.instance.dirty,true,'A must retry instead of claiming all changes are saved');
+    assert.ok(a.getSave().starsByLevel[4]===3,'A must import B\'s new stars');
+    assert.equal(await a.instance.sync(),true);
+    const third=harness(all,new Map(),{}, {embedded:true});
+    try{
+      assert.equal(await third.instance.init(),true);
+      assert.equal(third.getSave().level,5);
+      assert.equal(third.getSave().starsByLevel[2],2);
+      assert.equal(third.getSave().starsByLevel[4],3);
+    }finally{third.cleanup();}
+  }finally{releaseA?.();a.cleanup();b.cleanup();}
+});
+
+test('M209: an external reset epoch still fails closed during clean reconciliation',async()=>{
+  const all=new Map(),a=harness(all,new Map(),{}, {embedded:true});
+  try{
+    await a.instance.init();
+    a.vk.set(epochKey,'a'.repeat(32));
+    assert.equal(await a.instance.sync(),false);
+    assert.match(a.instance.error,/reload/i);
+    assert.equal(a.instance.loaded,true);
+  }finally{a.cleanup();}
+});
+
+test('M209: two separately acknowledged competing writers converge when a device reconnects',async()=>{
+  const all=new Map();
+  let notifyA,notifyB,releaseA,releaseB;
+  const enteredA=new Promise(resolve=>notifyA=resolve);
+  const enteredB=new Promise(resolve=>notifyB=resolve);
+  const gateA=new Promise(resolve=>releaseA=resolve);
+  const gateB=new Promise(resolve=>releaseB=resolve);
+  const a=harness(all,new Map(),{}, {embedded:true,onCall:async (method,payload)=>{
+    if(method==='VKWebAppStorageSet'&&payload.key===manifestKey){notifyA();await gateA;}
+  }});
+  const b=harness(all,new Map(),{}, {embedded:true,onCall:async (method,payload)=>{
+    if(method==='VKWebAppStorageSet'&&payload.key===manifestKey){notifyB();await gateB;}
+  }});
+  try{
+    await a.instance.init();await b.instance.init();
+    a.setSave({revision:2,level:3,starsByLevel:{1:3,2:1}});
+    b.setSave({revision:2,level:5,starsByLevel:{1:3,4:3}});
+    a.instance.changed();b.instance.changed();
+    const writeA=a.instance.sync(),writeB=b.instance.sync();
+    await Promise.all([enteredA,enteredB]); // Both read the same old head.
+    releaseA();
+    assert.equal(await writeA,true,'A verifies its own pointer before B publishes');
+    releaseB();
+    assert.equal(await writeB,true,'B can also verify its pointer: no atomic CAS exists');
+    // At this instant VK's single pointer still omits A's level-two result.
+    const before=harness(all,new Map(),{}, {embedded:true});
+    try{
+      await before.instance.init();
+      assert.equal(before.getSave().starsByLevel[2]||0,0);
+    }finally{before.cleanup();}
+    // The previously clean A detects the newer B pointer on heartbeat and
+    // re-publishes a merged snapshot, repairing the otherwise lost star.
+    assert.equal(await a.instance.sync(),true);
+    const after=harness(all,new Map(),{}, {embedded:true});
+    try{
+      assert.equal(await after.instance.init(),true);
+      assert.equal(after.getSave().level,5);
+      assert.equal(after.getSave().starsByLevel[2],1);
+      assert.equal(after.getSave().starsByLevel[4],3);
+    }finally{after.cleanup();}
+  }finally{releaseA?.();releaseB?.();a.cleanup();b.cleanup();}
 });

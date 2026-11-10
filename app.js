@@ -13,7 +13,7 @@
   }catch(_){}
 
   const BUILD_MODE = 'production';
-  const BUILD_VERSION = 'M201-OK-CLOUD-HOTFIX01';
+  const BUILD_VERSION = 'M217-VKGAMES-PACING-RC';
   const IS_DEVELOPMENT = BUILD_MODE === 'development';
   const PLATFORM_TARGET = 'vkgames'; // VK Games / VK Mini Apps, not VK Play
   const YANDEX_PUBLIC_LEADERBOARD_NAME = 'TrafficPulseStars';
@@ -176,6 +176,44 @@
     particleCount(){ return reducedMotion?0:(this.level===2?6:this.level===1?3:1); }
   };
   const SIM_STEP=1/60, MAX_CATCHUP_STEPS=8, HUD_REFRESH_MS=80;
+  // M216: opt-in local frame diagnostics (?tpperf=1). Never enabled for
+  // regular players. Records frame pacing and Canvas draw time only; no
+  // account, save, SDK, URL or private data is collected.
+  const PerfProbe={
+    enabled:new URLSearchParams(location.search).get('tpperf')==='1',
+    frames:[],draws:[],simCosts:[],loopCosts:[],stepCounts:[],lastReport:0,node:null,
+    push(values,v){values.push(v);if(values.length>180)values.shift();},
+    percentile(values,q){if(!values.length)return 0;const sorted=values.slice().sort((a,b)=>a-b);return sorted[Math.min(sorted.length-1,Math.floor((sorted.length-1)*q))];},
+    draw(ms){if(this.enabled&&Number.isFinite(ms))this.push(this.draws,ms);},
+    sim(ms,steps){if(!this.enabled)return;this.push(this.simCosts,ms);this.push(this.stepCounts,steps);},
+    loopWork(ms){if(this.enabled&&Number.isFinite(ms))this.push(this.loopCosts,ms);},
+    frame(ms,quality){
+      if(!this.enabled||!Number.isFinite(ms)||ms<=0||ms>250)return;
+      this.push(this.frames,ms);const now=performance.now();if(now-this.lastReport<1500)return;this.lastReport=now;
+      const median=this.percentile(this.frames,.5),p95=this.percentile(this.frames,.95);
+      const drawP95=this.percentile(this.draws,.95),over25=this.frames.filter(v=>v>25).length;
+      const roundMs=v=>Math.round(v*10)/10;
+      const snapshot={fps:Math.round(1000/Math.max(1,median)),p95Ms:roundMs(p95),
+        drawP95Ms:roundMs(drawP95),simP95Ms:roundMs(this.percentile(this.simCosts,.95)),
+        loopP95Ms:roundMs(this.percentile(this.loopCosts,.95)),
+        catchupPct:Math.round(100*this.stepCounts.filter(v=>v>1).length/Math.max(1,this.stepCounts.length)),
+        slowFramesPct:Math.round(over25/Math.max(1,this.frames.length)*100),
+        quality,samples:this.frames.length};
+      window.__trafficPulsePerfSnapshot=snapshot;
+      if(!this.node){
+        this.node=document.createElement('div');this.node.setAttribute('aria-label','Диагностика плавности / Frame diagnostics');
+        this.node.style.cssText='position:fixed;right:8px;bottom:8px;z-index:9999;pointer-events:none;'+
+          'background:rgba(4,18,32,.91);color:#d5faff;border:1px solid #55d5ff7d;'+
+          'border-radius:9px;padding:8px 10px;font:12px/1.35 monospace;white-space:pre;text-align:left;'+
+          'box-shadow:0 3px 15px #0008';
+        document.body.appendChild(this.node);
+      }
+      this.node.textContent='FPS ~'+snapshot.fps+'   p95 '+snapshot.p95Ms+' ms'+
+        '\nSlow frames '+snapshot.slowFramesPct+'%   Draw p95 '+snapshot.drawP95Ms+' ms'+
+        '\nLoop p95 '+snapshot.loopP95Ms+' ms   Sim p95 '+snapshot.simP95Ms+' ms'+
+        '\nCatch-up frames '+snapshot.catchupPct+'%   Quality '+['Low','Medium','High'][quality];
+    }
+  };
 
   const $ = (id) => document.getElementById(id);
   const canvas = $('game');
@@ -591,6 +629,12 @@
     onDelete:()=>YandexAudit.mark('vkgames:cloud:deleted')
   });
   cloudSaveHook=()=>VKGames.changed();
+  // Important progress (level completions, rewarded grants) should begin uploading
+  // while the app is visible. A pagehide VK Bridge call cannot guarantee completion.
+  function persistCheckpoint(){
+    persist(); // local durable copy first
+    if(VKGames.ready&&VKGames.cloud)void VKGames.sync();
+  }
   const VKPurchases=TrafficPulseVKPurchases.create({
     account:()=>({ready:VKGames.ready,appId:VKGames.appId,userId:VKGames.userId,socialPlatform:VKGames.socialPlatform,launchQuery:VKGames.launchQuery}),
     supported:method=>VKGames.supported(method),call:(method,props,ms)=>VKGames.call(method,props,ms),
@@ -1089,8 +1133,9 @@
     // turning out in the approach/corner area on narrow one-lane intersections.
     return {start:layout.edgeMin+70,end:layout.edgeMax+70};
   }
-  function pedestrianPose(ped,lanes=(Game.config?.lanes||1)){
-    const layout=roadLayout(lanes),a=layout.edgeMin,b=layout.edgeMax,t=Math.max(0,Math.min(1,ped?.t||0)),side=ped?.laneSide||0;
+  function pedestrianPose(ped,lanes=(Game.config?.lanes||1),tOverride){
+    const progress=Number.isFinite(tOverride)?tOverride:(ped?.t||0);
+    const layout=roadLayout(lanes),a=layout.edgeMin,b=layout.edgeMax,t=Math.max(0,Math.min(1,progress)),side=ped?.laneSide||0;
     if(ped?.junctionId){
       const center=linkedJunctionCenter(ped.junctionId),half=(b-a)/2,u=ped.reverse?1-t:t;
       const from=-half-22,to=half+22,offset=ped.crossing?half+17:-half-17;
@@ -1998,8 +2043,14 @@
     if(level===90)return `🛣 ${T.tutorialLanes3}`;
     return '';
   }
+  // M206: short, contextual "what comes next" text on a first-time victory.
+  // Uses already-localized lesson cues; never changes stars, coin grants or unlocks.
+  function firstSessionNextLesson(level,firstClear){
+    const next=TrafficPulseGuidance.nextLessonLevel(level,firstClear);
+    return next===null?'':tutorialCueForLevel(next);
+  }
   function firstSessionCoachActive(game=Game){
-    return Boolean(game&&game.mode==='campaign'&&game.level<=5&&save.level<=5);
+    return TrafficPulseGuidance.firstSessionActive(game?.mode,game?.level,save.level);
   }
   function hideFirstSessionCoach(){
     const hint=$('tap-hint');if(!hint)return;hint.style.display='none';hint.setAttribute('aria-hidden','true');hint.classList.remove('coach-warning');
@@ -2112,10 +2163,16 @@
     },
     updatePedestrians(dt){
       for(const p of this.pedestrians){
+        // M217: visual snapshots never enter pedestrian collision/signal logic.
+        p.prevRenderT=p.t||0;
         const controller=signalControllerState(this,p.junctionId||null),clearing=(controller.transitionTimer||0)>0&&controller.pendingPhase===p.roadAxis,rate=clearing?1.55:1;
         p.t=Math.min(1,(p.t||0)+(dt*rate)/Math.max(.8,p.duration||2.3));
       }
-      this.pedestrians=this.pedestrians.filter(p=>p.t<1);
+      // M205: retain the existing array; .filter() allocated a new array every 60Hz tick,
+      // including frames with no pedestrians. Preserve surviving order and object identities.
+      const pedestrians=this.pedestrians;let kept=0;
+      for(let i=0;i<pedestrians.length;i++)if(pedestrians[i].t<1)pedestrians[kept++]=pedestrians[i];
+      pedestrians.length=kept;
       if(independentSignals(this)){for(const c of Object.values(this.signalControllers))if((c.transitionTimer||0)<=0)c.phaseElapsed+=dt;if(this.mode==='greenwave'){this.pedestrianSpawnTimer=99;return;}}
       if(this.transitionTimer>0)return;
       if(this.mode==='scenario'){this.phaseElapsed+=dt;this.pedestrianSpawnTimer=99;return;}
@@ -2146,7 +2203,7 @@
       else this.syncStreak=0;
       const wasFirstInput=!this.firstInput;AudioFx.switch();if(perfect)AudioFx.sync(this.syncStreak);Haptics.switch();this.pendingPhase=nextPhase;this.pedestrianHold=false;this.transitionTimer=this.config.clearance;this.switches++;this.firstInput=true;
       clearTimeout(this.tutorialCueTimer);this.tutorialCueTimer=0;hideFirstSessionCoach();updateSignalIcon();updateHud();
-      if(occupiedNow)showFirstSessionCoach('occupied',T.tutorialCoachOccupied,2800);else if(wasFirstInput&&this.level===1)setTimeout(()=>{if(this.state==='playing'&&this.level===1)showFirstSessionCoach('clearance',T.tutorialCoachClearance,2600);},260);
+      if(occupiedNow)showFirstSessionCoach('occupied',T.tutorialCoachOccupied,2800);else if(wasFirstInput&&this.level===1)this.scheduleNotice(()=>{if(this.state==='playing'&&this.level===1&&this.firstInput)showFirstSessionCoach('clearance',T.tutorialCoachClearance,2600);},260);
       return true;
     },
     toggleJunction(junctionId){
@@ -2168,7 +2225,9 @@
     },
     captureFailureReplayFrame(dt=0){
       if(this.state!=='playing'||this.externalPaused||this.userPaused)return;
-      this.failureReplayClock=(this.failureReplayClock||0)+Math.max(0,dt||0);if(this.failureReplayClock<.12)return;this.failureReplayClock=0;
+      // Keep the fixed-step fractional remainder: resetting to zero turns a nominal 120ms
+      // capture interval into 133ms at 60Hz, so playback drifts against its 120ms clock.
+      this.failureReplayClock=(this.failureReplayClock||0)+Math.max(0,dt||0);if(this.failureReplayClock<.12)return;this.failureReplayClock=Math.max(0,this.failureReplayClock-.12);
       const cars=this.cars.map(c=>{const p=carXY(c);return{x:Number(p.x.toFixed(1)),y:Number(p.y.toFixed(1)),rot:Number(p.rot.toFixed(3)),color:c.color,kind:c.kind,style:c.style||0,stopped:Boolean(c.stopped),violation:c.violation||'none'};});
       const pedestrians=this.pedestrians.map(p=>{const q=pedestrianPose(p,this.config?.lanes||1);return{x:Number(q.x.toFixed(1)),y:Number(q.y.toFixed(1))};});
       this.failureReplayFrames.push({t:Number(this.elapsed.toFixed(2)),phase:this.phase,transition:this.transitionTimer>0,cars,pedestrians});if(this.failureReplayFrames.length>36)this.failureReplayFrames.shift();
@@ -2180,14 +2239,16 @@
     updateSignalControllers(dt){
       const laneCount=Math.max(1,this.config?.lanes||1),linked=isLinkedJunctionType(this.config?.junctionType);
       if(independentSignals(this)){
-        let changed=false;for(const [junctionId,c] of Object.entries(this.signalControllers)){
+        // M210: exactly two Green Wave controllers; avoid allocating Object.entries
+        // on every 60Hz update. Preserve the J0 then J1 transition order.
+        let changed=false;for(let i=0;i<2;i++){const junctionId=i===0?'J0':'J1',c=this.signalControllers[junctionId];
           if((c.transitionTimer||0)<=0)continue;c.transitionTimer-=dt;if(c.transitionTimer>0)continue;
           const blockedByPedestrians=Boolean(c.pendingPhase&&this.pedestriansOnAxis(c.pendingPhase,junctionId));
           const blockedByCommittedVehicle=Boolean(c.pendingPhase&&this.cars.some(v=>v.axis!==c.pendingPhase&&(v.linkedCommittedJunction===junctionId||linkedJunctionInside(v,junctionId,laneCount))));
-          if(blockedByPedestrians||blockedByCommittedVehicle){c.transitionTimer=.04;c.pedestrianHold=blockedByPedestrians;continue;}
+          if(blockedByPedestrians||blockedByCommittedVehicle){c.transitionTimer=.04;if(c.pedestrianHold!==blockedByPedestrians){c.pedestrianHold=blockedByPedestrians;changed=true;}continue;}
           c.transitionTimer=0;c.phase=c.pendingPhase||c.phase;c.pendingPhase=null;c.phaseElapsed=0;c.pedestrianHold=false;changed=true;
         }
-        const j0=this.signalControllers.J0;this.phase=j0.phase;this.pendingPhase=j0.pendingPhase;this.transitionTimer=Math.max(...Object.values(this.signalControllers).map(c=>c.transitionTimer||0));this.pedestrianHold=Object.values(this.signalControllers).some(c=>c.pedestrianHold);if(changed){updateSignalIcon();updateHud();}return;
+        const j0=this.signalControllers.J0,j1=this.signalControllers.J1;this.phase=j0.phase;this.pendingPhase=j0.pendingPhase;this.transitionTimer=Math.max(j0.transitionTimer||0,j1.transitionTimer||0);this.pedestrianHold=Boolean(j0.pedestrianHold||j1.pedestrianHold);if(changed){updateSignalIcon();updateHud();}return;
       }
       if(this.transitionTimer<=0)return;this.transitionTimer-=dt;if(this.transitionTimer>0)return;
       const blockedByPedestrians=Boolean(this.pendingPhase&&this.pedestriansOnAxis(this.pendingPhase));const centerStart=365;
@@ -2448,16 +2509,25 @@
       // The player's existing H/V signal still meters entry; once a car is on the circle it keeps priority.
       let roundaboutOwner=roundabout&&this.roundaboutOwnerId?this.cars.find(c=>c.id===this.roundaboutOwnerId):null;
       if(roundaboutOwner&&!roundaboutOccupiesCircle(roundaboutOwner,laneCount)&&roundaboutOwner.progress>roundaboutRouteEndProgress(roundaboutOwner,laneCount)){this.roundaboutOwnerId=null;roundaboutOwner=null;}
-      if(roundabout&&!roundaboutOwner&&active){const candidates=this.cars.filter(c=>c.axis===active&&c.progress>=stopTargetProgress(c,laneCount)-26&&c.progress<turnBounds.start&&!this.pedestriansOnAxis(c.axis)).sort((a,b)=>(b.progress-a.progress)||(a.id-b.id));if(candidates[0]){roundaboutOwner=candidates[0];this.roundaboutOwnerId=roundaboutOwner.id;}}
+      if(roundabout&&!roundaboutOwner&&active){
+        // Preserve the greatest-progress / lowest-ID reservation without filter+sort.
+        for(const c of this.cars){
+          if(c.axis!==active||c.progress<stopTargetProgress(c,laneCount)-26||c.progress>=turnBounds.start||this.pedestriansOnAxis(c.axis))continue;
+          if(!roundaboutOwner||c.progress>roundaboutOwner.progress||(c.progress===roundaboutOwner.progress&&c.id<roundaboutOwner.id))roundaboutOwner=c;
+        }
+        if(roundaboutOwner)this.roundaboutOwnerId=roundaboutOwner.id;
+      }
 
       // One protected turning slot at a time. This keeps left/right turns readable and prevents
       // same-phase trajectories from cutting through each other without adding another control.
       let turnOwner=!roundabout&&this.turnOwnerId?this.cars.find(c=>c.id===this.turnOwnerId):null;
       if(turnOwner&&(!active||turnOwner.axis!==active||turnOwner.progress>turnBounds.end+16)){this.turnOwnerId=null;turnOwner=null;}
       if(!roundabout&&!turnOwner&&active&&!this.cars.some(c=>c.inside)){
-        const candidates=this.cars.filter(c=>c.turn&&c.turn!=='straight'&&c.axis===active&&c.progress>=stopTargetProgress(c,laneCount)-22&&c.progress<centerStart&&!this.pedestriansOnAxis(AXIS[c.turnOutDir||turnExitDir(c.dir,c.turn)]))
-          .sort((a,b)=>(b.progress-a.progress)||(a.id-b.id));
-        if(candidates[0]){turnOwner=candidates[0];this.turnOwnerId=turnOwner.id;}
+        for(const c of this.cars){
+          if(!c.turn||c.turn==='straight'||c.axis!==active||c.progress<stopTargetProgress(c,laneCount)-22||c.progress>=centerStart||this.pedestriansOnAxis(AXIS[c.turnOutDir||turnExitDir(c.dir,c.turn)]))continue;
+          if(!turnOwner||c.progress>turnOwner.progress||(c.progress===turnOwner.progress&&c.id<turnOwner.id))turnOwner=c;
+        }
+        if(turnOwner)this.turnOwnerId=turnOwner.id;
       }
 
       // Smooth parking-lot merges and visible lane changes are presentation + traffic-flow features.
@@ -2501,8 +2571,11 @@
       // A service vehicle keeps priority until its whole body leaves the conflict zone. Its
       // progress can pass centerEnd while a wide road still places the body across another lane.
       const heldEmergency=this.cars.find(c=>c.id===this.emergencyPriorityId&&isEmergencyVehicle(c)&&c.inside);
-      let emergencyOwner=heldEmergency||this.cars.filter(c=>isEmergencyVehicle(c)&&signalStateForAxis(c.axis,this)==='red'&&c.progress>=stopTargetProgress(c,laneCount)-150&&c.progress<centerEnd+32)
-        .sort((a,b)=>(b.progress-a.progress)||(a.id-b.id))[0]||null;
+      let emergencyOwner=heldEmergency||null;
+      if(!emergencyOwner)for(const c of this.cars){
+        if(!isEmergencyVehicle(c)||signalStateForAxis(c.axis,this)!=='red'||c.progress<stopTargetProgress(c,laneCount)-150||c.progress>=centerEnd+32)continue;
+        if(!emergencyOwner||c.progress>emergencyOwner.progress||(c.progress===emergencyOwner.progress&&c.id<emergencyOwner.id))emergencyOwner=c;
+      }
       this.emergencyPriorityId=emergencyOwner?.id||null;
       for(const c of this.cars)c.emergencyPriorityActive=false;
 
@@ -2620,7 +2693,10 @@
         else if(p.kind==='debris'){p.vy+=90*dt;p.rot=(p.rot||0)+(p.spin||0)*dt;p.vx*=.985;}
         else {p.vx*=.96;p.vy*=.96;}
       }
-      this.particles=this.particles.filter(p=>p.life>0);
+      // M205: avoid a fresh transient array at every fixed-step, even on empty scenes.
+      const particles=this.particles;let kept=0;
+      for(let i=0;i<particles.length;i++)if(particles[i].life>0)particles[kept++]=particles[i];
+      particles.length=kept;
       if(this.crashFx){this.crashFx.life-=dt;if(this.crashFx.life<=0)this.crashFx=null;} this.cameraKick=Math.max(0,(this.cameraKick||0)-dt*1.65);
     },
     emitCrashFx(a,b){
@@ -2671,16 +2747,16 @@
         const def=this.scenarioDirector?.def||scenarioDefinition(this.scenarioId);if(!def)return;
         stars=1;if(this.maxObservedQueue<=def.starThresholds.twoStarQueue)stars=2;if(stars>=2&&this.switches<=def.starThresholds.threeStarSwitches)stars=3;if(this.rescueUsed)stars=Math.min(stars,2);
         const priorityReq=def.objectives?.priorityRequired||0;if(priorityReq&&this.prioritySaved<priorityReq)stars=Math.min(stars,this.prioritySaved>=Math.max(1,priorityReq-1)?2:1);const key=scenarioSaveKey(def),prev=save.scenarioProgress?.[key]||null,result={stars,bestQueue:this.maxObservedQueue,bestSwitches:this.switches,bestPriority:this.prioritySaved||0,clears:(prev?.clears||0)+1},best=betterScenario(prev,result);
-        save.scenarioProgress=save.scenarioProgress||{};save.scenarioProgress[key]={...best,clears:result.clears};persist();showScenarioWin(def,stars,prev,best);return;
+        save.scenarioProgress=save.scenarioProgress||{};save.scenarioProgress[key]={...best,clears:result.clears};persistCheckpoint();showScenarioWin(def,stars,prev,best);return;
       }
       if(this.mode==='greenwave'){
-        const def=greenWaveDefinition(this.greenWaveId)||greenWaveDefinition(),stats=this.greenWaveStats||{throughTotal:0,throughNoStop:0,maxSideQueue:999},ratio=(stats.throughNoStop||0)/Math.max(1,stats.throughTotal||0);stars=1;if(ratio>=(def.objectives?.twoStarRatio||.55))stars=2;if(ratio>=(def.objectives?.threeStarRatio||.70)&&(stats.maxSideQueue||0)<=(def.objectives?.maxSideQueue3||3))stars=3;const priorityReq=def.objectives?.priorityRequired||0;if(priorityReq&&this.prioritySaved<priorityReq)stars=Math.min(stars,this.prioritySaved>0?2:1);const key=greenWaveSaveKey(def),prev=save.greenWaveProgress?.[key]||null,result={stars,throughNoStop:stats.throughNoStop||0,throughTotal:stats.throughTotal||0,bestSideQueue:stats.maxSideQueue||0,bestSwitches:this.switches,bestPriority:this.prioritySaved||0,clears:(prev?.clears||0)+1},best=betterGreenWave(prev,result);save.greenWaveProgress=save.greenWaveProgress||{};save.greenWaveProgress[key]={...best,clears:result.clears};persist();showGreenWaveWin(def,stars,prev,result,best);return;
+        const def=greenWaveDefinition(this.greenWaveId)||greenWaveDefinition(),stats=this.greenWaveStats||{throughTotal:0,throughNoStop:0,maxSideQueue:999},ratio=(stats.throughNoStop||0)/Math.max(1,stats.throughTotal||0);stars=1;if(ratio>=(def.objectives?.twoStarRatio||.55))stars=2;if(ratio>=(def.objectives?.threeStarRatio||.70)&&(stats.maxSideQueue||0)<=(def.objectives?.maxSideQueue3||3))stars=3;const priorityReq=def.objectives?.priorityRequired||0;if(priorityReq&&this.prioritySaved<priorityReq)stars=Math.min(stars,this.prioritySaved>0?2:1);const key=greenWaveSaveKey(def),prev=save.greenWaveProgress?.[key]||null,result={stars,throughNoStop:stats.throughNoStop||0,throughTotal:stats.throughTotal||0,bestSideQueue:stats.maxSideQueue||0,bestSwitches:this.switches,bestPriority:this.prioritySaved||0,clears:(prev?.clears||0)+1},best=betterGreenWave(prev,result);save.greenWaveProgress=save.greenWaveProgress||{};save.greenWaveProgress[key]={...best,clears:result.clears};persistCheckpoint();showGreenWaveWin(def,stars,prev,result,best);return;
       }
       if(this.mode==='weekly'){
         const key=this.weeklyKey||weekStartKey(),prev=save.weeklyBest[key]||null,pb=typeof PersonalBestService!=='undefined'?PersonalBestService.finish(this,stars):{record:null,comparison:null},record=pb.record||{stars,switches:this.switches,maxQueue:this.maxObservedQueue};
         const improved=isBetterBest(record,prev);if(improved)save.weeklyBest[key]=record;
         const firstReward=!save.weeklyRewards[key],weeklyReward=weeklyFirstClearReward(stars,key),reward=firstReward?weeklyReward.reward:0;if(firstReward){save.weeklyRewards[key]=true;save.coins+=reward;recordVkCloudReward(`weekly:${key}`,reward);}
-        persist();showWeeklyWin(stars,reward,improved,pb.comparison,weeklyReward.streak,firstReward?weeklyReward.streakBonus:0);return;
+        persistCheckpoint();showWeeklyWin(stars,reward,improved,pb.comparison,weeklyReward.streak,firstReward?weeklyReward.streakBonus:0);return;
       }
       if(this.mode==='daily'){
         const key=this.dailyKey||todayDailyKey(),prev=save.dailyBest[key]||null,pb=typeof PersonalBestService!=='undefined'?PersonalBestService.finish(this,stars):{record:null,comparison:null},record=pb.record||{stars,switches:this.switches,maxQueue:this.maxObservedQueue};
@@ -2688,7 +2764,7 @@
         const firstReward=!save.dailyRewards[key],streak=firstReward?dailyStreakIfCleared(key):dailyStreakEnding(key,save.dailyRewards);
         const streakBonus=firstReward?Math.min(6,Math.max(0,streak-1))*15:0,reward=firstReward?(120+stars*35+streakBonus):0;
         if(firstReward){save.dailyRewards[key]=true;save.coins+=reward;recordVkCloudReward(`daily:${key}`,reward);}
-        persist(); showDailyWin(stars,reward,improved,streak,streakBonus,pb.comparison); return;
+        persistCheckpoint(); showDailyWin(stars,reward,improved,streak,streakBonus,pb.comparison); return;
       }
       const old=Number(save.starsByLevel[this.level]||0),starImprovement=Math.max(0,stars-old); if(stars>old){save.totalStars+=stars-old;save.starsByLevel[this.level]=stars;}
       const firstClear=TrafficPulseCampaign.firstClear(this.level,old,save);platform.noteCampaignCompletion(firstClear);this.lastCampaignFirstClear=firstClear;
@@ -2716,7 +2792,7 @@
       let unlocked='';
       const availableIndex=CAR_REQUIREMENTS.findIndex((req,i)=>i>0&&req===this.level);
       if(firstClear&&availableIndex>0&&save.level>CAR_REQUIREMENTS[availableIndex]&&!ownedStyleIds().includes(availableIndex))unlocked=T[CAR_NAMES[availableIndex]];
-      const district=firstClear&&save.level>this.level?nextDistrictUnlock(this.level):''; persist(); showWin(stars,reward,unlocked,district,starBonus,flowBonus,priorityBonus,newFlowRecord,missionSuccess,missionBonus,missionMilestoneBonus,unlockedAchievements,achievementBonus,syncBonus,firstClear,starImprovement,rewardedBonus);
+      const district=firstClear&&save.level>this.level?nextDistrictUnlock(this.level):''; persistCheckpoint(); showWin(stars,reward,unlocked,district,starBonus,flowBonus,priorityBonus,newFlowRecord,missionSuccess,missionBonus,missionMilestoneBonus,unlockedAchievements,achievementBonus,syncBonus,firstClear,starImprovement,rewardedBonus);
     },
     async next(){
       if(this.nextPending||platform.adBusy||platform.purchaseBusy)return false;
@@ -2730,6 +2806,7 @@
     },
     draw(){
       this.presentationDrawCount=(this.presentationDrawCount||0)+1;
+      const measureDraw=PerfProbe.enabled?performance.now():0;
       resizeCanvas(); const w=canvas.width,h=canvas.height,s=Math.min(w,h)/900;
       ctx.save();ctx.setTransform(1,0,0,1,0,0);ctx.fillStyle='#07101e';ctx.fillRect(0,0,w,h);ctx.restore();
       const hotFlow=Math.min(1,Math.max(0,((this.flowStreak||0)-4)/8));
@@ -2750,26 +2827,37 @@
         ctx.setTransform(fs,0,0,fs,fox*fs,foy*fs);drawCoreWorldFallback(ctx,this);ctx.setTransform(1,0,0,1,0,0);
       }
       if(!drawFailed)ctx.restore();
+      if(PerfProbe.enabled)PerfProbe.draw(performance.now()-measureDraw);
     },
     loop(ts){
+      const startedWork=PerfProbe.enabled?performance.now():0;
       const rawDt=Math.max(0,Math.min(.25,(ts-(this.lastTs||ts))/1000)); this.lastTs=ts;
       const active=this.state==='playing'&&!this.externalPaused&&!this.userPaused;
+      if(PerfProbe.enabled&&active)PerfProbe.frame(rawDt*1000,RenderQuality.level);
       RenderQuality.observe(rawDt*1000,active);if(active)YandexAudit.sampleFrame(rawDt*1000);
       if(active){
         platform.noteActiveGameplay(rawDt*1000);
+        const startedSim=PerfProbe.enabled?performance.now():0;
         this.accumulator=Math.min(.25,this.accumulator+rawDt); let steps=0;
         while(this.accumulator>=SIM_STEP&&steps<MAX_CATCHUP_STEPS){ this.update(SIM_STEP); this.accumulator-=SIM_STEP; steps++; if(this.state!=='playing')break; }
         if(steps===MAX_CATCHUP_STEPS&&this.accumulator>=SIM_STEP)this.accumulator=0;
+        if(PerfProbe.enabled)PerfProbe.sim(performance.now()-startedSim,steps);
         this.renderAlpha=Math.max(0,Math.min(1,this.accumulator/SIM_STEP));
       } else { this.accumulator=0; this.renderAlpha=1; this.updateParticles(Math.min(.05,rawDt)); }
       // HUD is presentation state, not simulation state. Refresh at ~12.5 Hz and at most once
       // per animation frame. Critical interactions still call updateHud() immediately themselves.
       if(this.hudDirty && (ts-(this.lastHudTs||0)>=HUD_REFRESH_MS)){updateHud();}
-      const minDrawInterval=this.replayPlayback?32:(active?(RenderQuality.level===0?30:0):80);
+      // M216: low-detail quality is not intrinsically 30fps. A desktop may start
+      // at Low due to DPR/memory while still producing steady 60Hz frames.
+      // Throttle presentation only when measured frame pacing is too slow;
+      // never alter the deterministic 60Hz simulation or its interpolation.
+      const overloadedLowQuality=RenderQuality.level===0&&RenderQuality.emaMs>=25;
+      const minDrawInterval=this.replayPlayback?32:(active?(overloadedLowQuality?30:0):80);
       // M127: presentation cadence is independent from the fixed 60 Hz simulation.
       // Low quality now actually honors the intended ~30 FPS Canvas cap instead of
       // drawing every animation frame because of the previous `active || ...` shortcut.
       if(minDrawInterval===0||ts-(this.lastDrawTs||0)>=minDrawInterval){this.draw();this.lastDrawTs=ts;}
+      if(PerfProbe.enabled)PerfProbe.loopWork(performance.now()-startedWork);
       this.frameId=requestAnimationFrame(t=>this.loop(t));
     }
   };
@@ -3060,6 +3148,23 @@
     return{x:previous.x+(current.x-previous.x)*t,y:previous.y+(current.y-previous.y)*t,rot:lerpAngle(previous.rot,current.rot,t)};
   }
 
+  // M217: interpolate crossing pedestrians on the same clock as vehicles. Simulation
+  // keeps its authoritative p.t for crossing safety, collisions and signal holds.
+  function renderPedestrianPose(ped,lanes=(Game.config?.lanes||1),alpha=Game.renderAlpha){
+    const previous=ped?.prevRenderT,current=ped?.t||0;
+    if(!Number.isFinite(previous)||!Number.isFinite(alpha))return pedestrianPose(ped,lanes);
+    const t=Math.max(0,Math.min(1,alpha));
+    return pedestrianPose(ped,lanes,previous+(current-previous)*t);
+  }
+
+  // Decorative walkers, animals, weather and bobbing use interpolated simulation time
+  // rather than advancing in discrete fixed-step bursts. No gameplay time is changed.
+  function presentationElapsed(game){
+    const elapsed=Math.max(0,Number(game?.elapsed)||0),alpha=Number(game?.renderAlpha);
+    if(game?.state!=='playing'||game?.userPaused||game?.externalPaused||!Number.isFinite(alpha))return elapsed;
+    return Math.max(0,elapsed-SIM_STEP*(1-Math.max(0,Math.min(1,alpha))));
+  }
+
   function drawExtendedBackdrop(g,game,ox,oy,visW,visH){
     // M67: never extend legacy road geometry outside the canonical 900x900 scene.
     // If a browser momentarily gives the canvas a non-square box, fill only with the district surround.
@@ -3172,11 +3277,11 @@
       const rg=g.createLinearGradient(0,0,900,900);rg.addColorStop(0,'rgba(255,174,104,.15)');rg.addColorStop(.5,'rgba(255,120,92,.07)');rg.addColorStop(1,'rgba(89,79,162,.08)');g.fillStyle=rg;g.fillRect(0,0,900,900);
       g.globalAlpha=.14;g.fillStyle='#ffe4a1';g.beginPath();g.arc(735,120,52,0,Math.PI*2);g.fill();
     }else if(kind==='fog'){
-      const t=(game.elapsed||0)*12;g.globalAlpha=.12;g.fillStyle='#d9edf5';g.fillRect(0,0,900,900);
+      const t=(presentationElapsed(game)||0)*12;g.globalAlpha=.12;g.fillStyle='#d9edf5';g.fillRect(0,0,900,900);
       const fogCount=RenderQuality.level>=2?5:RenderQuality.level===1?3:1;for(let i=0;i<fogCount;i++){const x=((i*173+t*(i%2?1:-1))%1100)-100,y=150+i*145;const grad=g.createRadialGradient(x,y,10,x,y,150);grad.addColorStop(0,'rgba(235,248,255,.18)');grad.addColorStop(1,'rgba(235,248,255,0)');g.fillStyle=grad;g.fillRect(x-160,y-80,320,160);}
     }else if(kind==='snow'){
       g.globalAlpha=.08;g.fillStyle='#dff5ff';g.fillRect(0,0,900,900);
-      const count=RenderQuality.level>=2?52:RenderQuality.level===1?30:8,t=(game.elapsed||0)*34;g.fillStyle='rgba(244,252,255,.80)';g.shadowColor='rgba(190,235,255,.55)';g.shadowBlur=RenderQuality.level>=1?5:0;
+      const count=RenderQuality.level>=2?52:RenderQuality.level===1?30:8,t=(presentationElapsed(game)||0)*34;g.fillStyle='rgba(244,252,255,.80)';g.shadowColor='rgba(190,235,255,.55)';g.shadowBlur=RenderQuality.level>=1?5:0;
       for(let i=0;i<count;i++){const x=((i*83+t*(.35+(i%5)*.05))%970)-35,y=((i*59+t*(1.15+(i%3)*.12))%970)-35,r=1.6+(i%4)*.65;g.beginPath();g.arc(x,y,r,0,Math.PI*2);g.fill();}
       g.shadowBlur=0;
     }else if(kind==='rain'){
@@ -3203,7 +3308,7 @@
   }
   function drawRain(g,game){
     if(weatherForLevel(game.level)!=='rain'||reducedMotion||RenderQuality.level===0)return;
-    const count=RenderQuality.level>=2?38:22,t=(game.elapsed||0)*260;
+    const count=RenderQuality.level>=2?38:22,t=(presentationElapsed(game)||0)*260;
     g.save();g.strokeStyle='rgba(194,231,255,.30)';g.lineWidth=2;
     for(let i=0;i<count;i++){
       const x=((i*97+t*.17)%980)-40,y=((i*61+t+i*19)%980)-40;
@@ -3263,8 +3368,9 @@
     if(!game.pedestrians?.length)return;
     const shirts=['#ffd166','#f6fbff','#55d5ff','#ff7c8a','#8fd19e','#b28cff'];
     g.save();g.lineWidth=3.2;g.lineCap='round';
+    const visualTime=presentationElapsed(game);
     for(const ped of game.pedestrians){
-      const pose=pedestrianPose(ped,game.config?.lanes||1),x=pose.x,y=pose.y,bob=reducedMotion?0:Math.sin((game.elapsed||0)*7+ped.id)*.8;
+      const pose=renderPedestrianPose(ped,game.config?.lanes||1,game.renderAlpha),x=pose.x,y=pose.y,bob=reducedMotion?0:Math.sin(visualTime*7+ped.id)*.8;
       g.fillStyle='rgba(0,0,0,.15)';g.beginPath();g.ellipse(x+2,y+18,8,3.8,0,0,Math.PI*2);g.fill();
       g.fillStyle=shirts[ped.shirt%shirts.length];g.beginPath();g.arc(x,y-10+bob,8,0,Math.PI*2);g.fill();
       g.strokeStyle='rgba(20,40,52,.92)';g.lineWidth=4;g.beginPath();g.moveTo(x,y-1+bob);g.lineTo(x,y+13+bob);g.moveTo(x,y+3+bob);g.lineTo(x-6,y+9+bob);g.moveTo(x,y+3+bob);g.lineTo(x+6,y+9+bob);g.moveTo(x,y+13+bob);g.lineTo(x-5,y+22+bob);g.moveTo(x,y+13+bob);g.lineTo(x+5,y+22+bob);g.stroke();
@@ -3307,7 +3413,7 @@
 
   function drawSidewalkPedestrians(g,game){
     if(reducedMotion)return;
-    const quality=RenderQuality.level,count=quality===2?10:quality===1?6:1,t=(game.elapsed||0),layout=roadLayout(game.config?.lanes||1),a=layout.edgeMin,b=layout.edgeMax,pad=16,type=game.config?.junctionType||'cross';
+    const quality=RenderQuality.level,count=quality===2?10:quality===1?6:1,t=(presentationElapsed(game)||0),layout=roadLayout(game.config?.lanes||1),a=layout.edgeMin,b=layout.edgeMax,pad=16,type=game.config?.junctionType||'cross';
     const candidates=[
       ['W',48,a-pad,a-26,a-pad],['E',b+26,a-pad,852,a-pad],['W',48,b+pad,a-26,b+pad],['E',b+26,b+pad,852,b+pad],
       ['N',a-pad,48,a-pad,a-26],['N',b+pad,48,b+pad,a-26],['S',a-pad,b+26,a-pad,852],['S',b+pad,b+26,b+pad,852]
@@ -3368,7 +3474,7 @@
   function drawLivingCityAmbient(g,game){
     if(reducedMotion||RenderQuality.level===0)return;
     if(isLinkedJunctionType(game.config?.junctionType))return;
-    const id=districtInfo(game.level).id,t=Math.max(0,game.elapsed||0);
+    const id=districtInfo(game.level).id,t=Math.max(0,presentationElapsed(game)||0);
     // Walkers and dogs remain in park blocks; no collision or gameplay state is added.
     const routes=id==='park'?[[72,194,210,122],[660,738,793,785]]:
       ['oldtown','coast','tech','airport','winter'].includes(id)?[[665,735,788,786]]:[];
@@ -3407,7 +3513,7 @@
   // modes skip the layer entirely so the living city remains performance-scalable.
   function drawDistrictMicroLife(g,game){
     if(reducedMotion||RenderQuality.level===0||isLinkedJunctionType(game.config?.junctionType))return;
-    const id=districtInfo(game.level).id,t=Math.max(0,game.elapsed||0),high=RenderQuality.level>=2;
+    const id=districtInfo(game.level).id,t=Math.max(0,presentationElapsed(game)||0),high=RenderQuality.level>=2;
     g.save();g.lineCap='round';g.lineJoin='round';
 
     if(id==='park'||id==='oldtown'){
@@ -3479,7 +3585,7 @@
   // reduced-motion devices so traffic readability and frame budget remain the priority.
   function drawStreetLifeActivity(g,game){
     if(reducedMotion||RenderQuality.level===0||isLinkedJunctionType(game.config?.junctionType))return;
-    const id=districtInfo(game.level).id,t=Math.max(0,game.elapsed||0),high=RenderQuality.level>=2;
+    const id=districtInfo(game.level).id,t=Math.max(0,presentationElapsed(game)||0),high=RenderQuality.level>=2;
     const layout=roadLayout(game.config?.lanes||1),a=layout.edgeMin,b=layout.edgeMax,type=game.config?.junctionType||'cross';
     const skin=['#f1c9a5','#d9aa86','#b97b60','#ead0b8'],shirts=['#ff7c8a','#55d5ff','#ffd166','#8fd19e','#b28cff','#f7f9fb'];
     const person=(x,y,i=0,scale=1,pose=0)=>{
@@ -3558,7 +3664,7 @@
   // bounded to outer blocks and fully disabled for reduced-motion / Low quality / linked boards.
   function drawDistrictSignatureEvents(g,game){
     if(reducedMotion||RenderQuality.level===0||isLinkedJunctionType(game.config?.junctionType))return;
-    const id=districtInfo(game.level).id,t=Math.max(0,game.elapsed||0),high=RenderQuality.level>=2;
+    const id=districtInfo(game.level).id,t=Math.max(0,presentationElapsed(game)||0),high=RenderQuality.level>=2;
     const cycle=t%28,fade=Math.min(1,cycle/1.5,(28-cycle)/1.8);
     if(fade<=0)return;
     g.save();g.globalAlpha=Math.max(0,fade);g.lineCap='round';g.lineJoin='round';
@@ -3631,7 +3737,7 @@
 
   function drawTrafficAwareCityReactions(g,game){
     if(reducedMotion||RenderQuality.level===0||isLinkedJunctionType(game.config?.junctionType))return;
-    const s=cityReactionState(game),t=Math.max(0,game.elapsed||0),high=RenderQuality.level>=2,id=districtInfo(game.level).id;
+    const s=cityReactionState(game),t=Math.max(0,presentationElapsed(game)||0),high=RenderQuality.level>=2,id=districtInfo(game.level).id;
     if(!s.queueLevel&&!s.emergency&&!s.crash&&s.flow<4&&s.progress<.72)return;
     g.save();g.lineCap='round';g.lineJoin='round';
 
@@ -3696,7 +3802,7 @@
   function drawWeatherResponsiveCity(g,game){
     if(reducedMotion||RenderQuality.level===0||isLinkedJunctionType(game.config?.junctionType))return;
     const kind=weatherForLevel(game.level);if(kind==='clear')return;
-    const t=Math.max(0,game.elapsed||0),high=RenderQuality.level>=2,id=districtInfo(game.level).id;
+    const t=Math.max(0,presentationElapsed(game)||0),high=RenderQuality.level>=2,id=districtInfo(game.level).id;
     g.save();g.lineCap='round';g.lineJoin='round';
 
     if(kind==='rain'){
@@ -3748,7 +3854,7 @@
   function cityRhythmState(game){
     const base={phase:'day',phaseIndex:1,cycle:.35,commute:.2,commerce:1,service:.25,evening:0,weather:'clear',district:'park',trafficLoad:0};
     if(!game||isLinkedJunctionType(game.config?.junctionType))return base;
-    const elapsed=Math.max(0,Number(game.elapsed)||0),district=districtInfo(game.level).id,weather=weatherForLevel(game.level);
+    const elapsed=Math.max(0,Number(presentationElapsed(game))||0),district=districtInfo(game.level).id,weather=weatherForLevel(game.level);
     const cycle=((Number(game.level||1)%5)*.073+elapsed/92)%1;
     let phase='day',phaseIndex=1;
     if(cycle<.20){phase='morning';phaseIndex=0;}else if(cycle<.56){phase='day';phaseIndex=1;}else if(cycle<.80){phase='evening';phaseIndex=2;}else{phase='night';phaseIndex=3;}
@@ -3763,7 +3869,7 @@
 
   function drawDailyCityRhythm(g,game){
     if(reducedMotion||RenderQuality.level===0||isLinkedJunctionType(game.config?.junctionType))return;
-    const s=cityRhythmState(game),t=Math.max(0,game.elapsed||0),high=RenderQuality.level>=2,id=s.district;
+    const s=cityRhythmState(game),t=Math.max(0,presentationElapsed(game)||0),high=RenderQuality.level>=2,id=s.district;
     g.save();g.lineCap='round';g.lineJoin='round';
 
     // Morning municipal/service activity. The cart stays deep inside the upper-left city block.
@@ -3838,7 +3944,7 @@
 
   function drawCivicServicePulse(g,game){
     if(reducedMotion||RenderQuality.level===0||isLinkedJunctionType(game.config?.junctionType))return;
-    const s=civicServicePulseState(game),t=Math.max(0,game.elapsed||0),high=RenderQuality.level>=2;
+    const s=civicServicePulseState(game),t=Math.max(0,presentationElapsed(game)||0),high=RenderQuality.level>=2;
     g.save();g.lineCap='round';g.lineJoin='round';g.globalAlpha=.38+.42*s.activity;
     // A compact municipal/service vehicle loops only through deep outer-block service space.
     const u=((t*(10+7*s.activity)+game.level*11)%180)/180,x=66+u*118,y=s.district==='harbor'||s.district==='airport'?704:154;
@@ -3861,7 +3967,7 @@
   // This is presentation-only: no decorative passenger or transit marker enters Game.cars,
   // consumes road capacity, changes signals, spawning, collisions, score, save data or RNG.
   function transitStopPulseState(game){
-    const r=cityRhythmState(game),id=r.district,t=Math.max(0,Number(game?.elapsed)||0);
+    const r=cityRhythmState(game),id=r.district,t=Math.max(0,Number(presentationElapsed(game))||0);
     const period=18+((Number(game?.level)||1)%4)*2,cycle=((t+(Number(game?.level)||1)*3.7)%period)/period;
     let stage='quiet';
     if(cycle<.22)stage='approaching';else if(cycle<.48)stage='boarding';else if(cycle<.68)stage='departing';
@@ -3874,7 +3980,7 @@
 
   function drawTransitStopPulse(g,game){
     if(reducedMotion||RenderQuality.level===0||isLinkedJunctionType(game.config?.junctionType))return;
-    const s=transitStopPulseState(game),t=Math.max(0,game.elapsed||0),high=RenderQuality.level>=2;
+    const s=transitStopPulseState(game),t=Math.max(0,presentationElapsed(game)||0),high=RenderQuality.level>=2;
     // Two safe decorative shelter zones remain inside outer blocks and never overlap crossings.
     const stops=s.district==='airport'||s.district==='tech'?[[704,214,1],[112,704,-1]]:[[112,214,1],[704,704,-1]];
     g.save();g.lineCap='round';g.lineJoin='round';
@@ -3902,7 +4008,7 @@
   // blocks a working-day cadence without entering the road simulation. All actors remain inside
   // outer-block service space and are derived only from visual rhythm/time.
   function storefrontDeliveryState(game){
-    const r=cityRhythmState(game),t=Math.max(0,Number(game?.elapsed)||0),level=Math.max(1,Number(game?.level)||1);
+    const r=cityRhythmState(game),t=Math.max(0,Number(presentationElapsed(game))||0),level=Math.max(1,Number(game?.level)||1);
     const period=24+(level%3)*3,cycle=((t+level*2.9)%period)/period;
     let stage='closed';
     if(cycle<.20)stage='arriving';else if(cycle<.52)stage='unloading';else if(cycle<.72)stage='departing';
@@ -3916,7 +4022,7 @@
 
   function drawStorefrontDeliveryLifecycle(g,game){
     if(reducedMotion||RenderQuality.level===0||isLinkedJunctionType(game.config?.junctionType))return;
-    const s=storefrontDeliveryState(game),t=Math.max(0,game.elapsed||0),high=RenderQuality.level>=2;
+    const s=storefrontDeliveryState(game),t=Math.max(0,presentationElapsed(game)||0),high=RenderQuality.level>=2;
     if(s.activity<.12)return;
     const zones=s.district==='harbor'?[[744,168,-1],[748,726,-1]]:s.district==='airport'?[[126,168,1],[742,726,-1]]:[[116,168,1],[748,726,-1]];
     g.save();g.lineCap='round';g.lineJoin='round';
@@ -3944,7 +4050,7 @@
   // now changes through arriving, parked, loading and departing states. These vehicles never
   // enter Game.cars, reserve lanes, affect collisions/signals/spawning, score, save data or RNG.
   function neighborhoodParkingState(game){
-    const r=cityRhythmState(game),t=Math.max(0,Number(game?.elapsed)||0),level=Math.max(1,Number(game?.level)||1);
+    const r=cityRhythmState(game),t=Math.max(0,Number(presentationElapsed(game))||0),level=Math.max(1,Number(game?.level)||1);
     const period=27+(level%4)*2,cycle=((t+level*4.1)%period)/period;
     let stage='parked';
     if(cycle<.16)stage='arriving';else if(cycle>.78)stage='departing';else if(cycle>.56&&cycle<.70)stage='loading';
@@ -3958,7 +4064,7 @@
 
   function drawNeighborhoodParkingTurnover(g,game){
     if(reducedMotion||RenderQuality.level===0||isLinkedJunctionType(game.config?.junctionType))return;
-    const s=neighborhoodParkingState(game),t=Math.max(0,game.elapsed||0),high=RenderQuality.level>=2;
+    const s=neighborhoodParkingState(game),t=Math.max(0,presentationElapsed(game)||0),high=RenderQuality.level>=2;
     const zones=s.district==='airport'?[[126,735,1],[742,142,-1]]:s.district==='harbor'?[[742,142,-1],[126,735,1]]:[[126,142,1],[742,735,-1]];
     g.save();g.lineCap='round';g.lineJoin='round';
     for(let k=0;k<(high?2:1);k++){
@@ -3988,7 +4094,7 @@
   // a readable daily cadence: leaving, arriving, social pause and quiet. The layer is deterministic
   // and presentation-only; figures never enter crossings, Game.cars, routing, signals, score or save.
   function buildingEntranceActivityState(game){
-    const r=cityRhythmState(game),t=Math.max(0,Number(game?.elapsed)||0),level=Math.max(1,Number(game?.level)||1);
+    const r=cityRhythmState(game),t=Math.max(0,Number(presentationElapsed(game))||0),level=Math.max(1,Number(game?.level)||1);
     const period=21+(level%5)*2,cycle=((t+level*3.3)%period)/period;
     let stage='quiet';
     if(r.phase==='morning')stage=cycle<.68?'leaving':'quiet';
@@ -4004,7 +4110,7 @@
 
   function drawBuildingEntranceActivity(g,game){
     if(reducedMotion||RenderQuality.level===0||isLinkedJunctionType(game.config?.junctionType))return;
-    const s=buildingEntranceActivityState(game),t=Math.max(0,game.elapsed||0),high=RenderQuality.level>=2;
+    const s=buildingEntranceActivityState(game),t=Math.max(0,presentationElapsed(game)||0),high=RenderQuality.level>=2;
     const entrances=s.district==='harbor'||s.district==='airport'?[[758,174,-1],[142,724,1]]:[[142,174,1],[758,724,-1]];
     g.save();g.lineCap='round';g.lineJoin='round';
     for(let k=0;k<(high?2:1);k++){
@@ -4029,7 +4135,7 @@
   // deterministic daily cadence of strolling, resting, exercise and quiet periods. Everything
   // remains deep in decorative outer blocks and never participates in traffic simulation.
   function publicSpaceLeisureState(game){
-    const r=cityRhythmState(game),t=Math.max(0,Number(game?.elapsed)||0),level=Math.max(1,Number(game?.level)||1);
+    const r=cityRhythmState(game),t=Math.max(0,Number(presentationElapsed(game))||0),level=Math.max(1,Number(game?.level)||1);
     const period=26+(level%4)*3,cycle=((t+level*2.7)%period)/period;
     let stage='quiet';
     if(r.phase==='morning')stage=cycle<.46?'exercise':cycle<.78?'stroll':'rest';
@@ -4046,7 +4152,7 @@
   function drawPublicSpaceLeisure(g,game){
     if(reducedMotion||RenderQuality.level===0||isLinkedJunctionType(game.config?.junctionType))return;
     const s=publicSpaceLeisureState(game);if(s.stage==='quiet'||s.people<=0)return;
-    const t=Math.max(0,game.elapsed||0),high=RenderQuality.level>=2;
+    const t=Math.max(0,presentationElapsed(game)||0),high=RenderQuality.level>=2;
     const zones=s.district==='park'?[[118,692,1],[782,204,-1]]:s.district==='coast'?[[116,196,1],[784,704,-1]]:[[118,704,1],[782,196,-1]];
     g.save();g.lineCap='round';g.lineJoin='round';
     for(let k=0;k<(high?2:1);k++){
@@ -4072,7 +4178,7 @@
   // deterministic opening, serving, dining, clearing and closed cadence. Weather and daily
   // rhythm affect occupancy only; this layer never touches traffic simulation, score or save.
   function cafeTerraceLifecycleState(game){
-    const r=cityRhythmState(game),t=Math.max(0,Number(game?.elapsed)||0),level=Math.max(1,Number(game?.level)||1);
+    const r=cityRhythmState(game),t=Math.max(0,Number(presentationElapsed(game))||0),level=Math.max(1,Number(game?.level)||1);
     const period=31+(level%5)*2,cycle=((t+level*2.35)%period)/period;
     let stage='closed';
     if(r.phase==='morning')stage=cycle<.18?'opening':cycle<.70?'serving':'clearing';
@@ -4091,7 +4197,7 @@
   function drawCafeTerraceLifecycle(g,game){
     if(reducedMotion||RenderQuality.level===0||isLinkedJunctionType(game.config?.junctionType))return;
     const s=cafeTerraceLifecycleState(game);if(s.stage==='closed'||s.tables<=0)return;
-    const t=Math.max(0,game.elapsed||0),high=RenderQuality.level>=2;
+    const t=Math.max(0,presentationElapsed(game)||0),high=RenderQuality.level>=2;
     const zones=s.district==='coast'?[[116,236,1],[784,664,-1]]:s.district==='oldtown'?[[116,664,1],[784,236,-1]]:[[116,236,1],[784,664,-1]];
     g.save();g.lineCap='round';g.lineJoin='round';
     for(let k=0;k<(high?2:1);k++){
@@ -4118,7 +4224,7 @@
   // now cycle through setup, trading, busy, packing and closed states. The layer reads daily rhythm,
   // district and weather only; it never enters traffic lanes or mutates simulation, score or save.
   function streetMarketLifecycleState(game){
-    const r=cityRhythmState(game),t=Math.max(0,Number(game?.elapsed)||0),level=Math.max(1,Number(game?.level)||1);
+    const r=cityRhythmState(game),t=Math.max(0,Number(presentationElapsed(game))||0),level=Math.max(1,Number(game?.level)||1);
     const period=37+(level%4)*3,cycle=((t+level*1.9)%period)/period;
     let stage='closed';
     if(r.phase==='morning')stage=cycle<.18?'setup':cycle<.72?'trading':'packing';
@@ -4136,7 +4242,7 @@
   function drawStreetMarketLifecycle(g,game){
     if(reducedMotion||RenderQuality.level===0||isLinkedJunctionType(game.config?.junctionType))return;
     const s=streetMarketLifecycleState(game);if(s.stage==='closed'||s.stalls<=0)return;
-    const t=Math.max(0,game.elapsed||0),high=RenderQuality.level>=2;
+    const t=Math.max(0,presentationElapsed(game)||0),high=RenderQuality.level>=2;
     const zones=s.district==='oldtown'?[[126,628,1],[774,272,-1]]:s.district==='coast'?[[126,272,1],[774,628,-1]]:[[126,628,1],[774,272,-1]];
     g.save();g.lineCap='round';g.lineJoin='round';
     for(let k=0;k<(high?2:1);k++){
@@ -4165,7 +4271,7 @@
   // surveying, active work, delivery, finishing and idle states. This is deterministic presentation
   // only: cranes, workers and materials never enter traffic lanes or mutate gameplay/save state.
   function constructionSiteLifecycleState(game){
-    const r=cityRhythmState(game),t=Math.max(0,Number(game?.elapsed)||0),level=Math.max(1,Number(game?.level)||1);
+    const r=cityRhythmState(game),t=Math.max(0,Number(presentationElapsed(game))||0),level=Math.max(1,Number(game?.level)||1);
     const period=43+(level%5)*3,cycle=((t+level*2.15)%period)/period;
     let stage='idle';
     if(r.phase==='morning')stage=cycle<.16?'surveying':cycle<.72?'active':'delivery';
@@ -4183,7 +4289,7 @@
   function drawConstructionSiteLifecycle(g,game){
     if(reducedMotion||RenderQuality.level===0||isLinkedJunctionType(game.config?.junctionType))return;
     const s=constructionSiteLifecycleState(game);if(s.stage==='idle'||s.workers<=0)return;
-    const t=Math.max(0,game.elapsed||0),high=RenderQuality.level>=2;
+    const t=Math.max(0,presentationElapsed(game)||0),high=RenderQuality.level>=2;
     const zones=s.district==='downtown'?[[142,168,1],[758,732,-1]]:s.district==='harbor'?[[142,732,1],[758,168,-1]]:[[142,168,1],[758,732,-1]];
     g.save();g.lineCap='round';g.lineJoin='round';
     for(let k=0;k<(high?2:1);k++){
@@ -4207,7 +4313,7 @@
   // make the surrounding blocks visibly wake, work and settle through the day. Deterministic
   // presentation only: no gameplay actor, path, signal, spawn RNG, score or save state is touched.
   function buildingOccupancyRhythmState(game){
-    const r=cityRhythmState(game),level=Math.max(1,Number(game?.level)||1),t=Math.max(0,Number(game?.elapsed)||0);
+    const r=cityRhythmState(game),level=Math.max(1,Number(game?.level)||1),t=Math.max(0,Number(presentationElapsed(game))||0);
     const phaseBase=r.phase==='morning'?.48:r.phase==='day'?.58:r.phase==='evening'?.86:.68;
     const districtBias=['downtown','tech','airport'].includes(r.district)?.12:['oldtown','night'].includes(r.district)?.08:0;
     const weatherBoost=r.weather==='rain'?.08:r.weather==='snow'?.11:r.weather==='fog'?.05:0;
@@ -4245,7 +4351,7 @@
   // M190: rooftop evening life. A small deterministic presentation layer adds rooftop
   // gardens, residents and maintenance activity without creating gameplay actors or RNG.
   function rooftopLifeState(game){
-    const r=cityRhythmState(game),level=Math.max(1,Number(game?.level)||1),t=Math.max(0,Number(game?.elapsed)||0);
+    const r=cityRhythmState(game),level=Math.max(1,Number(game?.level)||1),t=Math.max(0,Number(presentationElapsed(game))||0);
     const phaseBase=r.phase==='morning'?.34:r.phase==='day'?.28:r.phase==='evening'?.78:.16;
     const districtBias=['downtown','tech','oldtown','coast'].includes(r.district)?.14:r.district==='night'?.20:0;
     const weatherPenalty=r.weather==='rain'?.30:r.weather==='snow'?.38:r.weather==='fog'?.10:0;
@@ -4282,7 +4388,7 @@
   // M192: neighborhood pet-walk life. Deterministic presentation-only walkers and pets
   // add morning/evening neighborhood rhythm without becoming simulation actors.
   function neighborhoodPetWalkState(game){
-    const r=cityRhythmState(game),level=Math.max(1,Number(game?.level)||1),t=Math.max(0,Number(game?.elapsed)||0);
+    const r=cityRhythmState(game),level=Math.max(1,Number(game?.level)||1),t=Math.max(0,Number(presentationElapsed(game))||0);
     const phaseBase=r.phase==='morning'?.72:r.phase==='day'?.30:r.phase==='evening'?.82:.12;
     const districtBias=['park','coast','oldtown'].includes(r.district)?.14:r.district==='downtown'?.05:0;
     const weatherPenalty=r.weather==='rain'?.34:r.weather==='snow'?.42:r.weather==='fog'?.08:0;
@@ -4317,7 +4423,7 @@
   // after-school/evening cadence to safe outer-block playgrounds. This is deterministic,
   // presentation-only scenery: no gameplay actors, routing, signal timing, RNG, score or save changes.
   function neighborhoodPlaygroundState(game){
-    const r=cityRhythmState(game),level=Math.max(1,Number(game?.level)||1),t=Math.max(0,Number(game?.elapsed)||0);
+    const r=cityRhythmState(game),level=Math.max(1,Number(game?.level)||1),t=Math.max(0,Number(presentationElapsed(game))||0);
     const phaseBase=r.phase==='morning'?.18:r.phase==='day'?.66:r.phase==='evening'?.78:.06;
     const districtBias=['park','coast','oldtown'].includes(r.district)?.16:['downtown','tech'].includes(r.district)?.06:0;
     const weatherPenalty=r.weather==='rain'?.48:r.weather==='snow'?.58:r.weather==='fog'?.10:0;
@@ -4364,7 +4470,7 @@
   // morning exercise, daytime reading and evening social cadence. Presentation only:
   // no gameplay actors, routing, traffic rules, RNG, score or persistence changes.
   function pocketParkLifeState(game){
-    const r=cityRhythmState(game),level=Math.max(1,Number(game?.level)||1),t=Math.max(0,Number(game?.elapsed)||0);
+    const r=cityRhythmState(game),level=Math.max(1,Number(game?.level)||1),t=Math.max(0,Number(presentationElapsed(game))||0);
     const phaseBase=r.phase==='morning'?.62:r.phase==='day'?.48:r.phase==='evening'?.72:.10;
     const districtBias=['park','coast','oldtown'].includes(r.district)?.15:['downtown','tech'].includes(r.district)?.05:0;
     const weatherPenalty=r.weather==='rain'?.40:r.weather==='snow'?.52:r.weather==='fog'?.09:0;
@@ -4408,7 +4514,7 @@
   // daytime plants/laundry, evening residents and night quiet. Presentation only:
   // no gameplay actors, routing, traffic rules, RNG, score or persistence changes.
   function balconyLifeState(game){
-    const r=cityRhythmState(game),level=Math.max(1,Number(game?.level)||1),t=Math.max(0,Number(game?.elapsed)||0);
+    const r=cityRhythmState(game),level=Math.max(1,Number(game?.level)||1),t=Math.max(0,Number(presentationElapsed(game))||0);
     const phaseBase=r.phase==='morning'?.46:r.phase==='day'?.34:r.phase==='evening'?.68:.12;
     const districtBias=['oldtown','coast','park'].includes(r.district)?.16:['downtown','night'].includes(r.district)?.07:0;
     const weatherPenalty=r.weather==='rain'?.26:r.weather==='snow'?.38:r.weather==='fog'?.05:0;
@@ -4440,7 +4546,7 @@
   function drawLivingCityFire(g,game){
     if(reducedMotion||RenderQuality.level<2||isLinkedJunctionType(game.config?.junctionType))return;
     if(districtInfo(game.level).id!=='oldtown'||game.level%5!==2)return;
-    const t=(game.elapsed||0)-18;if(t<0||t>=29)return;
+    const t=(presentationElapsed(game)||0)-18;if(t<0||t>=29)return;
     const arrival=Math.min(1,Math.max(0,(t-2)/4)),spray=Math.min(1,Math.max(0,(t-8)/3));
     const fade=Math.min(1,Math.max(0,(t-17)/9)),flame=Math.max(0,1-fade);
     const truckX=805-110*arrival;
@@ -5090,6 +5196,25 @@
     return null;
   }
   const HUD_CACHE=Object.create(null);
+  const SIGNAL_PROGRESS_CACHE=Object.create(null);
+  // M204: show the actual clearance countdown in the existing signal buttons.
+  // UI only; no buffered inputs, no change to yellow/all-red simulation rules.
+  function updateSignalProgress(){
+    const total=Game.config?.clearance;
+    const update=(id,controller)=>{
+      // 20 coarse ticks, updated at the regular HUD cadence, not per fixed simulation step.
+      const steps=TrafficPulseGuidance.signalProgressSteps(controller?.transitionTimer,total);
+      // M205: most frames are steady-state; skip DOM lookup as well as the style write.
+      if(SIGNAL_PROGRESS_CACHE[id]===steps)return;
+      const b=$(id);if(!b)return;
+      SIGNAL_PROGRESS_CACHE[id]=steps;
+      b.style.setProperty('--signal-progress',String(steps/20));
+    };
+    if(independentSignals(Game)){
+      update('signal-j0-btn',Game.signalControllers.J0);
+      update('signal-j1-btn',Game.signalControllers.J1);
+    }else update('signal-btn',Game);
+  }
   function setHudText(key,id,value){if(HUD_CACHE[key]===value)return;HUD_CACHE[key]=value;$(id).textContent=value;}
   function phaseLabelText(axis){return axis==='H'?`↔ ${T.phaseH}`:`↕ ${T.phaseV}`;}
 
@@ -5127,14 +5252,15 @@
     if(HUD_CACHE.flowShown!==flowShown){HUD_CACHE.flowShown=flowShown;$('flow-badge').classList.toggle('show',flowShown);}if(HUD_CACHE.hotFlow!==hotFlow){HUD_CACHE.hotFlow=hotFlow;$('flow-badge').classList.toggle('hot',hotFlow);document.querySelector('.game-card')?.classList.toggle('hot-flow',hotFlow);}
     const flowHot=Game.flowStreak>=6;if(HUD_CACHE.flowHot!==flowHot){HUD_CACHE.flowHot=flowHot;document.querySelector('.game-card')?.classList.toggle('flow-hot',flowHot);}
     const signalKey=independentSignals(Game)?`ind:${Object.entries(Game.signalControllers).map(([k,c])=>`${k}:${c.phase}:${c.transitionTimer>0?'t':'s'}`).join('|')}:${lang}`:`${Game.phase}:${Game.transitionTimer>0?'t':'s'}:${lang}`;if(HUD_CACHE.signalKey!==signalKey){HUD_CACHE.signalKey=signalKey;updateSignalIcon();}
+    updateSignalProgress();
     if(typeof PersonalBestService!=='undefined')PersonalBestService.renderBadge(Game);
     // Coalescing bookkeeping. Explicit calls are also treated as a completed refresh, so the rAF
     // loop will not immediately duplicate the same DOM work on the next frame.
     Game.hudDirty=false;Game.lastHudTs=performance.now();Game.hudRefreshCount=(Game.hudRefreshCount||0)+1;
   }
   function updateSignalIcon(){
-    const indicator=$('phase-indicator'),label=$('phase-label'),button=$('signal-btn'),dual=$('greenwave-controls'),panel=$('controls-panel');if(!button)return;const independent=independentSignals(Game);button.classList.toggle('ui-hidden',independent);dual?.classList.toggle('ui-hidden',!independent);panel?.classList.toggle('greenwave-active',independent);
-    if(independent){let anyTransition=false;for(const [id,name] of [['J0',T.greenWaveLeft],['J1',T.greenWaveRight]]){const c=Game.signalControllers[id],b=$(id==='J0'?'signal-j0-btn':'signal-j1-btn'),icon=b?.querySelector('.signal-icon'),txt=$(id==='J0'?'signal-j0-label':'signal-j1-label');if(!b||!icon)continue;const tr=(c.transitionTimer||0)>0;anyTransition=anyTransition||tr;icon.classList.toggle('transition',tr);icon.style.transform=c.phase==='H'?'rotate(0deg)':'rotate(90deg)';b.disabled=tr;b.classList.toggle('ready',!tr);b.setAttribute('aria-busy',tr?'true':'false');const state=tr?T.phaseChanging:phaseLabelText(c.phase);if(txt)txt.textContent=`${name} · ${state}`;b.setAttribute('aria-label',`${name}: ${state}`);}indicator.classList.toggle('transition',anyTransition);label.textContent=`${T.greenWaveLeft}: ${phaseLabelText(Game.signalControllers.J0.phase)} · ${T.greenWaveRight}: ${phaseLabelText(Game.signalControllers.J1.phase)}`;return;}
+    const indicator=$('phase-indicator'),label=$('phase-label'),button=$('signal-btn'),dual=$('greenwave-controls'),panel=$('controls-panel');if(!button)return;updateSignalProgress();const independent=independentSignals(Game);button.classList.toggle('ui-hidden',independent);dual?.classList.toggle('ui-hidden',!independent);panel?.classList.toggle('greenwave-active',independent);
+    if(independent){let anyTransition=false;for(const [id,name] of [['J0',T.greenWaveLeft],['J1',T.greenWaveRight]]){const c=Game.signalControllers[id],b=$(id==='J0'?'signal-j0-btn':'signal-j1-btn'),icon=b?.querySelector('.signal-icon'),txt=$(id==='J0'?'signal-j0-label':'signal-j1-label');if(!b||!icon)continue;const tr=(c.transitionTimer||0)>0;anyTransition=anyTransition||tr;icon.classList.toggle('transition',tr);icon.style.transform=c.phase==='H'?'rotate(0deg)':'rotate(90deg)';b.disabled=tr;b.classList.toggle('ready',!tr);b.setAttribute('aria-busy',tr?'true':'false');const state=tr?(c.pedestrianHold?T.phasePedestrianClearing:T.phaseChanging):phaseLabelText(c.phase);b.dataset.waiting=tr&&c.pedestrianHold?'pedestrians':'';if(txt)txt.textContent=`${name} · ${state}`;b.setAttribute('aria-label',`${name}: ${state}`);}indicator.classList.toggle('transition',anyTransition);label.textContent=`${T.greenWaveLeft}: ${phaseLabelText(Game.signalControllers.J0.phase)} · ${T.greenWaveRight}: ${phaseLabelText(Game.signalControllers.J1.phase)}`;return;}
     const icon=button.querySelector('.signal-icon'),tr=Game.transitionTimer>0;icon?.classList.toggle('transition',tr);indicator.classList.toggle('transition',tr);button.disabled=tr;button.classList.toggle('ready',!tr);button.setAttribute('aria-busy',tr?'true':'false');if(tr){const transitionText=Game.pedestrianHold?T.phasePedestrianClearing:T.phaseChanging;label.textContent=transitionText;button.setAttribute('aria-label',transitionText);return;}if(icon)icon.style.transform=Game.phase==='H'?'rotate(0deg)':'rotate(90deg)';label.textContent=phaseLabelText(Game.phase);button.setAttribute('aria-label',`${T.switchLight}: ${phaseLabelText(Game.phase)}`);
   }
   function toast(msg){const el=$('toast');el.textContent=msg;el.classList.add('show');clearTimeout(toast._t);toast._t=setTimeout(()=>el.classList.remove('show'),1900);}
@@ -5142,7 +5268,7 @@
 
   function showPause(){
     $('modal-kicker').textContent='TRAFFIC PULSE';$('modal-title').textContent=T.paused;$('modal-text').textContent=T.pausedText;$('modal-stars').textContent='';$('modal-reward').classList.add('hidden');$('modal-extra').classList.remove('hidden');$('modal-extra').textContent=vkCloudStatusText();$('modal-extra').dataset.cloudStatus='1';
-    const pauseActions=[{text:T.continue,cls:'primary',fn:()=>Game.resume()},{text:`🎮 ${T.modesHub}`,fn:()=>showModeHub('pause')},{text:`🗺️ ${T.campaignMap}`,fn:()=>showCampaignMap('pause',save.level)},{text:`🚗 ${T.garage}`,fn:()=>showGarage('pause')},{text:`📊 ${T.stats}`,fn:()=>showStats('pause')},{text:`ℹ️ ${T.developer}`,fn:()=>showDeveloperInfo('pause')},{text:`${T.musicLevel}: ${AudioFx.musicLabel()}`,cls:'sound-toggle',fn:(b)=>{AudioFx.cycleMusic();b.textContent=`${T.musicLevel}: ${AudioFx.musicLabel()}`;}},{text:save.sfx?T.effectsOn:T.effectsOff,cls:'sound-toggle',fn:(b)=>{AudioFx.setSfxEnabled(!save.sfx);b.textContent=save.sfx?T.effectsOn:T.effectsOff;}},{text:`${T.language}: ${languageModeLabel()}`,cls:'sound-toggle',fn:()=>{cycleLanguageMode();showPause();}},{text:lang==='ru'?'☁ Синхронизировать VK':'☁ Sync VK',fn:async()=>{await VKGames.sync();toast(vkCloudStatusText());}},{text:lang==='ru'?'🔐 Данные игры':'🔐 Game data',fn:()=>showVkDataPanel('pause')},{text:T.restart,fn:()=>Game.restart()}];actions(pauseActions);openOverlay();
+    const pauseActions=[{text:T.continue,cls:'primary',fn:()=>Game.resume()},{text:`🎮 ${T.modesHub}`,fn:()=>showModeHub('pause')},{text:`🗺️ ${T.campaignMap}`,fn:()=>showCampaignMap('pause',save.level)},{text:`🚗 ${T.garage}`,fn:()=>showGarage('pause')},{text:`📊 ${T.stats}`,fn:()=>showStats('pause')},{text:`ℹ️ ${T.developer}`,fn:()=>showDeveloperInfo('pause')},{text:`${T.musicLevel}: ${AudioFx.musicLabel()}`,cls:'sound-toggle',fn:(b)=>{AudioFx.cycleMusic();b.textContent=`${T.musicLevel}: ${AudioFx.musicLabel()}`;}},{text:save.sfx?T.effectsOn:T.effectsOff,cls:'sound-toggle',fn:(b)=>{AudioFx.setSfxEnabled(!save.sfx);b.textContent=save.sfx?T.effectsOn:T.effectsOff;}},{text:`${T.language}: ${languageModeLabel()}`,cls:'sound-toggle',fn:()=>{cycleLanguageMode();showPause();}},{text:lang==='ru'?'☁ Синхронизировать VK':'☁ Sync VK',fn:async()=>{await VKGames.sync();toast(vkCloudStatusText());}},{text:lang==='ru'?'🔐 Данные игры':'🔐 Game data',fn:()=>showVkDataPanel('pause')},{text:T.restart,fn:()=>Game.restart()}];actions(pauseActions);openOverlay('pause');
   }
 
   function showVkDataPanel(origin='pause'){
@@ -5517,7 +5643,7 @@
   }
 
   function showFail(type){
-    $('modal-kicker').textContent='TRAFFIC PULSE';$('modal-title').textContent=type==='crash'?T.crash:T.trafficJam;const baseText=type==='crash'?T.crashText:T.jamText;const willAssist=Game.mode==='campaign'&&(sessionFailCounts.get(Game.level)||0)>=2;$('modal-text').textContent=willAssist?`${baseText} ${T.assistNext}`:baseText;$('modal-stars').textContent='';$('modal-reward').classList.add('hidden');const failExtra=$('modal-extra');failExtra.classList.remove('hidden');failExtra.textContent=type==='crash'?`🎬 ${T.failureReplayCrash}`:`🎬 ${T.failureReplayJam}`;
+    $('modal-kicker').textContent='TRAFFIC PULSE';$('modal-title').textContent=type==='crash'?T.crash:T.trafficJam;const baseText=type==='crash'?T.crashText:T.jamText;const earlyTip=type==='jam'&&firstSessionCoachActive()?T.tutorialCoachOpenWaiting:'';const willAssist=Game.mode==='campaign'&&(sessionFailCounts.get(Game.level)||0)>=2;$('modal-text').textContent=[baseText,earlyTip,willAssist?T.assistNext:''].filter(Boolean).join(' ');$('modal-stars').textContent='';$('modal-reward').classList.add('hidden');const failExtra=$('modal-extra');failExtra.classList.remove('hidden');failExtra.textContent=type==='crash'?`🎬 ${T.failureReplayCrash}`:`🎬 ${T.failureReplayJam}`;
     const failActions=[{text:T.tryAgain,cls:'primary',fn:()=>Game.restart()}];if(Game.mode!=='greenwave'&&(Game.failureReplayFrames?.length||0)>=2)failActions.push({text:`🎬 ${T.failureReplay}`,fn:()=>Game.playFailureReplay()});actions(failActions);openOverlay('fail');
   }
   async function claimWinRewardedCoins(bonus,baseReward,button){
@@ -5526,7 +5652,7 @@
     try{
       const rewarded=await platform.showRewarded();if(!rewarded){toast(T.adUnavailable);return false;}
       if(Game.rewardedWinClaimed)return true;
-      Game.rewardedWinClaimed=true;save.coins+=amount;persist();updateHud();
+      Game.rewardedWinClaimed=true;save.coins+=amount;persistCheckpoint();updateHud();
       const rw=$('modal-reward');if(rw){rw.textContent=`+${Math.max(0,baseReward)+amount} ${T.coins}`;rw.classList.remove('hidden');}
       if(button){button.textContent=`✓ +${amount} ${T.coins}`;button.disabled=true;}
       toast(`${T.adCoinsAdded}: +${amount} ${T.coins}`);return true;
@@ -5534,10 +5660,53 @@
       Game.rewardedWinClaiming=false;if(button&&!Game.rewardedWinClaimed)button.disabled=false;
     }
   }
+  // M211: one actionable, localized hint about the current run's next star.
+  // Does not alter any scoring thresholds, progression or coin rewards.
+  function campaignStarFeedbackText(stars,game=Game){
+    const tip=TrafficPulseGuidance.campaignStarFeedback(stars,game,game?.config);
+    if(!tip)return '';
+    if(tip.kind==='queue')return lang==='ru'
+      ?`Для ${tip.targetStars}★: пик очереди не выше ${tip.target} (сейчас ${tip.actual})`
+      :`For ${tip.targetStars}★: peak queue at most ${tip.target} (now ${tip.actual})`;
+    if(tip.kind==='switches')return lang==='ru'
+      ?`Для 3★: не более ${tip.target} переключений (сейчас ${tip.actual})`
+      :`For 3★: no more than ${tip.target} switches (now ${tip.actual})`;
+    return lang==='ru'
+      ?'Для 3★ пройди уровень без спасения или адаптивной помощи'
+      :'For 3★, clear the level without rescue or adaptive assist';
+  }
   function showWin(stars,reward,unlocked,district,starBonus=0,flowBonus=0,priorityBonus=0,newFlowRecord=false,missionSuccess=false,missionBonus=0,missionMilestoneBonus=0,unlockedAchievements=[],achievementBonus=0,syncBonus=0,firstClear=true,starImprovement=0,rewardedBonus=0){
-    $('modal-kicker').textContent='TRAFFIC PULSE';$('modal-title').textContent=stars===3?T.perfect:stars===2?T.good:T.survived;$('modal-text').textContent=T.completeText;$('modal-stars').textContent='⭐'.repeat(stars)+'☆'.repeat(3-stars);
+    $('modal-kicker').textContent='TRAFFIC PULSE';$('modal-title').textContent=stars===3?T.perfect:stars===2?T.good:T.survived;const nextLesson=firstSessionNextLesson(Game.level,firstClear);$('modal-text').textContent=nextLesson?`${T.completeText} ${T.next}: ${nextLesson}`:T.completeText;$('modal-stars').textContent='⭐'.repeat(stars)+'☆'.repeat(3-stars);
     const rw=$('modal-reward');if(reward>0){rw.textContent=`+${reward} ${T.coins}`;rw.classList.remove('hidden');}else{rw.textContent='';rw.classList.add('hidden');}
-    const extra=$('modal-extra');const extras=[`🚦 ${T.queueShort}: ${Game.maxObservedQueue} · ${T.switchesShort}: ${Game.switches}`];if(firstClear)extras.push(`🪙 ${T.campaignFirstClear}`);else extras.push(`↻ ${T.campaignBaseAlreadyPaid}`);if(!firstClear&&starImprovement)extras.push(`⭐ ${T.campaignStarImprove}: +${starImprovement*15} ${T.coins}`);if(starBonus)extras.push(`⭐ ${T.starBonus}: +${starBonus} ${T.coins}`);if(flowBonus)extras.push(`⚡ ${T.flowBonus}: +${flowBonus} ${T.coins}`);if(priorityBonus)extras.push(`🚑 ${T.priorityBonus}: +${priorityBonus} ${T.coins}`);if(syncBonus)extras.push(`⚡ ${T.syncBonus}: +${syncBonus} ${T.coins}`);if(newFlowRecord)extras.push(`⚡ ${T.newFlowRecord}: ×${save.bestFlow}`);if(missionSuccess)extras.push(`🎯 ${T.missionDone}${missionBonus?`: +${missionBonus} ${T.coins}`:''}`);if(missionMilestoneBonus)extras.push(`🏆 ${T.missionMilestone}: +${missionMilestoneBonus} ${T.coins}`);if(Game.lastMedalResult){extras.push(`🏅 ${T.medals}: ${Game.lastMedalResult.count}/3`);if(Game.lastMedalResult.newCount)extras.push(`✨ ${T.medalNew}: ${Game.lastMedalResult.newLabels.join(', ')}`);}if(unlockedAchievements.length)extras.push(`🏅 ${T.achievement}: ${unlockedAchievements.map(a=>a.label).join(', ')}${achievementBonus?` · +${achievementBonus} ${T.coins}`:''}`);if(unlocked)extras.push(`🚗 ${T.newCar} ${unlocked}`);if(district)extras.push(`🌆 ${T.newDistrict} ${district}`);if(Game.mode==='campaign'){const cityNow=districtGrowthSummaryForLevel(Game.level),cityBefore=firstClear?districtGrowthSummaryForLevel(Game.level,-1):cityNow;if(firstClear&&cityNow.stage>cityBefore.stage)extras.push(`🏙️ ${T.cityGrowthWin}: ${T[cityNow.labelKey]}`);else extras.push(`🏙️ ${T.cityGrowth}: ${cityNow.completed}/${cityNow.total} · ${T[cityNow.labelKey]}`);extras.push(`🗺️ ${T.campaignNextReward}: ${campaignNextGoalText()}`);}extra.textContent=extras.join('  •  ');extra.classList.toggle('hidden',extras.length===0);
+    const extra=$('modal-extra');const extras=[`🚦 ${T.queueShort}: ${Game.maxObservedQueue} · ${T.switchesShort}: ${Game.switches}`];const starTip=campaignStarFeedbackText(stars);if(starTip)extras.push(`⭐ ${starTip}`);if(firstClear)extras.push(`🪙 ${T.campaignFirstClear}`);else extras.push(`↻ ${T.campaignBaseAlreadyPaid}`);if(!firstClear&&starImprovement)extras.push(`⭐ ${T.campaignStarImprove}: +${starImprovement*15} ${T.coins}`);if(starBonus)extras.push(`⭐ ${T.starBonus}: +${starBonus} ${T.coins}`);if(flowBonus)extras.push(`⚡ ${T.flowBonus}: +${flowBonus} ${T.coins}`);if(priorityBonus)extras.push(`🚑 ${T.priorityBonus}: +${priorityBonus} ${T.coins}`);if(syncBonus)extras.push(`⚡ ${T.syncBonus}: +${syncBonus} ${T.coins}`);if(newFlowRecord)extras.push(`⚡ ${T.newFlowRecord}: ×${save.bestFlow}`);if(missionSuccess)extras.push(`🎯 ${T.missionDone}${missionBonus?`: +${missionBonus} ${T.coins}`:''}`);if(missionMilestoneBonus)extras.push(`🏆 ${T.missionMilestone}: +${missionMilestoneBonus} ${T.coins}`);if(Game.lastMedalResult){extras.push(`🏅 ${T.medals}: ${Game.lastMedalResult.count}/3`);if(Game.lastMedalResult.newCount)extras.push(`✨ ${T.medalNew}: ${Game.lastMedalResult.newLabels.join(', ')}`);}if(unlockedAchievements.length)extras.push(`🏅 ${T.achievement}: ${unlockedAchievements.map(a=>a.label).join(', ')}${achievementBonus?` · +${achievementBonus} ${T.coins}`:''}`);if(unlocked)extras.push(`🚗 ${T.newCar} ${unlocked}`);if(district)extras.push(`🌆 ${T.newDistrict} ${district}`);if(Game.mode==='campaign'){const cityNow=districtGrowthSummaryForLevel(Game.level),cityBefore=firstClear?districtGrowthSummaryForLevel(Game.level,-1):cityNow;if(firstClear&&cityNow.stage>cityBefore.stage)extras.push(`🏙️ ${T.cityGrowthWin}: ${T[cityNow.labelKey]}`);else extras.push(`🏙️ ${T.cityGrowth}: ${cityNow.completed}/${cityNow.total} · ${T[cityNow.labelKey]}`);extras.push(`🗺️ ${T.campaignNextReward}: ${campaignNextGoalText()}`);}// M216: keep every existing reward/achievement line, but stop compressing
+      // the entire report into a tiny always-visible paragraph. The default
+      // result emphasizes score and the next action; the native disclosure
+      // preserves all details without introducing a new gameplay dependency.
+      extra.className='modal-extra win-summary-extra';extra.replaceChildren();
+      const stats=document.createElement('div');stats.className='win-summary-stats';
+      for(const [label,value] of [[T.queueShort,Game.maxObservedQueue],[T.switchesShort,Game.switches]]){
+        const cell=document.createElement('div');cell.className='win-stat';
+        const small=document.createElement('span');small.textContent=label;
+        const strong=document.createElement('strong');strong.textContent=String(value);
+        cell.append(small,strong);stats.appendChild(cell);
+      }
+      extra.appendChild(stats);
+      if(starTip){const hint=document.createElement('div');hint.className='win-star-tip';hint.textContent='⭐ '+starTip;extra.appendChild(hint);}
+      const highlights=[];
+      if(missionSuccess)highlights.push('🎯 '+T.missionDone);
+      if(Game.lastMedalResult?.count)highlights.push('🏅 '+T.medals+': '+Game.lastMedalResult.count+'/3');
+      if(unlocked)highlights.push('🚗 '+T.newCar+' '+unlocked);
+      if(district)highlights.push('🌆 '+T.newDistrict+' '+district);
+      if(highlights.length){
+        const row=document.createElement('div');row.className='win-highlights';
+        for(const value of highlights.slice(0,2)){const item=document.createElement('span');item.textContent=value;row.appendChild(item);}
+        extra.appendChild(row);
+      }
+      const details=document.createElement('details');details.className='win-breakdown';
+      const summary=document.createElement('summary');summary.textContent=lang==='ru'?'Все награды и достижения':'All rewards and achievements';
+      const lines=document.createElement('div');lines.className='win-breakdown-list';
+      for(const value of extras.slice(1)){const line=document.createElement('div');line.textContent=value;lines.appendChild(line);}
+      details.append(summary,lines);extra.appendChild(details);
     const winActions=[{text:T.next,cls:'primary',fn:()=>Game.next()}];if(rewardedBonus>0&&!Game.rewardedWinClaimed)winActions.push({text:`${T.adDoubleCoins} +${rewardedBonus} ${T.coins}`,cls:'rewarded-action',fn:(b)=>void claimWinRewardedCoins(rewardedBonus,reward,b)});winActions.push({text:`🗺️ ${T.campaignMap}`,fn:()=>showCampaignMap('result',save.level)});actions(winActions);openOverlay('win');
   }
   function actions(items){const box=$('modal-actions');box.innerHTML='';items.forEach(it=>{const b=document.createElement('button');b.type='button';b.textContent=it.text;b.className=it.cls||'';b.onclick=()=>it.fn?.(b);box.appendChild(b);});}
@@ -5548,6 +5717,9 @@
   let overlayOpenSerial=0;
   function openOverlay(tone='neutral'){
     const o=$('overlay'),app=$('app'),wasHidden=o.classList.contains('hidden'),toneClass=tone==='win'?'win-glow':tone==='fail'?'fail-glow':'';
+    // M214: scope wide two-column pause layout to the pause dialog only.
+    const modal=document.querySelector('.modal');modal?.classList.toggle('pause-modal',tone==='pause');
+    if(tone==='pause')modal?.classList.remove('campaign-map-modal');
     if(wasHidden&&document.activeElement instanceof HTMLElement)overlayReturnFocus=document.activeElement;
     // M97 HF01: do not churn the tone class while an overlay is already visible. Re-applying
     // win-glow used to restart its compositor animation and looked like the result window blinked.
@@ -5590,11 +5762,26 @@
     const state=String(AudioFx.ctx?.state||'');
     if(!AudioFx.ctx||AudioFx.needsGestureResume||state==='suspended'||state==='interrupted'||state==='closed'){YandexAudit.state.audio.gestureFallbacks++;YandexAudit.mark('audio:gesture-fallback',state||'none');AudioFx.ensure();}
   },{capture:true,passive:true});
-  $('signal-btn').addEventListener('click',()=>{AudioFx.ensure();Game.toggle();});
-  canvas.addEventListener('pointerup',(e)=>{if(e.isPrimary===false||e.button!==0)return;e.preventDefault();AudioFx.ensure();if(independentSignals(Game)){toast(T.greenWaveChoose);return;}Game.toggle();});
-  $('signal-j0-btn')?.addEventListener('click',()=>{AudioFx.ensure();Game.toggle('J0');});$('signal-j1-btn')?.addEventListener('click',()=>{AudioFx.ensure();Game.toggle('J1');});
+  let lastClearanceHintAt=-Infinity;
+  function togglePlayerSignal(junctionId=null){
+    if(Game.toggle(junctionId))return true;
+    // Canvas and keyboard remain clickable while the existing button is disabled.
+    // Explain why the input was ignored, without queuing an unexpected future switch.
+    const c=independentSignals(Game)?Game.signalControllers?.[junctionId]:Game;
+    if(Game.state==='playing'&&!Game.userPaused&&!Game.externalPaused&&(c?.transitionTimer||0)>0){
+      const now=performance.now();
+      if(now-lastClearanceHintAt>=1000){
+        lastClearanceHintAt=now;
+        toast(c.pedestrianHold?T.phasePedestrianClearing:T.phaseChanging);
+      }
+    }
+    return false;
+  }
+  $('signal-btn').addEventListener('click',()=>{AudioFx.ensure();togglePlayerSignal();});
+  canvas.addEventListener('pointerup',(e)=>{if(e.isPrimary===false||e.button!==0)return;e.preventDefault();AudioFx.ensure();if(independentSignals(Game)){toast(T.greenWaveChoose);return;}togglePlayerSignal();});
+  $('signal-j0-btn')?.addEventListener('click',()=>{AudioFx.ensure();togglePlayerSignal('J0');});$('signal-j1-btn')?.addEventListener('click',()=>{AudioFx.ensure();togglePlayerSignal('J1');});
   $('restart-btn').addEventListener('click',()=>Game.restart());$('hint-btn').addEventListener('click',()=>Game.hint());$('pause-btn').addEventListener('click',()=>Game.pause());
-  document.addEventListener('keydown',(e)=>{if(trapOverlayFocus(e))return;if(e.key==='Escape'){if(Game.userPaused)Game.resume();else if(!overlayVisible())Game.pause();return;}if(overlayVisible())return;if(independentSignals(Game)&&(e.key==='1'||e.code==='Digit1')){e.preventDefault();AudioFx.ensure();Game.toggle('J0');}else if(independentSignals(Game)&&(e.key==='2'||e.code==='Digit2')){e.preventDefault();AudioFx.ensure();Game.toggle('J1');}else if(e.code==='Space'){e.preventDefault();AudioFx.ensure();if(independentSignals(Game))toast(T.greenWaveChoose);else Game.toggle();}else if(e.key.toLowerCase()==='r')Game.restart();});
+  document.addEventListener('keydown',(e)=>{if(trapOverlayFocus(e))return;if(e.key==='Escape'){if(Game.userPaused)Game.resume();else if(!overlayVisible())Game.pause();return;}if(overlayVisible())return;if(independentSignals(Game)&&(e.key==='1'||e.code==='Digit1')){e.preventDefault();AudioFx.ensure();togglePlayerSignal('J0');}else if(independentSignals(Game)&&(e.key==='2'||e.code==='Digit2')){e.preventDefault();AudioFx.ensure();togglePlayerSignal('J1');}else if(e.code==='Space'){e.preventDefault();AudioFx.ensure();if(independentSignals(Game))toast(T.greenWaveChoose);else togglePlayerSignal();}else if(e.key.toLowerCase()==='r')Game.restart();});
   function pauseForFocusLoss(commitManual=true){
     const manualPause=commitManual&&Game.state==='playing'&&!Game.userPaused&&!platform.adBusy&&!platform.adPaused;
     platform.browserPaused=true;
