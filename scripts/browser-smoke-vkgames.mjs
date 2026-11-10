@@ -80,6 +80,9 @@ try{
       // M212: test actual user pause -> modal -> resume -> keyboard controls.
       await page.click('#pause-btn');
       await page.waitForFunction(()=>document.querySelector('#overlay')?.getAttribute('aria-hidden')==='false',{timeout:2000});
+      // The 240ms pop-in animation temporarily scales buttons below their final CSS
+      // touch target; measure only the stable state, not an in-flight transform.
+      await page.waitForFunction(()=>!document.querySelector('#overlay')?.classList.contains('overlay-opening'),{timeout:2000});
       const modalTitle=await page.$eval('#modal-title',el=>el.textContent);
       assert.ok(modalTitle.trim(),'pause dialog must have a readable title');
       // M214: independently capture the actual pause screen, not only gameplay.
