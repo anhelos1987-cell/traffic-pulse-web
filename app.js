@@ -13,7 +13,7 @@
   }catch(_){}
 
   const BUILD_MODE = 'production';
-  const BUILD_VERSION = 'M215-VKGAMES-RC';
+  const BUILD_VERSION = 'M216-VKGAMES-RC';
   const IS_DEVELOPMENT = BUILD_MODE === 'development';
   const PLATFORM_TARGET = 'vkgames'; // VK Games / VK Mini Apps, not VK Play
   const YANDEX_PUBLIC_LEADERBOARD_NAME = 'TrafficPulseStars';
@@ -2800,7 +2800,12 @@
       // HUD is presentation state, not simulation state. Refresh at ~12.5 Hz and at most once
       // per animation frame. Critical interactions still call updateHud() immediately themselves.
       if(this.hudDirty && (ts-(this.lastHudTs||0)>=HUD_REFRESH_MS)){updateHud();}
-      const minDrawInterval=this.replayPlayback?32:(active?(RenderQuality.level===0?30:0):80);
+      // M216: low-detail quality is not intrinsically 30fps. A desktop may start
+      // at Low due to DPR/memory while still producing steady 60Hz frames.
+      // Throttle presentation only when measured frame pacing is too slow;
+      // never alter the deterministic 60Hz simulation or its interpolation.
+      const overloadedLowQuality=RenderQuality.level===0&&RenderQuality.emaMs>=25;
+      const minDrawInterval=this.replayPlayback?32:(active?(overloadedLowQuality?30:0):80);
       // M127: presentation cadence is independent from the fixed 60 Hz simulation.
       // Low quality now actually honors the intended ~30 FPS Canvas cap instead of
       // drawing every animation frame because of the previous `active || ...` shortcut.
@@ -5607,7 +5612,35 @@
   function showWin(stars,reward,unlocked,district,starBonus=0,flowBonus=0,priorityBonus=0,newFlowRecord=false,missionSuccess=false,missionBonus=0,missionMilestoneBonus=0,unlockedAchievements=[],achievementBonus=0,syncBonus=0,firstClear=true,starImprovement=0,rewardedBonus=0){
     $('modal-kicker').textContent='TRAFFIC PULSE';$('modal-title').textContent=stars===3?T.perfect:stars===2?T.good:T.survived;const nextLesson=firstSessionNextLesson(Game.level,firstClear);$('modal-text').textContent=nextLesson?`${T.completeText} ${T.next}: ${nextLesson}`:T.completeText;$('modal-stars').textContent='⭐'.repeat(stars)+'☆'.repeat(3-stars);
     const rw=$('modal-reward');if(reward>0){rw.textContent=`+${reward} ${T.coins}`;rw.classList.remove('hidden');}else{rw.textContent='';rw.classList.add('hidden');}
-    const extra=$('modal-extra');const extras=[`🚦 ${T.queueShort}: ${Game.maxObservedQueue} · ${T.switchesShort}: ${Game.switches}`];const starTip=campaignStarFeedbackText(stars);if(starTip)extras.push(`⭐ ${starTip}`);if(firstClear)extras.push(`🪙 ${T.campaignFirstClear}`);else extras.push(`↻ ${T.campaignBaseAlreadyPaid}`);if(!firstClear&&starImprovement)extras.push(`⭐ ${T.campaignStarImprove}: +${starImprovement*15} ${T.coins}`);if(starBonus)extras.push(`⭐ ${T.starBonus}: +${starBonus} ${T.coins}`);if(flowBonus)extras.push(`⚡ ${T.flowBonus}: +${flowBonus} ${T.coins}`);if(priorityBonus)extras.push(`🚑 ${T.priorityBonus}: +${priorityBonus} ${T.coins}`);if(syncBonus)extras.push(`⚡ ${T.syncBonus}: +${syncBonus} ${T.coins}`);if(newFlowRecord)extras.push(`⚡ ${T.newFlowRecord}: ×${save.bestFlow}`);if(missionSuccess)extras.push(`🎯 ${T.missionDone}${missionBonus?`: +${missionBonus} ${T.coins}`:''}`);if(missionMilestoneBonus)extras.push(`🏆 ${T.missionMilestone}: +${missionMilestoneBonus} ${T.coins}`);if(Game.lastMedalResult){extras.push(`🏅 ${T.medals}: ${Game.lastMedalResult.count}/3`);if(Game.lastMedalResult.newCount)extras.push(`✨ ${T.medalNew}: ${Game.lastMedalResult.newLabels.join(', ')}`);}if(unlockedAchievements.length)extras.push(`🏅 ${T.achievement}: ${unlockedAchievements.map(a=>a.label).join(', ')}${achievementBonus?` · +${achievementBonus} ${T.coins}`:''}`);if(unlocked)extras.push(`🚗 ${T.newCar} ${unlocked}`);if(district)extras.push(`🌆 ${T.newDistrict} ${district}`);if(Game.mode==='campaign'){const cityNow=districtGrowthSummaryForLevel(Game.level),cityBefore=firstClear?districtGrowthSummaryForLevel(Game.level,-1):cityNow;if(firstClear&&cityNow.stage>cityBefore.stage)extras.push(`🏙️ ${T.cityGrowthWin}: ${T[cityNow.labelKey]}`);else extras.push(`🏙️ ${T.cityGrowth}: ${cityNow.completed}/${cityNow.total} · ${T[cityNow.labelKey]}`);extras.push(`🗺️ ${T.campaignNextReward}: ${campaignNextGoalText()}`);}extra.textContent=extras.join('  •  ');extra.classList.toggle('hidden',extras.length===0);
+    const extra=$('modal-extra');const extras=[`🚦 ${T.queueShort}: ${Game.maxObservedQueue} · ${T.switchesShort}: ${Game.switches}`];const starTip=campaignStarFeedbackText(stars);if(starTip)extras.push(`⭐ ${starTip}`);if(firstClear)extras.push(`🪙 ${T.campaignFirstClear}`);else extras.push(`↻ ${T.campaignBaseAlreadyPaid}`);if(!firstClear&&starImprovement)extras.push(`⭐ ${T.campaignStarImprove}: +${starImprovement*15} ${T.coins}`);if(starBonus)extras.push(`⭐ ${T.starBonus}: +${starBonus} ${T.coins}`);if(flowBonus)extras.push(`⚡ ${T.flowBonus}: +${flowBonus} ${T.coins}`);if(priorityBonus)extras.push(`🚑 ${T.priorityBonus}: +${priorityBonus} ${T.coins}`);if(syncBonus)extras.push(`⚡ ${T.syncBonus}: +${syncBonus} ${T.coins}`);if(newFlowRecord)extras.push(`⚡ ${T.newFlowRecord}: ×${save.bestFlow}`);if(missionSuccess)extras.push(`🎯 ${T.missionDone}${missionBonus?`: +${missionBonus} ${T.coins}`:''}`);if(missionMilestoneBonus)extras.push(`🏆 ${T.missionMilestone}: +${missionMilestoneBonus} ${T.coins}`);if(Game.lastMedalResult){extras.push(`🏅 ${T.medals}: ${Game.lastMedalResult.count}/3`);if(Game.lastMedalResult.newCount)extras.push(`✨ ${T.medalNew}: ${Game.lastMedalResult.newLabels.join(', ')}`);}if(unlockedAchievements.length)extras.push(`🏅 ${T.achievement}: ${unlockedAchievements.map(a=>a.label).join(', ')}${achievementBonus?` · +${achievementBonus} ${T.coins}`:''}`);if(unlocked)extras.push(`🚗 ${T.newCar} ${unlocked}`);if(district)extras.push(`🌆 ${T.newDistrict} ${district}`);if(Game.mode==='campaign'){const cityNow=districtGrowthSummaryForLevel(Game.level),cityBefore=firstClear?districtGrowthSummaryForLevel(Game.level,-1):cityNow;if(firstClear&&cityNow.stage>cityBefore.stage)extras.push(`🏙️ ${T.cityGrowthWin}: ${T[cityNow.labelKey]}`);else extras.push(`🏙️ ${T.cityGrowth}: ${cityNow.completed}/${cityNow.total} · ${T[cityNow.labelKey]}`);extras.push(`🗺️ ${T.campaignNextReward}: ${campaignNextGoalText()}`);}// M216: keep every existing reward/achievement line, but stop compressing
+      // the entire report into a tiny always-visible paragraph. The default
+      // result emphasizes score and the next action; the native disclosure
+      // preserves all details without introducing a new gameplay dependency.
+      extra.className='modal-extra win-summary-extra';extra.replaceChildren();
+      const stats=document.createElement('div');stats.className='win-summary-stats';
+      for(const [label,value] of [[T.queueShort,Game.maxObservedQueue],[T.switchesShort,Game.switches]]){
+        const cell=document.createElement('div');cell.className='win-stat';
+        const small=document.createElement('span');small.textContent=label;
+        const strong=document.createElement('strong');strong.textContent=String(value);
+        cell.append(small,strong);stats.appendChild(cell);
+      }
+      extra.appendChild(stats);
+      if(starTip){const hint=document.createElement('div');hint.className='win-star-tip';hint.textContent='⭐ '+starTip;extra.appendChild(hint);}
+      const highlights=[];
+      if(missionSuccess)highlights.push('🎯 '+T.missionDone);
+      if(Game.lastMedalResult?.count)highlights.push('🏅 '+T.medals+': '+Game.lastMedalResult.count+'/3');
+      if(unlocked)highlights.push('🚗 '+T.newCar+' '+unlocked);
+      if(district)highlights.push('🌆 '+T.newDistrict+' '+district);
+      if(highlights.length){
+        const row=document.createElement('div');row.className='win-highlights';
+        for(const value of highlights.slice(0,2)){const item=document.createElement('span');item.textContent=value;row.appendChild(item);}
+        extra.appendChild(row);
+      }
+      const details=document.createElement('details');details.className='win-breakdown';
+      const summary=document.createElement('summary');summary.textContent=lang==='ru'?'Все награды и достижения':'All rewards and achievements';
+      const lines=document.createElement('div');lines.className='win-breakdown-list';
+      for(const value of extras.slice(1)){const line=document.createElement('div');line.textContent=value;lines.appendChild(line);}
+      details.append(summary,lines);extra.appendChild(details);
     const winActions=[{text:T.next,cls:'primary',fn:()=>Game.next()}];if(rewardedBonus>0&&!Game.rewardedWinClaimed)winActions.push({text:`${T.adDoubleCoins} +${rewardedBonus} ${T.coins}`,cls:'rewarded-action',fn:(b)=>void claimWinRewardedCoins(rewardedBonus,reward,b)});winActions.push({text:`🗺️ ${T.campaignMap}`,fn:()=>showCampaignMap('result',save.level)});actions(winActions);openOverlay('win');
   }
   function actions(items){const box=$('modal-actions');box.innerHTML='';items.forEach(it=>{const b=document.createElement('button');b.type='button';b.textContent=it.text;b.className=it.cls||'';b.onclick=()=>it.fn?.(b);box.appendChild(b);});}
