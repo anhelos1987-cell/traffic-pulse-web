@@ -2145,7 +2145,7 @@
       this.incidentDirector=this.mode==='campaign'?createRoadIncidentDirector(campaignRoadIncidentDefinition(this.level,this.config)):null;
       this.assistActive=this.mode==='campaign'&&(sessionFailCounts.get(this.level)||0)>=2;
       if(this.assistActive)this.config={...this.config,maxQueue:this.config.maxQueue+1};
-      this.mission=this.mode==='campaign'?missionForLevel(this.level,this.config):null;this.pulseContract=TrafficPulsePulseContract.start(this.level,this.config.total,this.mode);this.lastMedalResult=null;
+      this.mission=this.mode==='campaign'?missionForLevel(this.level,this.config):null;this.pulseContract=typeof TrafficPulsePulseContract!=='undefined'?TrafficPulsePulseContract.start(this.level,this.config.total,this.mode):null;this.lastMedalResult=null;
       this.rng=seeded(this.config.seed); this.cars=[]; this.spawned=0; this.exited=0;
       this.phase=this.config.startPhase; this.pendingPhase=null; this.transitionTimer=0; this.switches=0; this.spawnTimer=.42; this.phaseElapsed=0; this.pedestrians=[]; this.pedestrianSerial=0; this.pedestrianSpawnTimer=.38; this.pedestrianHold=false; this.emergencyPriorityId=null; AudioFx.stopTransientAudio();AudioFx.refreshMusicTheme();
       this.maxObservedQueue=0; this.elapsed=0; this.accumulator=0; this.renderAlpha=1; this.state='playing'; this.externalPaused=Boolean(platform.pausedByPlatform||platform.browserPaused||platform.adPaused||platform.paymentPaused); this.userPaused=false;
@@ -2316,7 +2316,7 @@
       const perfect=!this.cars.some(c=>c.inside)&&waiting>0&&(this.elapsed-this.lastPassAt)>=0&&(this.elapsed-this.lastPassAt)<=.72;
       if(perfect){this.syncStreak++;this.maxSyncStreak=Math.max(this.maxSyncStreak||0,this.syncStreak);toast(`⚡ ${T.perfectSwitch} ×${this.syncStreak}`);if(!reducedMotion){for(let i=0;i<8&&this.particles.length<MAX_PARTICLES;i++)this.particles.push({x:450,y:450,vx:(this.rng()-.5)*90,vy:(this.rng()-.5)*90,life:.42,max:.42,color:i%2?'#55d5ff':'#ffd166',kind:'spark',size:3});}}
       else this.syncStreak=0;
-      const wasFirstInput=!this.firstInput;AudioFx.switch();if(perfect)AudioFx.sync(this.syncStreak);Haptics.switch();this.pendingPhase=nextPhase;this.pedestrianHold=false;this.transitionTimer=this.config.clearance;this.switches++;this.firstInput=true;TrafficPulsePulseContract.switchTo(this.pulseContract,nextPhase);
+      const wasFirstInput=!this.firstInput;AudioFx.switch();if(perfect)AudioFx.sync(this.syncStreak);Haptics.switch();this.pendingPhase=nextPhase;this.pedestrianHold=false;this.transitionTimer=this.config.clearance;this.switches++;this.firstInput=true;if(typeof TrafficPulsePulseContract!=='undefined')TrafficPulsePulseContract.switchTo(this.pulseContract,nextPhase);
       clearTimeout(this.tutorialCueTimer);this.tutorialCueTimer=0;hideFirstSessionCoach();updateSignalIcon();updateHud();
       if(!perfect&&!occupiedNow&&waiting>0&&this.mode==='campaign'&&this.level<=10)toast(`${nextPhase==='H'?'↔':'↕'} ${lang==='ru'?'Ждут':'Waiting'}: ${waiting}`);if(occupiedNow)showFirstSessionCoach('occupied',T.tutorialCoachOccupied,2800);else if(wasFirstInput&&this.level===1)this.scheduleNotice(()=>{if(this.state==='playing'&&this.level===1&&this.firstInput)showFirstSessionCoach('clearance',T.tutorialCoachClearance,2600);},260);
       return true;
@@ -2790,7 +2790,7 @@
       AudioFx.refreshMusicTheme();applyDistrictTheme();this.primeTraffic();updateHud();toast(`♾ ${T.endlessWave} ${this.endlessWave} · ${this.endlessScore}`);
     },
     recordPulseDeparture(car){
-      if(TrafficPulsePulseContract.departure(this.pulseContract,car.axis,this.activeAxis(),this.transitionTimer>0)){
+      if(typeof TrafficPulsePulseContract!=='undefined'&&TrafficPulsePulseContract.departure(this.pulseContract,car.axis,this.activeAxis(),this.transitionTimer>0)){
         toast(lang==='ru'?'✓ ЧИСТАЯ ВОЛНА!':'✓ CLEAN WAVE!');AudioFx.sync(2);this.hudDirty=true;
       }
     },
@@ -2888,7 +2888,7 @@
         persistCheckpoint(); showDailyWin(stars,reward,improved,streak,streakBonus,pb.comparison); return;
       }
       const old=Number(save.starsByLevel[this.level]||0),starImprovement=Math.max(0,stars-old); if(stars>old){save.totalStars+=stars-old;save.starsByLevel[this.level]=stars;}
-      const firstClear=TrafficPulseCampaign.firstClear(this.level,old,save);platform.noteCampaignCompletion(firstClear);this.lastCampaignFirstClear=firstClear;const pulseBonus=TrafficPulsePulseContract.bonusForWin(this.pulseContract,firstClear);
+      const firstClear=TrafficPulseCampaign.firstClear(this.level,old,save);platform.noteCampaignCompletion(firstClear);this.lastCampaignFirstClear=firstClear;const pulseBonus=typeof TrafficPulsePulseContract!=='undefined'?TrafficPulsePulseContract.bonusForWin(this.pulseContract,firstClear):0;
       const flowBonus=firstClear?Math.min(60,Math.max(0,(this.maxFlowStreak||0)-2)*4):0,priorityBonus=firstClear?(this.prioritySaved||0)*12:0,syncBonus=firstClear?Math.min(60,Math.max(0,this.maxSyncStreak||0)*8):0;
       const missionSuccess=missionSucceeded(this.mission),missionKey=String(this.level),missionFirst=missionSuccess&&!save.missionCompleted?.[missionKey];
       const missionBonus=missionFirst?90:0;if(missionFirst){save.missionCompleted=save.missionCompleted||{};save.missionCompleted[missionKey]=true;}
