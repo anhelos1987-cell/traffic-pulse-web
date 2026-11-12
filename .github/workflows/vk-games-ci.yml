@@ -22,6 +22,7 @@ jobs:
           node --check campaign-access.js
           node --check player-guidance-core.js
           node --check pulse-contract-core.js
+          node --check dispatch-receipt-core.js
           node --check payments-config.js
           node --check vk-purchases.js
           node --check server/vk-payments.mjs
@@ -49,20 +50,20 @@ jobs:
         run: node --check scripts/package-vkgames-test-build.mjs
       - name: Package minimal VK/OK test build (ZIP + SHA-256 manifest)
         run: node scripts/package-vkgames-test-build.mjs
-      - name: Upload M225 playable static test candidate
+      - name: Upload M226 playable static test candidate
         uses: actions/upload-artifact@v4
         with:
-          name: traffic-pulse-m225-test-build
+          name: traffic-pulse-m226-test-build
           path: |
-            artifacts/TrafficPulse_M225_VKOK_TestBuild.zip
-            artifacts/TrafficPulse_M225_VKOK_TestBuild_manifest.json
+            artifacts/TrafficPulse_M226_VKOK_TestBuild.zip
+            artifacts/TrafficPulse_M226_VKOK_TestBuild_manifest.json
           retention-days: 14
           if-no-files-found: error
       - name: Upload browser screenshots for manual QA
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: traffic-pulse-m225-browser-smoke
+          name: traffic-pulse-m226-browser-smoke
           path: artifacts/browser-smoke/*.png
           retention-days: 7
           if-no-files-found: warn
