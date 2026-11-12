@@ -13,7 +13,7 @@
   }catch(_){}
 
   const BUILD_MODE = 'production';
-  const BUILD_VERSION = 'M224-VKGAMES-ENGAGEMENT-VISUAL-SLICE';
+  const BUILD_VERSION = 'M225-VKGAMES-FIRST-TEN-DISPATCH-ART';
   const IS_DEVELOPMENT = BUILD_MODE === 'development';
   const PLATFORM_TARGET = 'vkgames'; // VK Games / VK Mini Apps, not VK Play
   const YANDEX_PUBLIC_LEADERBOARD_NAME = 'TrafficPulseStars';
@@ -1034,14 +1034,14 @@
   const EARLY_LEVELS = [
     {plan:'NNNNN',start:'H',interval:1.45,speed:120,maxQueue:5},
     {plan:'WWWNNN',start:'V',interval:1.34,speed:122,maxQueue:5},
-    {plan:'NNWWEENN',start:'H',interval:1.28,speed:124,maxQueue:5},
+    {plan:'NNNWWWNN',start:'H',interval:1.28,speed:124,maxQueue:5},
     {plan:'WWWNNNEE',start:'H',interval:1.22,speed:125,maxQueue:4},
     {plan:'NNNEEEWWW',start:'V',interval:1.18,speed:126,maxQueue:4},
     {plan:'WWNNEESSNN',start:'H',interval:1.16,speed:127,maxQueue:4},
-    {plan:'NNWWNNWWEESS',start:'V',interval:1.13,speed:128,maxQueue:4},
-    {plan:'WWWNNNEEESSS',start:'H',interval:1.10,speed:129,maxQueue:4},
-    {plan:'NNWWEESSWWNN',start:'V',interval:1.08,speed:130,maxQueue:4},
-    {plan:'WWWWNNNNEESS',start:'H',interval:1.05,speed:131,maxQueue:4},
+    {plan:'NNNWWWEENNSS',start:'V',interval:1.17,speed:128,maxQueue:4},
+    {plan:'WWWWNNNEEESS',start:'H',interval:1.14,speed:129,maxQueue:4},
+    {plan:'NNNWWWEEESSS',start:'V',interval:1.12,speed:130,maxQueue:4},
+    {plan:'WWWWNNNNWWEE',start:'H',interval:1.10,speed:131,maxQueue:4},
     {plan:'NNNEEEWWWSSSNN',start:'V',interval:1.04,speed:132,maxQueue:4},
     {plan:'WWNNWWEESSNNEE',start:'H',interval:1.02,speed:133,maxQueue:4},
     {plan:'NNNNWWWEEEESSS',start:'H',interval:1.00,speed:134,maxQueue:4},
@@ -1520,9 +1520,9 @@
     if(n<=EARLY_LEVELS.length){
       const d=EARLY_LEVELS[n-1]; const plan=d.plan.split('');
       const variant=variantForLevel(n),profile=trafficProfile(n,variant),parSwitches=estimateParSwitches(plan,d.start);
-      const earlySpeed=d.speed*(1+Math.min(.30,(n-1)*.018));
+      const earlySpeed=d.speed*(n<=10?1.08:1)*(1+Math.min(.30,(n-1)*.018));
       const earlyInterval=d.interval*(1-Math.min(.16,(n-1)*.007));
-      const earlyClearance=Math.max(1.16,1.36-(n-1)*.008);
+      const earlyClearance=n<=10?1.16:Math.max(1.16,1.36-(n-1)*.008);
       return { total:plan.length, interval:earlyInterval*(variant==='rush'?.88:variant==='express'?.84:variant==='pulse'?.92:1), maxQueue:d.maxQueue+((variant==='rush'||variant==='freight')?1:0), perfectQueue:n>=21?3:2, lanes:1, parSwitches, perfectSwitchBudget:perfectSwitchBudget(parSwitches,1,variant,plan.length), dirs:[...new Set(plan)], speed:earlySpeed, seed:9173+n*7919, plan, startPhase:d.start, clearance:earlyClearance,variant,junctionType:'cross',...profile };
     }
     const tier=Math.min(8,1+Math.floor((n-1)/10)),variant=variantForLevel(n),profile=trafficProfile(n,variant),junctionType=junctionTypeForLevel(n,variant);
@@ -3324,17 +3324,54 @@
     for(const cached of worldCache.values()){if(cached){cached.width=1;cached.height=1;}}
     if(worldCache.size){worldCache.clear();worldCacheReleases++;}
   }
-  function getWorldCache(theme,lanes=1,junctionType='cross'){
-    const cacheKey=`${theme.id}:${lanes}:${junctionType}`;let cached=worldCache.get(cacheKey);
+  // M225: original, deliberately reduced cartographic look for the first ten levels.
+  // A full generated city is visually busy at onboarding; this static miniature map
+  // emphasizes vehicles, signals and the road geometry that actually matters.
+  function dispatchFocusWorld(game){
+    return Boolean(game&&(game.mode==='training'||(game.mode==='campaign'&&game.level<=10)));
+  }
+  function drawDispatchAtlasQuarter(g,x,y,index){
+    const bg=['#c6d7b3','#c1d0a6','#d6ceb5','#b7c9b1'][index],roof=['#577879','#73877e','#69818b','#8b8272'][index];
+    g.save();g.translate(x,y);
+    g.fillStyle='#7c9c86';roundRect(g,-5,-5,287,287,12,true);
+    g.fillStyle=bg;roundRect(g,0,0,277,277,10,true);
+    g.strokeStyle='rgba(44,77,72,.12)';g.lineWidth=2;
+    for(let p=36;p<270;p+=36){g.beginPath();g.moveTo(p,14);g.lineTo(p,262);g.moveTo(14,p);g.lineTo(263,p);g.stroke();}
+    // Two architectural masses per block, with shared graphic rules instead of
+    // uncorrelated procedural decoration or image-generation textures.
+    for(const [bx,by,bw,bh] of [[38,52,104,71],[170,158,73,82]]){
+      g.fillStyle='rgba(32,54,55,.17)';roundRect(g,bx+8,by+9,bw,bh,5,true);
+      g.fillStyle=roof;roundRect(g,bx,by,bw,bh,5,true);
+      g.fillStyle='rgba(244,237,200,.62)';g.fillRect(bx+10,by+11,bw-20,4);
+      g.fillStyle='rgba(27,55,59,.30)';
+      for(let j=0;j<Math.min(3,Math.floor((bw-12)/24));j++)g.fillRect(bx+12+j*24,by+27,12,9);
+    }
+    g.fillStyle='#587d63';g.beginPath();g.arc(193,68,37,0,Math.PI*2);g.fill();
+    g.fillStyle='#7ba17e';g.beginPath();g.arc(181,60,20,0,Math.PI*2);g.fill();
+    g.strokeStyle='#e7d39b';g.lineWidth=7;g.beginPath();g.moveTo(162,93);g.lineTo(227,43);g.stroke();
+    g.fillStyle='#24464b';roundRect(g,15,231,84,30,4,true);
+    g.fillStyle='#e7e5c9';g.font='900 16px system-ui';g.textAlign='center';g.textBaseline='middle';g.fillText('ZONE '+String(index+1),57,246);
+    g.restore();
+  }
+  function drawDispatchAtlasBase(g){
+    g.fillStyle='#a2bca4';g.fillRect(0,0,900,900);
+    for(const [i,x,y] of [[0,22,22],[1,601,22],[2,22,601],[3,601,601]])drawDispatchAtlasQuarter(g,x,y,i);
+    g.save();g.strokeStyle='rgba(31,74,71,.17)';g.lineWidth=3;
+    g.setLineDash([7,10]);g.strokeRect(9,9,882,882);g.setLineDash([]);
+    g.restore();
+  }
+
+  function getWorldCache(theme,lanes=1,junctionType='cross',dispatchFocus=false){
+    const cacheKey=`${theme.id}:${lanes}:${junctionType}:${dispatchFocus?'focus':'city'}`;let cached=worldCache.get(cacheKey);
     if(cached){worldCache.delete(cacheKey);worldCache.set(cacheKey,cached);return cached;}
     cached=document.createElement('canvas');cached.width=900;cached.height=900;const g=cached.getContext('2d',{alpha:false});
-    const grad=g.createLinearGradient(0,0,900,900);grad.addColorStop(0,themeColor(theme.id,0));grad.addColorStop(1,themeColor(theme.id,1));g.fillStyle=grad;g.fillRect(0,0,900,900);
-    g.globalAlpha=.08; g.fillStyle='#ffffff';
-    for(let i=0;i<18;i++){g.beginPath();g.arc(40+(i*53)%900,40+((i*79)%900),26+(i%4)*10,0,Math.PI*2);g.fill();}
-    g.globalAlpha=1;
-    drawDistrictDecor(g,theme.id);
-    drawLivingCityShops(g,theme.id);
-    drawNeighborhoodEdge(g,theme.id);
+    if(dispatchFocus){drawDispatchAtlasBase(g);}else{
+      const grad=g.createLinearGradient(0,0,900,900);grad.addColorStop(0,themeColor(theme.id,0));grad.addColorStop(1,themeColor(theme.id,1));g.fillStyle=grad;g.fillRect(0,0,900,900);
+      g.globalAlpha=.08;g.fillStyle='#ffffff';
+      for(let i=0;i<18;i++){g.beginPath();g.arc(40+(i*53)%900,40+((i*79)%900),26+(i%4)*10,0,Math.PI*2);g.fill();}
+      g.globalAlpha=1;
+      drawDistrictDecor(g,theme.id);drawLivingCityShops(g,theme.id);drawNeighborhoodEdge(g,theme.id);
+    }
     if(isLinkedJunctionType(junctionType)){
       drawLinkedRoadSurface(g,lanes);
       for(const cx of [230,670]){g.save();const ring=g.createRadialGradient(cx,450,18,cx,450,104);ring.addColorStop(0,'rgba(255,255,255,.05)');ring.addColorStop(1,'rgba(255,255,255,0)');g.fillStyle=ring;g.beginPath();g.arc(cx,450,104,0,Math.PI*2);g.fill();g.restore();}
@@ -4791,8 +4828,9 @@
   function drawWorld(g,game){
     if(isLinkedJunctionType(game.config?.junctionType))return drawLinkedWorld(g,game);
     const theme=districtInfo(game.level),layout=roadLayout(game.config?.lanes||1),roadA=layout.edgeMin,roadB=layout.edgeMax;
-    g.drawImage(getWorldCache(theme,game.config?.lanes||1,game.config?.junctionType||'cross'),0,0);
-    drawDynamicAmbient(g,theme);drawLivingCityAmbient(g,game);drawDistrictMicroLife(g,game);drawStreetLifeActivity(g,game);drawDistrictSignatureEvents(g,game);drawDailyCityRhythm(g,game);drawCivicServicePulse(g,game);drawTransitStopPulse(g,game);drawStorefrontDeliveryLifecycle(g,game);drawNeighborhoodParkingTurnover(g,game);drawBuildingEntranceActivity(g,game);drawPublicSpaceLeisure(g,game);drawCafeTerraceLifecycle(g,game);drawStreetMarketLifecycle(g,game);drawConstructionSiteLifecycle(g,game);drawBuildingOccupancyRhythm(g,game);drawRooftopLife(g,game);drawNeighborhoodPetWalk(g,game);drawNeighborhoodPlayground(g,game);drawPocketParkLife(g,game);drawBalconyLife(g,game);drawWeatherResponsiveCity(g,game);drawTrafficAwareCityReactions(g,game);drawLivingCityFire(g,game);drawScenarioDecor(g,game);drawCityGrowthEdge(g,game);drawDistrictIdentityMarker(g,game);
+    const focusWorld=dispatchFocusWorld(game);
+    g.drawImage(getWorldCache(theme,game.config?.lanes||1,game.config?.junctionType||'cross',focusWorld),0,0);
+    if(!focusWorld){drawDynamicAmbient(g,theme);drawLivingCityAmbient(g,game);drawDistrictMicroLife(g,game);drawStreetLifeActivity(g,game);drawDistrictSignatureEvents(g,game);drawDailyCityRhythm(g,game);drawCivicServicePulse(g,game);drawTransitStopPulse(g,game);drawStorefrontDeliveryLifecycle(g,game);drawNeighborhoodParkingTurnover(g,game);drawBuildingEntranceActivity(g,game);drawPublicSpaceLeisure(g,game);drawCafeTerraceLifecycle(g,game);drawStreetMarketLifecycle(g,game);drawConstructionSiteLifecycle(g,game);drawBuildingOccupancyRhythm(g,game);drawRooftopLife(g,game);drawNeighborhoodPetWalk(g,game);drawNeighborhoodPlayground(g,game);drawPocketParkLife(g,game);drawBalconyLife(g,game);drawWeatherResponsiveCity(g,game);drawTrafficAwareCityReactions(g,game);drawLivingCityFire(g,game);drawScenarioDecor(g,game);drawCityGrowthEdge(g,game);drawDistrictIdentityMarker(g,game);}
     const active=game.activeAxis(); const transition=game.transitionTimer>0;
     const occupied=game.cars.some(c=>c.inside);
     g.save();
@@ -4827,7 +4865,7 @@
     if(closedArm!=='E')drawSignal(g,sigB,sigA,hSignal,{facing:'W',axis:'H'});
     if(closedArm!=='W')drawSignal(g,sigA,sigB,hSignal,{facing:'E',axis:'H'});
     drawPedestrianSignals(g,game);
-    drawSidewalkPedestrians(g,game);
+    if(!focusWorld)drawSidewalkPedestrians(g,game);
     drawPedestrians(g,game);
 
     g.save();g.translate(450,450);
@@ -4841,7 +4879,7 @@
 
     {const focus=emergencyFocusVehicle(game);game.renderEmergencyFocusId=focus?.car?.id||null;}game.cars.forEach(c=>drawCar(g,c));
     drawQueueBadges(g,game);
-    drawRain(g,game);
+    if(!focusWorld)drawRain(g,game);
     drawWeatherOverlay(g,game);
     for(const p of game.particles){
       const alpha=Math.max(0,p.life/p.max);g.globalAlpha=alpha;g.fillStyle=p.color;
