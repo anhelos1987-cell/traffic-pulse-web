@@ -13,7 +13,7 @@
   }catch(_){}
 
   const BUILD_MODE = 'production';
-  const BUILD_VERSION = 'M225-VKGAMES-FIRST-TEN-DISPATCH-ART';
+  const BUILD_VERSION = 'M226-VKGAMES-ACTION-RECEIPT';
   const IS_DEVELOPMENT = BUILD_MODE === 'development';
   const PLATFORM_TARGET = 'vkgames'; // VK Games / VK Mini Apps, not VK Play
   const YANDEX_PUBLIC_LEADERBOARD_NAME = 'TrafficPulseStars';
@@ -2126,7 +2126,7 @@
   const Game = {
     state:'boot', mode:'campaign', dailyKey:'', weeklyKey:'', scenarioId:'', scenarioDirector:null, incidentDirector:null, greenWaveId:'', greenWaveDirector:null, signalMode:'shared', signalControllers:null, greenWaveStats:null, level:save.level, config:null, cars:[], spawned:0, exited:0, phase:'H', pendingPhase:null, transitionTimer:0, endlessWave:0, endlessScore:0, endlessSessionSeed:0,
     switches:0, spawnTimer:0, maxObservedQueue:0, elapsed:0, externalPaused:false, userPaused:false, rescueUsed:false, assistActive:false,
-    firstInput:false, tutorialCueTimer:0, noticeTimers:[], failureUiTimer:0, coachFlags:{}, crashPair:null, crashFx:null, cameraKick:0, turnOwnerId:null, roundaboutOwnerId:null, rng:Math.random, lastTs:0, lastDrawTs:0, lastHudTs:0, hudDirty:true, hudRefreshCount:0, frameId:0, accumulator:0, renderAlpha:1, particles:[], pedestrians:[], pedestrianSerial:0, pedestrianSpawnTimer:.4, pedestrianHold:false, phaseElapsed:0, emergencyPriorityId:null, flowStreak:0, maxFlowStreak:0, syncStreak:0, maxSyncStreak:0, prioritySaved:0, mission:null, lastMedalResult:null, lastPassAt:-99, failureReplayFrames:[], failureReplayClock:0, replayPlayback:null, replayTimer:0, lastFailType:'', lastCampaignFirstClear:false, rewardedWinClaimed:false, rewardedWinClaiming:false, rewardedWinBonus:0, pulseContract:null,
+    firstInput:false, tutorialCueTimer:0, noticeTimers:[], failureUiTimer:0, coachFlags:{}, crashPair:null, crashFx:null, cameraKick:0, turnOwnerId:null, roundaboutOwnerId:null, rng:Math.random, lastTs:0, lastDrawTs:0, lastHudTs:0, hudDirty:true, hudRefreshCount:0, frameId:0, accumulator:0, renderAlpha:1, particles:[], pedestrians:[], pedestrianSerial:0, pedestrianSpawnTimer:.4, pedestrianHold:false, phaseElapsed:0, emergencyPriorityId:null, flowStreak:0, maxFlowStreak:0, syncStreak:0, maxSyncStreak:0, prioritySaved:0, mission:null, lastMedalResult:null, lastPassAt:-99, failureReplayFrames:[], failureReplayClock:0, replayPlayback:null, replayTimer:0, lastFailType:'', lastCampaignFirstClear:false, rewardedWinClaimed:false, rewardedWinClaiming:false, rewardedWinBonus:0, pulseContract:null, dispatchReceipt:null,
 
     clearNoticeTimers(){for(const id of this.noticeTimers||[])clearTimeout(id);this.noticeTimers=[];},
     scheduleNotice(fn,delay=0){const id=setTimeout(()=>{const i=this.noticeTimers.indexOf(id);if(i>=0)this.noticeTimers.splice(i,1);fn();},Math.max(0,Number(delay)||0));this.noticeTimers.push(id);return id;},
@@ -2145,7 +2145,7 @@
       this.incidentDirector=this.mode==='campaign'?createRoadIncidentDirector(campaignRoadIncidentDefinition(this.level,this.config)):null;
       this.assistActive=this.mode==='campaign'&&(sessionFailCounts.get(this.level)||0)>=2;
       if(this.assistActive)this.config={...this.config,maxQueue:this.config.maxQueue+1};
-      this.mission=this.mode==='campaign'?missionForLevel(this.level,this.config):null;this.pulseContract=typeof TrafficPulsePulseContract!=='undefined'?TrafficPulsePulseContract.start(this.level,this.config.total,this.mode):null;this.lastMedalResult=null;
+      this.mission=this.mode==='campaign'?missionForLevel(this.level,this.config):null;this.pulseContract=typeof TrafficPulsePulseContract!=='undefined'?TrafficPulsePulseContract.start(this.level,this.config.total,this.mode):null;this.dispatchReceipt=null;this.lastMedalResult=null;
       this.rng=seeded(this.config.seed); this.cars=[]; this.spawned=0; this.exited=0;
       this.phase=this.config.startPhase; this.pendingPhase=null; this.transitionTimer=0; this.switches=0; this.spawnTimer=.42; this.phaseElapsed=0; this.pedestrians=[]; this.pedestrianSerial=0; this.pedestrianSpawnTimer=.38; this.pedestrianHold=false; this.emergencyPriorityId=null; AudioFx.stopTransientAudio();AudioFx.refreshMusicTheme();
       this.maxObservedQueue=0; this.elapsed=0; this.accumulator=0; this.renderAlpha=1; this.state='playing'; this.externalPaused=Boolean(platform.pausedByPlatform||platform.browserPaused||platform.adPaused||platform.paymentPaused); this.userPaused=false;
@@ -2226,7 +2226,7 @@
       if(platform.adBusy||platform.purchaseBusy)return false;
       this.clearNoticeTimers();this.clearFailureUiTimer();
       const def=scenarioDefinition(id);if(!def){toast(T.scenarioMode);return false;}if(!scenarioUnlocked(def)){toast(T.scenarioLocked);return false;}
-      this.mode='scenario';this.scenarioId=def.id;this.incidentDirector=null;this.greenWaveId='';this.greenWaveDirector=null;this.signalMode='shared';this.signalControllers=null;this.greenWaveStats=null;this.dailyKey='';this.weeklyKey='';this.level=def.board.level;this.config=scenarioConfig(def);this.scenarioDirector=createScenarioDirector(def);this.assistActive=false;this.mission=null;this.pulseContract=null;
+      this.mode='scenario';this.scenarioId=def.id;this.incidentDirector=null;this.greenWaveId='';this.greenWaveDirector=null;this.signalMode='shared';this.signalControllers=null;this.greenWaveStats=null;this.dailyKey='';this.weeklyKey='';this.level=def.board.level;this.config=scenarioConfig(def);this.scenarioDirector=createScenarioDirector(def);this.assistActive=false;this.mission=null;this.pulseContract=null;this.dispatchReceipt=null;
       this.rng=seeded(def.seed);this.cars=[];this.spawned=0;this.exited=0;this.phase=this.config.startPhase;this.pendingPhase=null;this.transitionTimer=0;this.switches=0;this.spawnTimer=.42;this.phaseElapsed=0;this.pedestrians=[];this.pedestrianSerial=0;this.pedestrianSpawnTimer=99;this.pedestrianHold=false;this.emergencyPriorityId=null;this.roundaboutOwnerId=null;AudioFx.stopTransientAudio();AudioFx.refreshMusicTheme();
       this.maxObservedQueue=0;this.elapsed=0;this.accumulator=0;this.renderAlpha=1;this.state='playing';this.externalPaused=Boolean(platform.pausedByPlatform||platform.browserPaused||platform.adPaused||platform.paymentPaused);this.userPaused=false;this.rescueUsed=rescued;this.crashPair=null;this.crashFx=null;this.cameraKick=0;this.turnOwnerId=null;this.particles=[];this.flowStreak=0;this.maxFlowStreak=0;this.syncStreak=0;this.maxSyncStreak=0;this.prioritySaved=0;this.lastPassAt=-99;this.failureReplayFrames=[];this.failureReplayClock=0;this.replayPlayback=null;clearTimeout(this.replayTimer);this.lastFailType='';this.firstInput=true;if(typeof PersonalBestService!=='undefined')PersonalBestService.clear();
       clearTimeout(this.tutorialCueTimer);this.tutorialCueTimer=0;$('tap-hint').style.display='none';closeOverlay();applyDistrictTheme();this.scenarioDirector.update(0,this);updateHud();this.primeTraffic();toast(`${def.icon||'🎒'} ${T[def.nameKey]}`);this.scheduleNotice(()=>{if(this.state==='playing'&&this.mode==='scenario'&&this.scenarioId===def.id)toast(`⚙️ ${T[def.ruleKey]||T.scenarioRule}`);},1450);if(!this.externalPaused&&!platform.booting){platform.gameplayStart();AudioFx.recoverAfterExternalResume();}return true;
@@ -2235,7 +2235,7 @@
       if(platform.adBusy||platform.purchaseBusy)return false;
       this.clearNoticeTimers();this.clearFailureUiTimer();
       const def=greenWaveDefinition(id);if(!def){toast(T.greenWaveMode);return false;}if(!greenWaveUnlocked(def)){toast(T.greenWaveLocked);return false;}
-      this.mode='greenwave';this.greenWaveId=def.id;this.greenWaveDirector=createGreenWaveDirector(def);this.scenarioId='';this.scenarioDirector=null;this.incidentDirector=null;this.dailyKey='';this.weeklyKey='';this.level=def.board.level;this.config=greenWaveConfig(def);this.assistActive=false;this.mission=null;this.pulseContract=null;
+      this.mode='greenwave';this.greenWaveId=def.id;this.greenWaveDirector=createGreenWaveDirector(def);this.scenarioId='';this.scenarioDirector=null;this.incidentDirector=null;this.dailyKey='';this.weeklyKey='';this.level=def.board.level;this.config=greenWaveConfig(def);this.assistActive=false;this.mission=null;this.pulseContract=null;this.dispatchReceipt=null;
       this.signalMode='independent';this.signalControllers={J0:createSignalController(def.board.startPhases?.J0||'H'),J1:createSignalController(def.board.startPhases?.J1||'V')};this.phase=this.signalControllers.J0.phase;this.pendingPhase=null;this.transitionTimer=0;this.phaseElapsed=0;this.pedestrianHold=false;
       this.rng=seeded(def.seed);this.cars=[];this.spawned=0;this.exited=0;this.switches=0;this.spawnTimer=.48;this.pedestrians=[];this.pedestrianSerial=0;this.pedestrianSpawnTimer=99;this.emergencyPriorityId=null;this.roundaboutOwnerId=null;AudioFx.stopTransientAudio();AudioFx.refreshMusicTheme();
       const throughTotal=def.plan.filter(x=>(linkedRouteSpec(x)?.junctions||[]).length>1).length;this.greenWaveStats={throughTotal,throughCompleted:0,throughNoStop:0,maxSideQueue:0,blockEvents:0,switches:{J0:0,J1:0}};
@@ -2316,9 +2316,9 @@
       const perfect=!this.cars.some(c=>c.inside)&&waiting>0&&(this.elapsed-this.lastPassAt)>=0&&(this.elapsed-this.lastPassAt)<=.72;
       if(perfect){this.syncStreak++;this.maxSyncStreak=Math.max(this.maxSyncStreak||0,this.syncStreak);toast(`⚡ ${T.perfectSwitch} ×${this.syncStreak}`);if(!reducedMotion){for(let i=0;i<8&&this.particles.length<MAX_PARTICLES;i++)this.particles.push({x:450,y:450,vx:(this.rng()-.5)*90,vy:(this.rng()-.5)*90,life:.42,max:.42,color:i%2?'#55d5ff':'#ffd166',kind:'spark',size:3});}}
       else this.syncStreak=0;
-      const wasFirstInput=!this.firstInput;AudioFx.switch();if(perfect)AudioFx.sync(this.syncStreak);Haptics.switch();this.pendingPhase=nextPhase;this.pedestrianHold=false;this.transitionTimer=this.config.clearance;this.switches++;this.firstInput=true;if(typeof TrafficPulsePulseContract!=='undefined')TrafficPulsePulseContract.switchTo(this.pulseContract,nextPhase);
+      const wasFirstInput=!this.firstInput;AudioFx.switch();if(perfect)AudioFx.sync(this.syncStreak);Haptics.switch();this.pendingPhase=nextPhase;this.pedestrianHold=false;this.transitionTimer=this.config.clearance;this.switches++;this.firstInput=true;this.dispatchReceipt=typeof TrafficPulseDispatchReceipt!=='undefined'?TrafficPulseDispatchReceipt.begin(this.mode,this.level,nextPhase,waiting,this.elapsed):null;if(typeof TrafficPulsePulseContract!=='undefined')TrafficPulsePulseContract.switchTo(this.pulseContract,nextPhase);
       clearTimeout(this.tutorialCueTimer);this.tutorialCueTimer=0;hideFirstSessionCoach();updateSignalIcon();updateHud();
-      if(!perfect&&!occupiedNow&&waiting>0&&this.mode==='campaign'&&this.level<=10)toast(`${nextPhase==='H'?'↔':'↕'} ${lang==='ru'?'Ждут':'Waiting'}: ${waiting}`);if(occupiedNow)showFirstSessionCoach('occupied',T.tutorialCoachOccupied,2800);else if(wasFirstInput&&this.level===1)this.scheduleNotice(()=>{if(this.state==='playing'&&this.level===1&&this.firstInput)showFirstSessionCoach('clearance',T.tutorialCoachClearance,2600);},260);
+      if(occupiedNow)showFirstSessionCoach('occupied',T.tutorialCoachOccupied,2800);else if(wasFirstInput&&this.level===1)this.scheduleNotice(()=>{if(this.state==='playing'&&this.level===1&&this.firstInput)showFirstSessionCoach('clearance',T.tutorialCoachClearance,2600);},260);
       return true;
     },
     toggleJunction(junctionId){
@@ -2761,14 +2761,20 @@
           c.stopped=(c.currentSpeed||0)<2 || (front&&next>=frontLimit-0.5) || (redApproach&&next>=stopTarget-0.5);
           if(c.stopped)c.waitTime=(c.waitTime||0)+dt;
           if(c.stopped&&!c.hornPlayed&&!isEmergencyVehicle(c)&&(c.waitTime||0)>=vehicleHornDelay(c)&&(c.kind==='truck'||c.kind==='bus'||c.driverProfile==='brisk'||c.id%4===0)&&AudioFx.trafficHorn(c.kind,c.dir))c.hornPlayed=true;
-          c.progress=next;
+          const beforeCrossing=c.progress;c.progress=next;
+          if(this.mode==='campaign'&&this.level<=20&&beforeCrossing<365&&next>=365&&c.signalCommitted&&(!c.violation||c.violation==='none')&&!c.emergencyPriorityActive){
+            // Record the outcome at the crossing, not seconds later at world exit.
+            // Reward and presentation stay independent of traffic movement rules.
+            this.recordPulseDeparture?.(c);
+            this.recordDispatchCrossing?.(c,beforeCrossing,next);
+          }
           const pose=carXY(c),bodyRadius=Math.max(22,(c.length||76)*renderedTrafficScale(laneCount)*.5);
           c.inside=pose.x>=layout.edgeMin-bodyRadius&&pose.x<=layout.edgeMax+bodyRadius&&pose.y>=layout.edgeMin-bodyRadius&&pose.y<=layout.edgeMax+bodyRadius;
         }
       }
       const remaining=[]; let passed=0;
       for(const c of this.cars){
-        if(c.progress>=exitAt){ passed++; this.recordPulseDeparture(c); if(['ambulance','police','fire'].includes(c.kind)&&(c.waitTime||0)<1.35)this.prioritySaved++; this.emitExitParticles(c); }
+        if(c.progress>=exitAt){ passed++; if(['ambulance','police','fire'].includes(c.kind)&&(c.waitTime||0)<1.35)this.prioritySaved++; this.emitExitParticles(c); }
         else remaining.push(c);
       }
       this.cars=remaining;
@@ -2788,6 +2794,13 @@
       this.cars=[];this.spawned=0;this.exited=0;this.phase=this.config.startPhase;this.pendingPhase=null;this.transitionTimer=0;this.switches=0;this.spawnTimer=.48;this.phaseElapsed=0;
       this.pedestrians=[];this.pedestrianSerial=0;this.pedestrianSpawnTimer=.55;this.pedestrianHold=false;this.emergencyPriorityId=null;this.turnOwnerId=null;this.roundaboutOwnerId=null;this.maxObservedQueue=0;this.flowStreak=0;this.syncStreak=0;this.lastPassAt=-99;
       AudioFx.refreshMusicTheme();applyDistrictTheme();this.primeTraffic();updateHud();toast(`♾ ${T.endlessWave} ${this.endlessWave} · ${this.endlessScore}`);
+    },
+    recordDispatchCrossing(car,before,after){
+      // Cars count only when their body really reaches the junction on the selected
+      // green. Do not claim a pass for a queued, uncommitted or red-running vehicle.
+      if(!this.dispatchReceipt||typeof TrafficPulseDispatchReceipt==='undefined')return;
+      if(TrafficPulseDispatchReceipt.observe(this.dispatchReceipt,car,before,after,
+        this.activeAxis(),this.transitionTimer>0,this.elapsed))this.hudDirty=true;
     },
     recordPulseDeparture(car){
       if(typeof TrafficPulsePulseContract!=='undefined'&&TrafficPulsePulseContract.departure(this.pulseContract,car.axis,this.activeAxis(),this.transitionTimer>0)){
@@ -5426,6 +5439,24 @@
         forecastEl.setAttribute('aria-label',lang==='ru'?'Следующий поток':'Next traffic wave');
         setHudText('dispatchForecast','dispatch-forecast-text',
           `${lang==='ru'?'СЛЕДОМ':'NEXT'} ${forecast.axis==='H'?'↔':'↕'} ×${forecast.group}`);}
+    }
+    const receipt=typeof TrafficPulseDispatchReceipt!=='undefined'?
+      TrafficPulseDispatchReceipt.view(Game.dispatchReceipt,Game.elapsed,Game.transitionTimer>0):null;
+    const receiptEl=$('dispatch-receipt');
+    if(receiptEl){
+      const visible=Boolean(receipt&&Game.state==='playing'&&!Game.userPaused&&!Game.externalPaused);
+      receiptEl.classList.toggle('ui-hidden',!visible);
+      if(visible){
+        const direction=receipt.phase==='H'?'↔':'↕',ru=lang==='ru';
+        const title=receipt.stage==='switching'?(ru?'ПЕРЕКЛЮЧЕНИЕ':'SWITCHING'):
+          receipt.stage==='passed'?(ru?'ПРОЕХАЛО':'PASSED'):(ru?'ПОТОК ОТКРЫТ':'GREEN OPEN');
+        const detail=receipt.stage==='passed'?`×${receipt.passed}`:
+          receipt.waiting>0?(ru?`ОЧЕРЕДЬ ×${receipt.waiting}`:`QUEUED ×${receipt.waiting}`):
+          (ru?'БЕЗ ОЧЕРЕДИ':'NO QUEUE');
+        setHudText('dispatchReceiptTitle','dispatch-receipt-title',`${title} ${direction}`);
+        setHudText('dispatchReceiptDetail','dispatch-receipt-detail',detail);
+        receiptEl.dataset.stage=receipt.stage;
+      }
     }
     const q=countQueues(),mq=Math.max(q.N,q.S,q.E,q.W);setHudText('queue','queue-label',`${T.jam}: ${mq}/${Game.config?.maxQueue||4}`);setHudText('switches','switch-label',`${T.switches}: ${Game.switches}`);
     const warnQueue=Boolean(Game.config&&mq>=Math.max(1,Game.config.maxQueue-1));
