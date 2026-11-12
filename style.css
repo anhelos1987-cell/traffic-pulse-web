@@ -1064,3 +1064,24 @@ html,body{
 @media(max-height:430px){
   .dispatch-forecast{left:8px;top:8px;bottom:auto;min-height:28px;padding:4px 7px;font-size:10px}
 }
+
+/* M226: scoreboard-style action receipt, deliberately secondary to moving cars.
+   It is not another game button or a source of pop-up spam. */
+.dispatch-receipt{
+  position:absolute;right:12px;top:12px;z-index:3;
+  min-width:130px;max-width:min(46%,220px);
+  display:flex;flex-direction:column;align-items:flex-end;gap:4px;
+  padding:8px 11px;border:2px solid #b4c4ac;border-radius:5px;
+  color:#f4ecd4;background:rgba(27,57,57,.95);
+  box-shadow:0 3px 0 #102227;
+  pointer-events:none;text-align:right;font-variant-numeric:tabular-nums;
+}
+.dispatch-receipt.ui-hidden{display:none!important}
+.dispatch-receipt b{font-size:clamp(10px,1.6vw,12px);line-height:1.12;letter-spacing:.035em}
+.dispatch-receipt strong{font-size:clamp(10px,1.8vw,13px);line-height:1.18;color:#edc983}
+.dispatch-receipt[data-stage="passed"]{border-color:#9bd6ac}
+.dispatch-receipt[data-stage="passed"] strong{color:#b6f0c8}
+@media(max-height:430px){
+  .dispatch-receipt{right:7px;top:6px;max-width:42%;min-width:0;padding:5px 7px;gap:2px}
+  .dispatch-receipt b,.dispatch-receipt strong{font-size:10px}
+}
