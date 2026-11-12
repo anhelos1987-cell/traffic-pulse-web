@@ -3350,7 +3350,7 @@
     g.fillStyle='#7ba17e';g.beginPath();g.arc(181,60,20,0,Math.PI*2);g.fill();
     g.strokeStyle='#e7d39b';g.lineWidth=7;g.beginPath();g.moveTo(162,93);g.lineTo(227,43);g.stroke();
     g.fillStyle='#24464b';roundRect(g,15,231,84,30,4,true);
-    g.fillStyle='#e7e5c9';g.font='900 16px system-ui';g.textAlign='center';g.textBaseline='middle';g.fillText('ZONE '+String(index+1),57,246);
+    g.fillStyle='#e7e5c9';g.font='900 16px system-ui';g.textAlign='center';g.textBaseline='middle';g.fillText(String(index+1).padStart(2,'0'),57,246);
     g.restore();
   }
   function drawDispatchAtlasBase(g){
