@@ -46,6 +46,9 @@ async function checkInteractiveTraining(browser,address){
       'campaign entry must not be offered before the exercise is complete');
     await mkdir(resolve(root,'artifacts/browser-smoke'),{recursive:true});
     await page.screenshot({path:resolve(root,'artifacts/browser-smoke/training-portrait.png')});
+    const heading=await page.$eval('#level-label',el=>({right:el.getBoundingClientRect().right,scroll:el.scrollWidth,width:el.clientWidth}));
+    const goalLeft=await page.$eval('.goal',el=>el.getBoundingClientRect().left);
+    assert.ok(heading.right<=goalLeft+1&&heading.scroll<=heading.width+1,'tutorial heading must fit beside its progress bar');
     const before=await page.evaluate(()=>JSON.parse(localStorage.getItem('traffic_pulse_vk_games_save_v1')));
     for(const step of [1,2,3]){
       await page.waitForFunction(()=>!document.querySelector('#signal-btn').disabled,{timeout:15000});

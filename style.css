@@ -944,7 +944,10 @@ html.training-active #hint-btn,html.training-active #desktop-insight,
 html.training-active #flow-badge,html.training-active #mission-badge,
 html.training-active #record-badge,html.training-active #weather-badge,
 html.training-active #event-badge,html.training-active #priority-badge { display:none!important; }
-html.training-active .goal { width:52%; }
+html.training-active .goal { width:100%; }
+html.training-active .level-head .eyebrow,html.training-active #goal-text { display:none; }
+html.training-active .level-head .level-copy { display:block; }
+html.training-active .level-copy h1 { font-size:clamp(14px,2.8vw,22px);white-space:normal;line-height:1.1; }
 html.training-active .goal-row > span { white-space:normal; }
 .training-pulse { outline:3px solid #ffe18c;outline-offset:3px;animation:training-glow 1.25s ease-in-out infinite; }
 @keyframes training-glow { 50% { box-shadow:0 0 25px #ffe18c99; } }
