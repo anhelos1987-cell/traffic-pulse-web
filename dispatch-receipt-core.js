@@ -17,8 +17,10 @@
        car.violation&&car.violation!=='none'||!Number.isFinite(now)||
        now<receipt.startedAt||now-receipt.startedAt>MAX_AGE||
        !Number.isFinite(before)||!Number.isFinite(after)||
-       before>=GATE||after<GATE)return false;
-    // The real vehicle has passed the junction approach gate on a selected green.
+       before>=GATE||after<GATE||car.dispatchReceiptMarker===receipt)return false;
+    // One physical crossing produces one feedback event even if an integration
+    // accidentally reports it twice; the marker is presentation-only.
+    car.dispatchReceiptMarker=receipt;
     receipt.passed++;receipt.lastPassAt=now;return true;
   }
   function view(receipt,now,transitioning){
