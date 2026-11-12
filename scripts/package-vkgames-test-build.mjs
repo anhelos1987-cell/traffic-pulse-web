@@ -10,12 +10,12 @@ import {createHash} from 'node:crypto';
 
 const root=resolve(fileURLToPath(new URL('../',import.meta.url)));
 const dest=join(root,'artifacts');
-const zipName='TrafficPulse_M223_VKOK_TestBuild.zip';
+const zipName='TrafficPulse_M224_VKOK_TestBuild.zip';
 const archive=join(dest,zipName);
 const files=[
   'index.html','style.css','app.js',
   'vkbridge.min.js','progress-core.js','campaign-access.js',
-  'player-guidance-core.js','vk-games.js','vk-purchases.js',
+  'player-guidance-core.js','pulse-contract-core.js','vk-games.js','vk-purchases.js',
   'payments-config.js','all-maps.png',
   'AUDIO_CREDITS.txt','THIRD_PARTY_NOTICES-VKGAMES.md'
 ];
@@ -36,7 +36,8 @@ for(const reference of [...scripts,...styles]){
 }
 assert.ok(scripts.some(x=>x.startsWith('player-guidance-core.js?v=M211')),'M211 guidance must be included');
 assert.ok(scripts.some(x=>x.startsWith('vk-games.js?v=M209-VKGAMES-CLOUD-RC')),'M209 cloud adapter must be included');
-assert.ok(scripts.some(x=>x.startsWith('app.js?v=M223-VKGAMES-INTERACTIVE-TRAINING')),'M223 interactive training entrypoint must be included');
+assert.ok(scripts.some(x=>x.startsWith('pulse-contract-core.js?v=M224')),'M224 challenge core must be included');
+assert.ok(scripts.some(x=>x.startsWith('app.js?v=M224-VKGAMES-ENGAGEMENT-VISUAL-SLICE')),'M224 game entrypoint must be included');
 
 // Keep packaging independent of local file timestamps and reject hidden extras.
 // The package is built as root-level entries, matching platform upload expectations.
@@ -50,11 +51,11 @@ assert.deepEqual(entries,[...files].sort(),'ZIP entries must exactly match the s
 const sha256=data=>createHash('sha256').update(data).digest('hex');
 const manifest={
   name:'Traffic Pulse',purpose:'VK/OK manual test only — not published',
-  milestone:'M223',branch:process.env.GITHUB_HEAD_REF||process.env.GITHUB_REF_NAME||'fix/m223-interactive-training',
+  milestone:'M224',branch:process.env.GITHUB_HEAD_REF||process.env.GITHUB_REF_NAME||'feature/m224-vkgames-engagement-redesign',
   revision:process.env.GITHUB_SHA||'unrecorded',
   zip:zipName,zipSha256:sha256(readFileSync(archive)),
   assets:files.map(name=>({name,bytes:readFileSync(join(root,name)).length,sha256:sha256(readFileSync(join(root,name)))})),
   caveat:'Local browsing does not validate real VK/OK authentication, cloud saves, ads or purchases.'
 };
-writeFileSync(join(dest,'TrafficPulse_M223_VKOK_TestBuild_manifest.json'),JSON.stringify(manifest,null,2)+'\n');
+writeFileSync(join(dest,'TrafficPulse_M224_VKOK_TestBuild_manifest.json'),JSON.stringify(manifest,null,2)+'\n');
 console.log('PASS draft VK/OK package:',archive,'files:',files.length,'sha256:',manifest.zipSha256);
