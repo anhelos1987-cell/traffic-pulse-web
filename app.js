@@ -5335,6 +5335,20 @@
   function eventLabel(variant){
     return variant==='rush'?T.eventRush:variant==='heavy'?T.eventHeavy:variant==='service'?T.eventService:variant==='express'?T.eventExpress:variant==='freight'?T.eventFreight:variant==='pulse'?T.eventPulse:variant==='alternating'?T.eventAlternating:variant==='roadwork'?T.eventRoadwork:'';
   }
+  // The next scripted arrival is a genuine future player decision, not RNG or an ad.
+  // Preview only the immediately following contiguous direction, no hidden information
+  // about driver behavior, turns, collisions or incident timing.
+  function dispatchForecast(game=Game){
+    if(game.mode!=='campaign'||game.level>10||game.level<1||game.state!=='playing')return null;
+    const plan=game.config?.plan,spawned=game.spawned;
+    if(!Array.isArray(plan)||!Number.isInteger(spawned)||spawned<0||spawned>=plan.length)return null;
+    const axis=axisForPlanItem(plan[spawned]);if(axis!=='H'&&axis!=='V')return null;
+    let group=0;for(let i=spawned;i<Math.min(plan.length,spawned+4);i++){
+      if(axisForPlanItem(plan[i])!==axis)break;group++;
+    }
+    return{axis,group};
+  }
+
   function levelGoal(){
     let base='';
     if(Game.assistActive)base=T.assistGoal;
@@ -5389,7 +5403,13 @@
     const missionCount=Object.keys(save.missionCompleted||{}).length;setHudText('insightMission','insight-mission',`${T.missionMastery}: ${missionCount} · ${missionCount%5}/5`);
     const progressTotal=Game.mode==='scenario'?(Game.scenarioDirector?.totalTraffic||Game.config?.scenarioTotalTraffic||1):(Game.config?.total||1),p=Game.config?Math.min(100,Math.round((Game.exited/progressTotal)*100)):0;if(HUD_CACHE.progress!==p){HUD_CACHE.progress=p;$('progress-bar').style.width=`${p}%`;const progressEl=document.querySelector('.progress');if(progressEl)progressEl.setAttribute('aria-valuenow',String(p));}
     const contract=Game.pulseContract,pulseEl=$('pulse-contract');if(pulseEl){pulseEl.classList.toggle('ui-hidden',!contract);if(contract){const label=contract.done?(lang==='ru'?'ЧИСТАЯ ВОЛНА СОБРАНА':'CLEAN WAVE COMPLETE'):(lang==='ru'?'Пропусти за один зелёный':'Clear on one green');setHudText('pulseContractLabel','pulse-contract-label',label);setHudText('pulseContractCount','pulse-contract-count',contract.done?'✓':`${contract.progress}/${contract.target}`);pulseEl.classList.toggle('completed',contract.done);pulseEl.classList.toggle('armed',contract.armed&&!contract.done);}}
-     const q=countQueues(),mq=Math.max(q.N,q.S,q.E,q.W);setHudText('queue','queue-label',`${T.jam}: ${mq}/${Game.config?.maxQueue||4}`);setHudText('switches','switch-label',`${T.switches}: ${Game.switches}`);
+     const forecast=dispatchForecast(),forecastEl=$('dispatch-forecast');if(forecastEl){
+      forecastEl.classList.toggle('ui-hidden',!forecast);
+      if(forecast){forecastEl.dataset.axis=forecast.axis;
+        setHudText('dispatchForecast','dispatch-forecast-text',
+          `${lang==='ru'?'СЛЕДОМ':'NEXT'} ${forecast.axis==='H'?'↔':'↕'} ×${forecast.group}`);}
+    }
+    const q=countQueues(),mq=Math.max(q.N,q.S,q.E,q.W);setHudText('queue','queue-label',`${T.jam}: ${mq}/${Game.config?.maxQueue||4}`);setHudText('switches','switch-label',`${T.switches}: ${Game.switches}`);
     const warnQueue=Boolean(Game.config&&mq>=Math.max(1,Game.config.maxQueue-1));
     if(HUD_CACHE.warnQueue!==warnQueue){HUD_CACHE.warnQueue=warnQueue;document.querySelector('.game-card')?.classList.toggle('queue-warning',warnQueue);}
     const occupied=Game.cars.some(c=>c.inside);
