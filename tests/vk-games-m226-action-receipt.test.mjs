@@ -54,6 +54,14 @@ test('M226: real crossing, not world exit, triggers the existing Clean Wave prog
   assert.doesNotMatch(app,/if\(c\.progress>=exitAt\)\{ passed\+\+; this\.recordPulseDeparture\(c\)/);
 });
 
+test('M226: tutorial hand-off forces button enable-state refresh even if signal key is unchanged',()=>{
+  const start=app.indexOf('    startLevel(n,rescued=false,mode=');
+  const end=app.indexOf('    startTraining(){',start);
+  assert.ok(start>0&&end>start);
+  const source=app.slice(start,end);
+  assert.match(source,/closeOverlay\(\); applyDistrictTheme\(\); updateHud\(\);[\s\S]*?updateSignalIcon\(\);/);
+});
+
 test('M226: shipping UI and entrypoint include receipt core before app',()=>{
   const core=html.indexOf('dispatch-receipt-core.js?v=M226');
   const game=html.indexOf('app.js?v=M226-VKGAMES-ACTION-RECEIPT');
