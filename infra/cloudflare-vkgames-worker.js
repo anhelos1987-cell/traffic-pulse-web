@@ -3,12 +3,30 @@
  * Static assets are stored in the private Cloudflare Workers KV namespace.
  * No GitHub runtime fetch and no server-side player save database are needed.
  */
-const CACHE_VERSION = 'vk-games-m201-ok-cloud-hf01';
+const ASSET_PREFIX = 'm223-interactive-training-r2';
+// Exact historical asset identities keep cached M201/M217 HTML consistent during rollout.
+const LEGACY_ASSETS = Object.freeze({
+  'app.js':{
+    'M201-OK-CLOUD-HF01':'m201-ok-cloud-hf01/app.js',
+    'M217-VKGAMES-PACING-RC':'m217-24b21ac/app.js'
+  },
+  'vk-games.js':{
+    'M201-OK-CLOUD-HF01':'m201-ok-cloud-hf01/vk-games.js',
+    'M209-VKGAMES-CLOUD-RC':'m217-24b21ac/vk-games.js'
+  },
+  'style.css':{
+    'M198-VKGAMES-ADS-RC2':'style.css',
+    'M216-VKGAMES-RC':'m217-24b21ac/style.css'
+  },
+  'progress-core.js':{'M200':'progress-core.js'},
+  'player-guidance-core.js':{'M211':'m217-24b21ac/player-guidance-core.js'}
+});
 const TYPES = Object.freeze({
   'index.html':'text/html; charset=utf-8',
   'all-maps.png':'image/png',
   'app.js':'application/javascript; charset=utf-8',
   'progress-core.js':'application/javascript; charset=utf-8',
+  'player-guidance-core.js':'application/javascript; charset=utf-8',
   'campaign-access.js':'application/javascript; charset=utf-8',
   'payments-config.js':'application/javascript; charset=utf-8',
   'vk-purchases.js':'application/javascript; charset=utf-8',
@@ -30,15 +48,14 @@ export default {
     const u=new URL(request.url);
     const path=(u.pathname==='/'||u.pathname==='/index.html')?'index.html':u.pathname.slice(1);
     if (!Object.prototype.hasOwnProperty.call(TYPES,path)) return new Response('Not found',{status:404,headers:SECURITY});
-    const cacheUrl=new URL('/'+CACHE_VERSION+'/'+path,u.origin);
+    const versions=LEGACY_ASSETS[path],version=u.searchParams.get('v');
+    const key=versions&&Object.prototype.hasOwnProperty.call(versions,version)
+      ?versions[version]:ASSET_PREFIX+'/'+path;
+    const cacheUrl=new URL('/'+key,u.origin);
     const cache=new Request(cacheUrl.toString(),{method:'GET'});
     const hit=await caches.default.match(cache);
     if (hit) return request.method==='HEAD'?new Response(null,{status:200,headers:hit.headers}):hit;
     let bytes;
-    // M201 is staged alongside the existing live assets: one Worker switch
-    // selects the three patched files. All unchanged assets keep their old keys.
-    const key=(path==='index.html'||path==='app.js'||path==='vk-games.js')
-      ?'m201-ok-cloud-hf01/'+path:path;
     try { bytes=await env.GAME_ASSETS.get(key,{type:'arrayBuffer'}); }
     catch (_) { return new Response('Temporary storage error',{status:503,headers:SECURITY}); }
     if (!bytes) return new Response('Game asset unavailable',{status:503,headers:SECURITY});

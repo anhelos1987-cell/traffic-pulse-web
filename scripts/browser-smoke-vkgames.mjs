@@ -34,10 +34,65 @@ const server=createServer(async(req,res)=>{
 });
 await new Promise(done=>server.listen(0,'127.0.0.1',done));
 const address='http://127.0.0.1:'+server.address().port+'/';
+async function checkInteractiveTraining(browser,address){
+  const page=await browser.newPage();
+  const errors=[];page.on('pageerror',error=>errors.push(String(error)));
+  try{
+    await page.setViewport({width:390,height:844,isMobile:true,hasTouch:true});
+    await page.evaluateOnNewDocument(()=>Object.defineProperty(navigator,'language',{configurable:true,get:()=> 'ru-RU'}));
+    await page.goto(address,{waitUntil:'networkidle2',timeout:20000});
+    await page.waitForSelector('#training-panel[data-step="1"]',{visible:true,timeout:15000});
+    assert.equal(await page.$eval('#training-play-btn',el=>getComputedStyle(el).display),'none',
+      'campaign entry must not be offered before the exercise is complete');
+    await mkdir(resolve(root,'artifacts/browser-smoke'),{recursive:true});
+    await page.screenshot({path:resolve(root,'artifacts/browser-smoke/training-portrait.png')});
+    const before=await page.evaluate(()=>JSON.parse(localStorage.getItem('traffic_pulse_vk_games_save_v1')));
+    for(const step of [1,2,3]){
+      await page.waitForFunction(()=>!document.querySelector('#signal-btn').disabled,{timeout:15000});
+      await page.click('#signal-btn');
+      await page.waitForSelector(`#training-panel[data-step="${step+1}"]`,{visible:true,timeout:30000});
+      if(step===2){
+        assert.equal(await page.$eval('#signal-btn',el=>el.disabled),true,
+          'pedestrians must finish before a vehicle signal can be requested');
+        await page.keyboard.press('Space');
+        assert.equal(await page.$eval('#training-panel',el=>el.dataset.step),'3',
+          'keyboard cannot bypass the pedestrian step');
+      }
+    }
+    // The practice starts with both roads occupied. Only player inputs release both queues.
+    await page.waitForFunction(()=>!document.querySelector('#signal-btn').disabled,{timeout:20000});
+    await page.click('#signal-btn');
+    await page.waitForFunction(()=>document.querySelector('#signal-btn').disabled,{timeout:2000});
+    await page.waitForFunction(()=>!document.querySelector('#signal-btn').disabled,{timeout:20000});
+    await page.click('#signal-btn');
+    await page.waitForSelector('#training-panel[data-stage="complete"]',{visible:true,timeout:30000});
+    const after=await page.evaluate(()=>JSON.parse(localStorage.getItem('traffic_pulse_vk_games_save_v1')));
+    assert.equal(after.trainingCompleted,true);
+    for(const key of ['level','coins','totalStars','campaignRewardedThrough'])assert.equal(after[key],before[key],
+      'training cannot grant campaign rewards: '+key);
+    assert.deepEqual(after.starsByLevel,before.starsByLevel);
+    await page.click('#training-play-btn');
+    await page.waitForSelector('#training-panel',{hidden:true,timeout:5000});
+    assert.equal(await page.$eval('#training-panel',el=>getComputedStyle(el).display),'none');
+    await page.reload({waitUntil:'networkidle2',timeout:20000});
+    await page.waitForSelector('#signal-btn',{visible:true,timeout:15000});
+    assert.equal(await page.$eval('#training-panel',el=>getComputedStyle(el).display),'none',
+      'tutorial completion must survive a real reload');
+    await page.click('#pause-btn');
+    const replay=await page.waitForSelector('::-p-text(🚦 Пройти обучение)',{timeout:5000});
+    await replay.click();
+    await page.waitForSelector('#training-panel[data-step="1"]',{visible:true,timeout:5000});
+    await page.click('#restart-btn');
+    assert.equal(await page.$eval('#training-panel',el=>el.dataset.step),'1');
+    assert.deepEqual(errors,[],'interactive training must have no runtime errors');
+    console.log('PASS four live traffic lessons, pedestrian input gate, reward isolation, persistence, replay');
+  }finally{await page.close();}
+}
 let browser;
 try{
   browser=await puppeteer.launch({executablePath:browserBinary(),headless:true,
     args:['--no-sandbox','--disable-dev-shm-usage','--autoplay-policy=no-user-gesture-required']});
+  await checkInteractiveTraining(browser,address);
   for(const viewport of [{width:1280,height:800,isMobile:false},{width:1366,height:768,isMobile:false},{width:390,height:844,isMobile:true,hasTouch:true},{width:844,height:390,isMobile:true,hasTouch:true}]){
     const page=await browser.newPage(),errors=[],missing=[],consoleErrors=[];
     page.on('pageerror',error=>errors.push(String(error?.stack||error?.message||error)));

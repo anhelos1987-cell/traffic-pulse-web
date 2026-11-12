@@ -29,7 +29,7 @@ test('M202: important progress stays locally durable if platform cloud is unavai
 });
 
 test('M202: every win mode and successful rewarded coin grant uses checkpoint flush',()=>{
-  const start=app.indexOf('    win(){');
+  const start=app.indexOf('    win(){',app.indexOf('  const Game = {'));
   const end=app.indexOf('    async next(){',start);
   assert.ok(start>=0&&end>start,'Game.win must be found');
   const wins=app.slice(start,end);
