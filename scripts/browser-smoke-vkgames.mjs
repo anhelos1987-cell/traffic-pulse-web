@@ -81,6 +81,20 @@ async function checkInteractiveTraining(browser,address){
     await page.waitForSelector('#dispatch-forecast:not(.ui-hidden)',{visible:true,timeout:5000});
     const firstForecast=await page.$eval('#dispatch-forecast-text',el=>el.textContent.trim());
     assert.match(firstForecast,/^(СЛЕДОМ|NEXT)\s+[↔↕]\s+×[1-4]$/,'player sees upcoming scripted traffic after training');
+    // M226: one actual button press must cause an observable receipt of crossing
+    // a junction, rather than merely showing a generic "button pressed" badge.
+    await page.waitForFunction(()=>!document.querySelector('#signal-btn')?.disabled,{timeout:5000});
+    await page.click('#signal-btn');
+    await page.waitForSelector('#dispatch-receipt:not(.ui-hidden)',{visible:true,timeout:3000});
+    assert.match(await page.$eval('#dispatch-receipt-title',el=>el.textContent),/ПЕРЕКЛЮЧЕНИЕ|SWITCHING/);
+    await page.waitForFunction(()=>{
+      const el=document.querySelector('#dispatch-receipt');
+      return el?.dataset.stage==='passed'&&/×[1-9]/.test(document.querySelector('#dispatch-receipt-detail')?.textContent||'');
+    },{timeout:16000});
+    const dispatchAfterPass=await page.$eval('#dispatch-receipt-detail',el=>el.textContent);
+    assert.match(dispatchAfterPass,/×[1-9]/,'visible result counts a real car crossing');
+    await page.screenshot({path:resolve(root,'artifacts/browser-smoke/m226-first-car-crossed.png')});
+
     assert.equal(await page.$eval('#training-panel',el=>getComputedStyle(el).display),'none');
     await page.reload({waitUntil:'networkidle2',timeout:20000});
     await page.waitForSelector('#signal-btn',{visible:true,timeout:15000});
@@ -149,6 +163,14 @@ try{
           'assistive technology still receives the complete localized objective');
         assert.ok(heading.overflow<=2,'compact first-session goal must fit without truncation');
       }
+      const receiptLayout=await page.evaluate(()=>{
+        const el=document.querySelector('#dispatch-receipt'),phase=document.querySelector('#phase-indicator');
+        if(!el||!phase)return {missing:true};
+        const a=el.getBoundingClientRect(),b=phase.getBoundingClientRect();
+        return {missing:false,overlap:getComputedStyle(el).display!=='none'&&a.right>b.left&&b.right>a.left&&a.bottom>b.top&&b.bottom>a.top};
+      });
+      assert.ok(!receiptLayout.missing&&!receiptLayout.overlap,
+        'action receipt cannot cover the active-phase indicator: '+JSON.stringify(receiptLayout));
       const dispatchLayout=await page.evaluate(()=>{
         const a=document.querySelector('#dispatch-forecast'),b=document.querySelector('#phase-indicator');
         if(!a||!b)return {missing:true};
