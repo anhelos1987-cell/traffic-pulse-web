@@ -2320,9 +2320,11 @@
       const perfect=!this.cars.some(c=>c.inside)&&waiting>0&&(this.elapsed-this.lastPassAt)>=0&&(this.elapsed-this.lastPassAt)<=.72;
       if(perfect){this.syncStreak++;this.maxSyncStreak=Math.max(this.maxSyncStreak||0,this.syncStreak);toast(`⚡ ${T.perfectSwitch} ×${this.syncStreak}`);if(!reducedMotion){for(let i=0;i<8&&this.particles.length<MAX_PARTICLES;i++)this.particles.push({x:450,y:450,vx:(this.rng()-.5)*90,vy:(this.rng()-.5)*90,life:.42,max:.42,color:i%2?'#55d5ff':'#ffd166',kind:'spark',size:3});}}
       else this.syncStreak=0;
-      const wasFirstInput=!this.firstInput;AudioFx.switch();if(perfect)AudioFx.sync(this.syncStreak);Haptics.switch();this.pendingPhase=nextPhase;this.pedestrianHold=false;this.transitionTimer=this.config.clearance;this.switches++;this.firstInput=true;this.dispatchReceipt=typeof TrafficPulseDispatchReceipt!=='undefined'?TrafficPulseDispatchReceipt.begin(this.mode,this.level,nextPhase,waiting,this.elapsed):null;if(typeof TrafficPulsePulseContract!=='undefined')TrafficPulsePulseContract.switchTo(this.pulseContract,nextPhase);
+      AudioFx.switch();if(perfect)AudioFx.sync(this.syncStreak);Haptics.switch();this.pendingPhase=nextPhase;this.pedestrianHold=false;this.transitionTimer=this.config.clearance;this.switches++;this.firstInput=true;this.dispatchReceipt=typeof TrafficPulseDispatchReceipt!=='undefined'?TrafficPulseDispatchReceipt.begin(this.mode,this.level,nextPhase,waiting,this.elapsed):null;if(typeof TrafficPulsePulseContract!=='undefined')TrafficPulsePulseContract.switchTo(this.pulseContract,nextPhase);
       clearTimeout(this.tutorialCueTimer);this.tutorialCueTimer=0;hideFirstSessionCoach();updateSignalIcon();updateHud();
-      if(occupiedNow)showFirstSessionCoach('occupied',T.tutorialCoachOccupied,2800);else if(wasFirstInput&&this.level===1)this.scheduleNotice(()=>{if(this.state==='playing'&&this.level===1&&this.firstInput)showFirstSessionCoach('clearance',T.tutorialCoachClearance,2600);},260);
+      // M226: M223 interactive training already teaches all-red clearance. Repeating a
+      // modal-like coach after the first live tap hides the actual junction outcome.
+      if(occupiedNow)showFirstSessionCoach('occupied',T.tutorialCoachOccupied,2800);
       return true;
     },
     toggleJunction(junctionId){
