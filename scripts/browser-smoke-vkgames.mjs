@@ -93,6 +93,8 @@ async function checkInteractiveTraining(browser,address){
     },{timeout:16000});
     const dispatchAfterPass=await page.$eval('#dispatch-receipt-detail',el=>el.textContent);
     assert.match(dispatchAfterPass,/×[1-9]/,'visible result counts a real car crossing');
+    assert.equal(await page.$eval('#tap-hint',el=>getComputedStyle(el).display),'none',
+      'repeated clearance instruction must not cover the first real junction result');
     await page.screenshot({path:resolve(root,'artifacts/browser-smoke/m226-first-car-crossed.png')});
 
     assert.equal(await page.$eval('#training-panel',el=>getComputedStyle(el).display),'none');
