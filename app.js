@@ -5349,6 +5349,19 @@
     return{axis,group};
   }
 
+  // Short first-session copy for the fixed-width phone landscape side panel.
+  // The complete localized goal remains available through title and aria-label.
+  function compactDispatchGoal(level,language){
+    const ru=['Открой ↕','Меняй вовремя','Следи за двумя дорогами','Дождись свободного узла',
+      'Пропускай группой','Береги пешеходов','Держи ритм','Чередуй потоки',
+      'Контролируй все въезды','Заверши последнюю волну'];
+    const en=['Open ↕','Time your switch','Watch both roads','Wait until clear',
+      'Release a group','Watch pedestrians','Keep the rhythm','Alternate the flows',
+      'Watch all entries','Finish the last wave'];
+    const n=Number(level);
+    return Number.isInteger(n)&&n>=1&&n<=10?(language==='ru'?ru:en)[n-1]:'';
+  }
+
   function levelGoal(){
     let base='';
     if(Game.assistActive)base=T.assistGoal;
@@ -5394,7 +5407,11 @@
   function updateHud(){
     if(!$('coins'))return;
     setHudText('coins','coins',String(save.coins));setHudText('stars','total-stars',String(save.totalStars));const scenarioDef=Game.mode==='scenario'?(Game.scenarioDirector?.def||scenarioDefinition(Game.scenarioId)):null,greenWaveDef=Game.mode==='greenwave'?greenWaveDefinition(Game.greenWaveId):null;setHudText('level','level-label',Game.mode==='greenwave'?(greenWaveDef?T[greenWaveDef.nameKey]:T.greenWaveMode):Game.mode==='scenario'?(scenarioDef?T[scenarioDef.nameKey]:T.scenarioMode):Game.mode==='daily'?T.dailyChallenge:Game.mode==='weekly'?T.weeklyChallenge:Game.mode==='endless'?`${T.endlessWave} ${Game.endlessWave}`:`${T.level} ${Game.level}`);
-    const d=districtInfo(Game.level);setHudText('district','district',Game.mode==='greenwave'?T.greenWaveDistrict:Game.mode==='scenario'?T.scenarioDistrict:Game.mode==='daily'?T.dailyDistrict:Game.mode==='weekly'?T.weeklyDistrict:Game.mode==='endless'?T.endlessDistrict:T[d.key]);setHudText('goal','goal-text',levelGoal());document.documentElement.dataset.weather=weatherForLevel(Game.level);document.documentElement.classList.toggle('first-session-focus',Boolean(Game.mode==='training'||Game.mode==='campaign'&&Game.level<=3&&save.level<=3));updateFirstSessionCoach();
+    const d=districtInfo(Game.level);setHudText('district','district',Game.mode==='greenwave'?T.greenWaveDistrict:Game.mode==='scenario'?T.scenarioDistrict:Game.mode==='daily'?T.dailyDistrict:Game.mode==='weekly'?T.weeklyDistrict:Game.mode==='endless'?T.endlessDistrict:T[d.key]);const fullGoal=levelGoal(),compactLandscape=window.matchMedia?.('(max-height:500px) and (orientation:landscape)')?.matches;
+    const shortGoal=compactLandscape&&Game.mode==='campaign'?compactDispatchGoal(Game.level,lang):'';
+    setHudText('goal','goal-text',shortGoal||fullGoal);
+    if(HUD_CACHE.fullGoal!==fullGoal){HUD_CACHE.fullGoal=fullGoal;const el=$('goal-text');el.title=fullGoal;el.setAttribute('aria-label',fullGoal);}
+    document.documentElement.dataset.weather=weatherForLevel(Game.level);document.documentElement.classList.toggle('first-session-focus',Boolean(Game.mode==='training'||Game.mode==='campaign'&&Game.level<=3&&save.level<=3));updateFirstSessionCoach();
     $('daily-btn').classList.toggle('ui-hidden',save.level<4);$('daily-btn').classList.toggle('ready',save.level>=4&&(!save.dailyRewards[todayDailyKey()]||save.level>=21));
     const carGoal=nextCarGoal(),starsToBonus=15-(save.totalStars%15||0); 
     setHudText('insightCar','insight-car',carGoal?`${T.insightCar}: ${carGoal.name} · ${T.level} ${carGoal.level}`:T.allCars);
@@ -5406,6 +5423,7 @@
      const forecast=dispatchForecast(),forecastEl=$('dispatch-forecast');if(forecastEl){
       forecastEl.classList.toggle('ui-hidden',!forecast);
       if(forecast){forecastEl.dataset.axis=forecast.axis;
+        forecastEl.setAttribute('aria-label',lang==='ru'?'Следующий поток':'Next traffic wave');
         setHudText('dispatchForecast','dispatch-forecast-text',
           `${lang==='ru'?'СЛЕДОМ':'NEXT'} ${forecast.axis==='H'?'↔':'↕'} ×${forecast.group}`);}
     }
