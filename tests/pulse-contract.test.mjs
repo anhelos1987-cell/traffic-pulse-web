@@ -50,7 +50,7 @@ test('first-clear payout is exact and idempotent in the existing campaign reward
 });
 test('shipping HTML includes core before app and objective nodes exist',()=>{
   const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
-  const core=html.indexOf('pulse-contract-core.js?v=M224'),app=html.indexOf('app.js?v=M225-');
+  const core=html.indexOf('pulse-contract-core.js?v=M224'),app=html.indexOf('app.js?v=M226-');
   assert.ok(core>=0&&app>core);
   for(const id of ['pulse-contract','pulse-contract-label','pulse-contract-count'])assert.ok(html.includes('id="'+id+'"'));
 });
