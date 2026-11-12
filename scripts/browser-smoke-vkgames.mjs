@@ -78,6 +78,9 @@ async function checkInteractiveTraining(browser,address){
     assert.deepEqual(after.starsByLevel,before.starsByLevel);
     await page.click('#training-play-btn');
     await page.waitForSelector('#training-panel',{hidden:true,timeout:5000});
+    await page.waitForSelector('#dispatch-forecast:not(.ui-hidden)',{visible:true,timeout:5000});
+    const firstForecast=await page.$eval('#dispatch-forecast-text',el=>el.textContent.trim());
+    assert.match(firstForecast,/^(СЛЕДОМ|NEXT)\s+[↔↕]\s+×[1-4]$/,'player sees upcoming scripted traffic after training');
     assert.equal(await page.$eval('#training-panel',el=>getComputedStyle(el).display),'none');
     await page.reload({waitUntil:'networkidle2',timeout:20000});
     await page.waitForSelector('#signal-btn',{visible:true,timeout:15000});
@@ -137,6 +140,16 @@ try{
       assert.equal(initial.loaded,true,'M207 guidance module must load');
       assert.ok(initial.width>100&&initial.height>100,'Canvas should render a usable board');
       assert.ok(initial.overflow<=2,'shell must fit viewport');
+      const dispatchLayout=await page.evaluate(()=>{
+        const a=document.querySelector('#dispatch-forecast'),b=document.querySelector('#phase-indicator');
+        if(!a||!b)return {missing:true};
+        const visible=getComputedStyle(a).display!=='none';
+        const r=a.getBoundingClientRect(),s=b.getBoundingClientRect();
+        const overlap=visible&&r.right>s.left&&s.right>r.left&&r.bottom>s.top&&s.bottom>r.top;
+        return {visible,overlap,a:{left:r.left,right:r.right,top:r.top,bottom:r.bottom},b:{left:s.left,right:s.right,top:s.top,bottom:s.bottom}};
+      });
+      assert.ok(!dispatchLayout.missing&&!dispatchLayout.overlap,
+        'next-traffic forecast must not cover active signal: '+JSON.stringify(dispatchLayout));
       // M215: compare actual computed HUD typography, not just source CSS.
       // Both desktop aspect ratios must be readable without stealing space
       // from the square game board or truncating the main signal action.
