@@ -1037,7 +1037,7 @@
     {plan:'NNNWWWNN',start:'H',interval:1.28,speed:124,maxQueue:5},
     {plan:'WWWNNNEE',start:'H',interval:1.22,speed:125,maxQueue:4},
     {plan:'NNNEEEWWW',start:'V',interval:1.18,speed:126,maxQueue:4},
-    {plan:'WWNNEESSNN',start:'H',interval:1.16,speed:127,maxQueue:4},
+    {plan:'WWWNNNEESS',start:'H',interval:1.18,speed:127,maxQueue:4},
     {plan:'NNNWWWEENNSS',start:'V',interval:1.17,speed:128,maxQueue:4},
     {plan:'WWWWNNNEEESS',start:'H',interval:1.14,speed:129,maxQueue:4},
     {plan:'NNNWWWEEESSS',start:'V',interval:1.12,speed:130,maxQueue:4},
