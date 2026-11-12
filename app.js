@@ -2048,8 +2048,7 @@
     const active=Game.mode==='training'&&Boolean(Game.training),panel=$('training-panel');
     panel.classList.toggle('hidden',!active);
     document.documentElement.classList.toggle('training-active',active);
-    $('signal-btn').classList.remove('training-pulse');
-    if(!active)return;
+    if(!active){$('signal-btn').classList.remove('training-pulse');return;}
     const lesson=Game.training,complete=lesson.stage==='complete',canSwitch=Game.trainingCanSwitch();
     panel.dataset.step=String(lesson.step+1);panel.dataset.stage=lesson.stage;
     panel.setAttribute('aria-label',lang==='ru'?'Обучение':'Tutorial');
@@ -2059,7 +2058,7 @@
     setHudText('goal','goal-text',lang==='ru'?'Управляй светом — пропускай машины':'Switch the lights to keep cars moving');
     setHudText('queue','queue-label',`${lang==='ru'?'Проехало':'Cars through'} ${Game.exited}/${Game.config.total}`);
     const play=$('training-play-btn');play.classList.toggle('hidden',!complete);
-    play.textContent=lang==='ru'?'Начать игру':'Start playing';
+    setHudText('trainingPlay','training-play-btn',lang==='ru'?'Начать игру':'Start playing');
     const button=$('signal-btn');button.disabled=!canSwitch;
     button.classList.toggle('training-pulse',canSwitch);
     button.setAttribute('aria-label',trainingMessage());
