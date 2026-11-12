@@ -957,3 +957,92 @@ html.training-active .goal-row > span { white-space:normal; }
   .training-steps { font-size:11px; }
 }
 @media (prefers-reduced-motion:reduce) { .training-pulse { animation:none; } }
+
+
+/* M224 — DISPATCH ATLAS visual language.
+   Municipal route-board lettering, tactile sign panels and restrained ink/amber
+   hierarchy replace generic neon/glass UI without repainting the road simulation. */
+:root{
+  --bg:#0d1e25;--panel:#152c33;--panel2:#19333a;
+  --text:#f1eee2;--muted:#a9bbb7;--line:rgba(219,225,206,.18);
+  --cyan:#92d9cc;--green:#a9dfab;--amber:#f8c66a;--red:#ed897e;
+  --shadow:0 15px 35px rgba(5,15,19,.32);
+}
+html,body{
+  background-color:#0d1e25;
+  background-image:
+    linear-gradient(rgba(197,225,202,.045) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(197,225,202,.045) 1px,transparent 1px);
+  background-size:32px 32px;
+}
+.topbar{
+  background:#142d34;border:1px solid #365359;border-radius:10px;
+  padding:3px 8px;box-shadow:0 3px 0 #091820;
+}
+.brand-mark{
+  border-radius:8px;background:#f7c368;border:2px solid #fff0c2;
+  box-shadow:0 3px 0 #996b39;
+}
+.brand-mark::before{background:#203f43;width:25px;height:7px;transform:none;border-radius:2px}
+.brand-mark::after{background:#203f43;width:7px;height:25px;transform:none;border-radius:2px}
+.brand-mark i{z-index:2;background:#fff7de;box-shadow:12px 0 0 #fff7de,-12px 0 0 #fff7de}
+.brand-name{letter-spacing:.065em;text-shadow:none;font-weight:950}
+.level-head{
+  background:#213940;border:1px solid #547074;border-left:4px solid #f8c66a;
+  border-radius:8px;box-shadow:0 3px 0 rgba(0,0,0,.15)
+}
+.level-head .eyebrow{color:#f8cf86;letter-spacing:.15em}
+.pill,.icon-btn{
+  border-radius:8px;background:#1c3940;border:1px solid #536d6e;
+  backdrop-filter:none;box-shadow:0 2px 0 #0a1d22
+}
+.game-card{
+  border:3px solid #afc2b4;border-radius:12px;
+  box-shadow:0 8px 0 #0b1a22,0 15px 30px rgba(0,0,0,.22);
+}
+.game-card::before{background:linear-gradient(180deg,rgba(242,221,162,.035),transparent 12%,transparent 90%,rgba(0,0,0,.07))}
+.game-card::after{background:none}
+.progress{background:#0d262b;border:1px solid #496669;border-radius:3px;height:8px}
+.progress span{background:#f3c26e;box-shadow:none;transition:width .17s linear}
+.control{background:#203f45;border:1px solid #71837b;border-radius:10px;box-shadow:0 3px 0 #0b1b22}
+.control.signal,.control.signal.ready{
+  background:#e6b360;border:2px solid #fce0a3;border-radius:10px;
+  color:#173039;box-shadow:0 4px 0 #926d3b
+}
+.control.signal.occupied{border-color:#ed897e;box-shadow:0 4px 0 #8f4842}
+.phase-indicator{
+  border-radius:6px;border:2px solid #a8c1b4;background:#1a3539;
+  box-shadow:0 3px 0 #0b1b22;backdrop-filter:none;
+}
+.flow-badge,.flow-badge.hot{border-radius:4px;box-shadow:none;background:#b3d8a0;color:#14302b}
+.toast{border-radius:7px;border:2px solid #ebc077;background:#1b3238;box-shadow:0 4px 0 #0c1d20}
+.pulse-contract{
+  display:flex;align-items:center;justify-content:flex-end;gap:6px;
+  margin-top:5px;min-height:22px;max-width:100%;
+  font-size:clamp(10px,1.5vw,12px);line-height:1.15;
+  color:#e6e8d7;letter-spacing:.015em;
+}
+.pulse-contract.ui-hidden{display:none!important}
+.pulse-contract-icon{
+  flex:0 0 auto;display:grid;place-items:center;width:18px;height:18px;
+  border-radius:3px;background:#e4b565;color:#1a3035;font-size:13px
+}
+.pulse-contract-label{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pulse-contract strong{
+  flex:0 0 auto;font-variant-numeric:tabular-nums;
+  padding:3px 6px;border-radius:3px;border:1px solid #63786d;
+  background:#102b2f;color:#f9d38c;font-size:11px
+}
+.pulse-contract.armed .pulse-contract-icon{background:#a2e3c0}
+.pulse-contract.completed .pulse-contract-icon,.pulse-contract.completed strong{background:#a5dea9;color:#15302d;border-color:#a5dea9}
+@media (min-width:660px) and (orientation:landscape){
+  .pulse-contract{justify-content:flex-start}
+}
+@media (max-height:530px){
+  .pulse-contract{min-height:16px;margin-top:2px;font-size:10px}
+  .pulse-contract-icon{width:14px;height:14px}
+  .pulse-contract strong{padding:1px 4px;font-size:10px}
+}
+@media (prefers-reduced-motion:reduce){
+  .progress span{transition:none}
+}
