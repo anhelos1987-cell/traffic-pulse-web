@@ -2156,6 +2156,10 @@
       if(cue){$('tap-hint-text').textContent=cue;hint.classList.toggle('milestone',this.level!==1);hint.classList.remove('coach-warning');hint.style.display='flex';hint.setAttribute('aria-hidden','false');if(this.level!==1)this.tutorialCueTimer=setTimeout(()=>{if(hint){hint.style.display='none';hint.setAttribute('aria-hidden','true');}},3600);}
       else {hint.classList.remove('milestone','coach-warning');hint.style.display='none';hint.setAttribute('aria-hidden','true');}
       closeOverlay(); applyDistrictTheme(); updateHud();
+      // M226: training may leave the button disabled with the same cached phase.
+      // Always reconcile the actual button state on mode/level entry, even if the
+      // signal-key cache did not change since the last tutorial frame.
+      updateSignalIcon();
       if(this.mode!=='training')this.primeTraffic();
       const event=eventLabel(this.config?.variant||'standard'); if(event)this.scheduleNotice(()=>{if(this.state==='playing'&&this.level===n)toast(`⚡ ${event}`);},420);
       const traitKey=n===11?'trait2':n===21?'trait3':n===31?'trait4':n===46?'trait5':n===61?'trait6':'';
