@@ -87,7 +87,7 @@ const PREFIX='trafficpulse_vkg_v2';
    const bridge=root.vkBridge;
    const storage=deps.storage||safeStorage();
    const state={
-    ready:false,cloud:false,loaded:false,dirty:false,busy:null,timer:0,error:'',
+    ready:false,cloud:false,loaded:false,dirty:false,busy:null,timer:0,timerDueAt:0,error:'',
     appId:0,userId:0,socialPlatform:'vk',clientPlatform:'',launchQuery:'',fingerprint:'',epoch:'',head:null,base:null,
     deleting:false,deletionSupported:false,adBusy:false,rewardedStatus:'unknown',
     bannerVisible:false,bannerMode:'',bannerLastLayout:null,bannerJob:null,
@@ -298,12 +298,41 @@ const PREFIX='trafficpulse_vkg_v2';
     },
     changed(){
      if(this.deleting)return;
-     this.dirty=true;this.saveLocalMeta();this.inform();this.schedule(900);
+     this.dirty=true;this.saveLocalMeta();this.inform();this.schedule(this.error?12000:900);
     },
     schedule(delay=900){
-     clearTimeout(this.timer);this.timer=0;
-     if(!this.ready||!this.cloud||this.deleting)return;
-     this.timer=setTimeout(()=>{this.timer=0;void this.sync();},delay);
+     if(!this.ready||!this.cloud||this.deleting){
+       clearTimeout(this.timer);this.timer=0;this.timerDueAt=0;return;
+     }
+     const wait=Math.max(0,Number(delay)||0),dueAt=Date.now()+wait;
+     // Keep the earliest pending write. Frequent progress changes must not starve
+     // cloud persistence by continuously restarting the debounce window.
+     if(this.timer&&this.timerDueAt<=dueAt)return;
+     clearTimeout(this.timer);
+     this.timerDueAt=dueAt;
+     this.timer=setTimeout(()=>{this.timer=0;this.timerDueAt=0;void this.sync();},wait);
+    },
+    // M209: clean devices also inspect the committed pointer on focus/heartbeat.
+    // A different device may have overwritten our last known generation after our
+    // successful write. Read the small pointer first, not all save chunks every 25s.
+    async reconcileRemote(){
+     if(!this.ready||!this.cloud||!this.loaded||this.dirty||this.deleting)return false;
+     const deadline=Date.now()+IO_DEADLINE_MS;
+     const [epoch,indexText]=await this.get([EPOCH,INDEX],deadline);
+     if(epoch!==this.epoch)throw new Error('VK data changed on another device; reload the game');
+     const manifest=parseManifest(indexText);
+     if((manifest?.generation||'')===(this.head?.generation||''))return false;
+     const latest=await this.readSnapshot(deadline);
+     const local=cleanProgress(deps.getSave(),deps.normalize);
+     const merged=latest.progress?deps.merge(local,latest.progress,this.base):local;
+     if(!sameProgress(local,merged,deps.normalize))
+       deps.onLoad(cleanProgress(merged,deps.normalize),{accountChanged:false});
+     this.head=latest.manifest;this.base=latest.progress;
+     this.dirty=latest.progress
+       ?!sameProgress(deps.getSave(),latest.progress,deps.normalize)
+       :Number(local.revision||0)>0;
+     this.error='';this.saveLocalMeta();deps.onRead?.();this.inform();
+     return true;
     },
     async cleanupOld(old,next){
      if(!old||old.generation===next.generation)return;
@@ -343,16 +372,34 @@ const PREFIX='trafficpulse_vkg_v2';
      if((await this.get([EPOCH],deadline))[0]!==this.epoch)throw new Error('VK data changed on another device; reload the game');
      const old=this.head;
      await this.set(INDEX,JSON.stringify(next),deadline); // Commit pointer last.
+     // Without compare-and-swap a second device can overwrite this pointer.
+     // Detect overwrites visible before acknowledgment and re-merge instead of
+     // reporting "saved" for a generation that is no longer current.
+     const [checkEpoch,checkIndex]=await this.get([EPOCH,INDEX],deadline);
+     if(checkEpoch!==this.epoch)throw new Error('VK data changed on another device; reload the game');
+     const confirmed=parseManifest(checkIndex);
+     if(!confirmed||confirmed.generation!==next.generation){
+       const latest=await this.readSnapshot(deadline);
+       if(latest.progress){
+         const merged=deps.merge(cleanProgress(deps.getSave(),deps.normalize),latest.progress,this.base);
+         deps.onLoad(cleanProgress(merged,deps.normalize),{accountChanged:false});
+       }
+       this.head=latest.manifest;this.base=latest.progress;this.dirty=true;
+       this.saveLocalMeta();deps.onRead?.();this.inform();return false;
+     }
      this.head=next;this.base=progress;this.error='';this.dirty=!sameProgress(deps.getSave(),progress,deps.normalize);
      this.saveLocalMeta();deps.onWrite?.();void this.cleanupOld(old,next);
      return true;
     },
     async sync(){
      if(!this.ready||!this.cloud||this.deleting||root.navigator?.onLine===false)return false;
-     if(this.busy){this.dirty=true;return this.busy;}
+     if(this.busy)return this.busy; // changed() already records a genuine edit while busy.
+     // An explicit sync (including visibility/pagehide) supersedes a queued timer.
+     clearTimeout(this.timer);this.timer=0;this.timerDueAt=0;
      const job=(async()=>{
        if(!this.loaded)await this.load();
-       if(this.dirty)await this.write();
+       if(!this.dirty)await this.reconcileRemote();
+       if(this.dirty)return await this.write();
        return true;
      })();
      this.busy=job;this.inform();
@@ -366,7 +413,7 @@ const PREFIX='trafficpulse_vkg_v2';
     },
     async deleteData(){
      if(!this.ready||!this.cloud||!this.deletionSupported||this.adBusy)throw new Error('VK data deletion unavailable');
-     this.deleting=true;clearTimeout(this.timer);this.timer=0;this.inform();
+     this.deleting=true;clearTimeout(this.timer);this.timer=0;this.timerDueAt=0;this.inform();
      const deadline=Date.now()+120000;
      try{
        while(this.busy){remaining(deadline);await new Promise(r=>setTimeout(r,50));}
