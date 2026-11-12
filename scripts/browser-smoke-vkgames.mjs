@@ -60,11 +60,13 @@ async function checkInteractiveTraining(browser,address){
       }
     }
     // The practice starts with both roads occupied. Only player inputs release both queues.
-    await page.waitForFunction(()=>!document.querySelector('#signal-btn').disabled,{timeout:20000});
-    await page.click('#signal-btn');
-    await page.waitForFunction(()=>document.querySelector('#signal-btn').disabled,{timeout:2000});
-    await page.waitForFunction(()=>!document.querySelector('#signal-btn').disabled,{timeout:20000});
-    await page.click('#signal-btn');
+    for(let turn=0;turn<2;turn++){
+      await page.waitForFunction(()=>document.querySelector('#training-panel').dataset.stage==='complete'||!document.querySelector('#signal-btn').disabled,{timeout:20000});
+      if(await page.$eval('#training-panel',el=>el.dataset.stage==='complete'))break;
+      const through=await page.$eval('#queue-label',el=>el.textContent);
+      await page.click('#signal-btn');
+      await page.waitForFunction(previous=>document.querySelector('#training-panel').dataset.stage==='complete'||document.querySelector('#queue-label').textContent!==previous,{timeout:20000},through);
+    }
     await page.waitForSelector('#training-panel[data-stage="complete"]',{visible:true,timeout:30000});
     const after=await page.evaluate(()=>JSON.parse(localStorage.getItem('traffic_pulse_vk_games_save_v1')));
     assert.equal(after.trainingCompleted,true);
