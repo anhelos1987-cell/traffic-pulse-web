@@ -66,10 +66,13 @@ test('M206: non-onboarding jams and crashes preserve existing copy',()=>{
   assert.equal(failHarness({level:2,type:'crash'}).text,'Crossing conflict.');
   assert.equal(failHarness({level:2,fails:2}).text,'Queue limit exceeded. Open the waiting stream. Assist next run.');
 });
-test('M206: tutorial callback belongs to restart-cancellable notice list',()=>{
+test('M226: live campaign no longer obscures crossing with a redundant clearance coach',()=>{
   const toggle=section('    toggle(junctionId=null){','    toggleJunction(junctionId){');
-  assert.match(toggle,/this\.scheduleNotice\(\(\)=>\{if\(this\.state==='playing'/);
-  assert.doesNotMatch(toggle,/else if\(wasFirstInput&&this\.level===1\)setTimeout/);
+  assert.doesNotMatch(toggle,/showFirstSessionCoach\('clearance'/,
+    'M223 interactive training already demonstrates clearance; live traffic stays visible');
+  assert.match(toggle,/hideFirstSessionCoach\(\)/);
+  assert.match(toggle,/showFirstSessionCoach\('occupied'/,
+    'actual risky switches still retain their safety warning');
   const level=section('    startLevel(n,rescued=false,mode=','    startScenario(');
   assert.match(level,/this\.clearNoticeTimers\(\)/);
 });
