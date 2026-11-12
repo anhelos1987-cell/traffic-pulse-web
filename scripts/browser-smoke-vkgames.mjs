@@ -196,7 +196,7 @@ try{
         };
       });
       assert.equal(pauseMetrics.isPause,true,'pause dialog must select its own layout');
-      assert.equal(pauseMetrics.buttonCount,12,'all twelve pause actions must remain available');
+      assert.equal(pauseMetrics.buttonCount,13,'pause actions must include the replayable tutorial');
       assert.equal(pauseMetrics.firstButtonVisible,true,'Continue remains touchable');
       assert.ok(pauseMetrics.minButtonHeight>=44,'all pause actions must be at least 44 CSS px tall: '+JSON.stringify(pauseMetrics));
       assert.ok(pauseMetrics.maxButtonOverflow<=2,'localized button text must fit: '+JSON.stringify(pauseMetrics));
