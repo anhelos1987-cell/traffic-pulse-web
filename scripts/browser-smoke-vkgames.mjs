@@ -140,6 +140,15 @@ try{
       assert.equal(initial.loaded,true,'M207 guidance module must load');
       assert.ok(initial.width>100&&initial.height>100,'Canvas should render a usable board');
       assert.ok(initial.overflow<=2,'shell must fit viewport');
+      if(viewport.width===844&&viewport.height===390){
+        const heading=await page.$eval('#goal-text',el=>({
+          value:el.textContent.trim(),accessible:el.getAttribute('aria-label'),overflow:el.scrollWidth-el.clientWidth
+        }));
+        assert.equal(heading.value,'Открой ↕','short readable copy is intentionally localized on short landscape');
+        assert.ok(heading.accessible?.includes('вертикальный'),
+          'assistive technology still receives the complete localized objective');
+        assert.ok(heading.overflow<=2,'compact first-session goal must fit without truncation');
+      }
       const dispatchLayout=await page.evaluate(()=>{
         const a=document.querySelector('#dispatch-forecast'),b=document.querySelector('#phase-indicator');
         if(!a||!b)return {missing:true};
