@@ -50,6 +50,19 @@ test('M225: forecast disappears in training, late campaign, daily, or after fina
     assert.equal(f({...g,...patch}),null);
   }
 });
+test('M225: compact horizontal-phone titles are localized and retain core goals outside the presentation layer',()=>{
+  const code=section('  function compactDispatchGoal(level,language){','  function levelGoal(){');
+  const context={};
+  runInNewContext(code+'\nglobalThis.shortGoal=compactDispatchGoal;',context);
+  const short=context.shortGoal;
+  assert.equal(short(1,'ru'),'Открой ↕');
+  assert.equal(short(1,'en'),'Open ↕');
+  assert.equal(short(6,'ru'),'Береги пешеходов');
+  assert.equal(short(11,'ru'),'');
+  assert.equal(short(0,'en'),'');
+  assert.match(source,/el\.setAttribute\('aria-label',fullGoal\)/);
+});
+
 test('M225: atlas cached separately from later city and does not replace actual roads',()=>{
   assert.match(source,/dispatchFocusWorld\(game\)/);
   assert.match(source,/\$\{dispatchFocus\?'focus':'city'\}/);
