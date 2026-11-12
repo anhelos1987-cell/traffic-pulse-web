@@ -1062,5 +1062,5 @@ html,body{
 .dispatch-forecast i{display:block;width:8px;height:8px;border-radius:2px;background:#ecc26f}
 .dispatch-forecast[data-axis="V"] i{background:#9edcbd}
 @media(max-height:430px){
-  .dispatch-forecast{left:8px;bottom:8px;min-height:28px;padding:4px 7px;font-size:10px}
+  .dispatch-forecast{left:8px;top:8px;bottom:auto;min-height:28px;padding:4px 7px;font-size:10px}
 }
