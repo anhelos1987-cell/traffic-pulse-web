@@ -29,5 +29,5 @@ test('M227: atlas deck has a unique decorative mark with no new interaction',()=
   assert.equal((html.match(/class="dispatch-console-stamp"/g)||[]).length,1);
   assert.match(css,/\.dispatch-console-stamp\{display:none\}/);
   assert.match(css,/pointer-events:none/);
-  assert.match(html,/src="app\.js\?v=M227-VKGAMES-MOBILE-DISPATCH-CONSOLE"/);
+  assert.match(html,/src="app\.js\?v=M228-VKGAMES-FIRST-TEN-AUDIT-ATLAS-CONTINUITY"/);
 });
