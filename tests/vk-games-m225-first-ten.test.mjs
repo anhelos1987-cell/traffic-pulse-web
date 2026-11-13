@@ -66,7 +66,7 @@ test('M225: compact horizontal-phone titles are localized and retain core goals 
 test('M225: atlas cached separately from later city and does not replace actual roads',()=>{
   assert.match(source,/dispatchFocusWorld\(game\)/);
   assert.match(source,/\$\{dispatchFocus\?'focus':'city'\}/);
-  assert.match(source,/if\(dispatchFocus\)\{drawDispatchAtlasBase\(g\);\}else\{/);
+  assert.match(source,/if\(dispatchFocus\)\{drawDispatchAtlasBase\(g,theme\.id\);\}else\{/);
   assert.match(source,/drawRoadSurface\(g,lanes\);drawSidewalkFrame\(g,lanes\);drawAsphaltSheen/);
   assert.match(source,/if\(!focusWorld\)drawSidewalkPedestrians\(g,game\);/);
   assert.ok(html.includes('id="dispatch-forecast"')&&html.includes('id="dispatch-forecast-text"'));
