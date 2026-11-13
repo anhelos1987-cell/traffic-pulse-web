@@ -81,6 +81,29 @@ async function checkInteractiveTraining(browser,address){
     await page.waitForSelector('#dispatch-forecast:not(.ui-hidden)',{visible:true,timeout:5000});
     const firstForecast=await page.$eval('#dispatch-forecast-text',el=>el.textContent.trim());
     assert.match(firstForecast,/^(СЛЕДОМ|NEXT)\s+[↔↕]\s+×[1-4]$/,'player sees upcoming scripted traffic after training');
+    // M227: world stays square and fully visible; only the surrounding console
+    // grows into previously unused tall-phone space. No geometric stretching.
+    const portraitDeck=await page.evaluate(()=>{
+      const r=selector=>document.querySelector(selector).getBoundingClientRect();
+      const card=r('.game-card'),canvas=r('#game'),head=r('.level-head'),controls=r('.controls');
+      return {
+        active:document.documentElement.classList.contains('dispatch-portrait-deck'),
+        cardHeight:card.height,canvasWidth:canvas.width,canvasHeight:canvas.height,
+        topRail:canvas.top-card.top,bottomRail:card.bottom-canvas.bottom,
+        headGap:card.top-head.bottom,controlsGap:controls.top-card.bottom,
+        overflow:document.documentElement.scrollWidth-innerWidth,
+        cardBottom:card.bottom
+      };
+    });
+    assert.equal(portraitDeck.active,true,'first campaign level activates portrait console');
+    assert.ok(portraitDeck.canvasWidth>=340&&Math.abs(portraitDeck.canvasWidth-portraitDeck.canvasHeight)<=4,
+      'map keeps square aspect and near-full phone width: '+JSON.stringify(portraitDeck));
+    assert.ok(portraitDeck.topRail>=60&&portraitDeck.bottomRail>=50,
+      'forecast and signal rails occupy otherwise unused portrait height: '+JSON.stringify(portraitDeck));
+    assert.ok(portraitDeck.headGap>=0&&portraitDeck.controlsGap>=0&&portraitDeck.overflow<=2,
+      'deck must not overlap game controls or escape viewport: '+JSON.stringify(portraitDeck));
+    await page.screenshot({path:resolve(root,'artifacts/browser-smoke/m227-portrait-console.png')});
+
     // M226: one actual button press must cause an observable receipt of crossing
     // a junction, rather than merely showing a generic "button pressed" badge.
     await page.waitForFunction(()=>!document.querySelector('#signal-btn')?.disabled,{timeout:5000});
@@ -93,9 +116,25 @@ async function checkInteractiveTraining(browser,address){
     },{timeout:16000});
     const dispatchAfterPass=await page.$eval('#dispatch-receipt-detail',el=>el.textContent);
     assert.match(dispatchAfterPass,/×[1-9]/,'visible result counts a real car crossing');
+    const portraitBands=await page.evaluate(()=>{
+      const r=selector=>document.querySelector(selector).getBoundingClientRect();
+      const card=r('.game-card'),canvas=r('#game'),forecast=r('#dispatch-forecast'),receipt=r('#dispatch-receipt'),phase=r('#phase-indicator');
+      const overlap=(a,b)=>a.left<b.right&&b.left<a.right&&a.top<b.bottom&&b.top<a.bottom;
+      return {
+        forecastOnRail:forecast.bottom<canvas.top,
+        receiptOnRail:receipt.bottom<canvas.top,
+        phaseOnRail:phase.top>canvas.bottom,
+        receiptOverForecast:overlap(receipt,forecast),
+        controlsOverlap:card.bottom>r('.controls').top
+      };
+    });
+    assert.ok(portraitBands.forecastOnRail&&portraitBands.receiptOnRail&&portraitBands.phaseOnRail,
+      'action cues must be outside traffic sightlines: '+JSON.stringify(portraitBands));
+    assert.ok(!portraitBands.receiptOverForecast&&!portraitBands.controlsOverlap,
+      'dispatch signals must never cover each other or controls: '+JSON.stringify(portraitBands));
     assert.equal(await page.$eval('#tap-hint',el=>getComputedStyle(el).display),'none',
       'repeated clearance instruction must not cover the first real junction result');
-    await page.screenshot({path:resolve(root,'artifacts/browser-smoke/m226-first-car-crossed.png')});
+    await page.screenshot({path:resolve(root,'artifacts/browser-smoke/m227-first-car-crossed.png')});
 
     assert.equal(await page.$eval('#training-panel',el=>getComputedStyle(el).display),'none');
     await page.reload({waitUntil:'networkidle2',timeout:20000});
