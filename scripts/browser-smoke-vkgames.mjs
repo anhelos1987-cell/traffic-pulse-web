@@ -391,7 +391,7 @@ try{
         const anchor='  function startApp(){';
         assert.equal(original.split(anchor).length-1,1);
         const instrumented=original.replace(anchor,
-          '  window.__tpQA={win:()=>Game.win(),game:Game,perf:PerfProbe};\n'+anchor);
+          '  window.__tpQA={win:()=>Game.win(),game:Game,perf:PerfProbe,focus:()=>dispatchFocusWorld(Game)};\n'+anchor);
         await request.respond({status:200,contentType:'application/javascript',body:instrumented});
       }catch(error){console.error(error);await request.abort();}
     }else await request.continue();
@@ -440,6 +440,19 @@ try{
     const expanded=await winPage.$eval('.win-breakdown',el=>el.open);
     assert.equal(expanded,true,'reward details expand with a native accessible control');
     console.log('PASS M216 real campaign win dialog',result);
+    // M228: screenshot real shipping worlds in 3 consecutive districts.
+    // Never call any free-win hook for these; game starts normally in a fresh
+    // campaign level. The QA-only focus query is request-injected, not shipped.
+    for(const [level,shouldFocus,name] of [[11,true,'coast'],[21,true,'downtown'],[31,false,'legacy-city']]){
+      await winPage.evaluate(n=>window.__tpQA.game.startLevel(n,false,'campaign'),level);
+      await winPage.waitForFunction(n=>window.__tpQA.game.level===n&&window.__tpQA.game.state==='playing',
+        {timeout:5000},level);
+      const actualFocus=await winPage.evaluate(()=>window.__tpQA.focus());
+      assert.equal(actualFocus,shouldFocus,'M228 original Atlas isolation on level '+level);
+      await winPage.waitForTimeout(180);
+      await winPage.screenshot({path:resolve(root,'artifacts/browser-smoke','m228-level-'+level+'-'+name+'.png')});
+      console.log('PASS M228 district visual identity',level,name,'atlas:',actualFocus);
+    }
     assert.deepEqual(winErrors,[],'real win page must have zero errors');
   }finally{await winPage.close();}
 }finally{
