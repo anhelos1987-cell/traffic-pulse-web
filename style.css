@@ -1085,3 +1085,63 @@ html,body{
   .dispatch-receipt{right:7px;top:6px;max-width:42%;min-width:0;padding:5px 7px;gap:2px}
   .dispatch-receipt b,.dispatch-receipt strong{font-size:10px}
 }
+
+
+/* M227 — portrait dispatch deck.
+   The gameplay world remains SQUARE and keeps its real aspect ratio. Tall
+   phones gain two instrument rails for forecast and phase/outcome information,
+   not a distorted road or cropped approach lanes.
+   This adapts only first-ten campaign screens with enough vertical space. */
+.dispatch-console-stamp{display:none}
+@media (max-width:520px) and (min-width:350px) and (min-height:740px) and (orientation:portrait){
+  html.dispatch-portrait-deck .game-card{
+    width:min(100%,var(--board-max));
+    height:auto;aspect-ratio:auto;
+    padding-top:65px;padding-bottom:55px;
+    align-self:center;justify-self:center;
+    background:
+      linear-gradient(180deg,rgba(26,60,62,.97),rgba(20,47,52,.97)),
+      repeating-linear-gradient(90deg,transparent 0 25px,rgba(221,218,176,.06) 26px 27px);
+    box-shadow:0 7px 0 #0d2026,0 16px 32px rgba(1,10,13,.29);
+    border-radius:12px;
+  }
+  html.dispatch-portrait-deck .game-card canvas{
+    width:100%;height:auto;aspect-ratio:1/1;
+    border-top:2px solid #a7bcad;border-bottom:2px solid #a7bcad;
+    background:#779e87;
+  }
+  html.dispatch-portrait-deck .game-card::before{
+    background:
+      linear-gradient(90deg,transparent 0,rgba(242,214,153,.08) 50%,transparent 100%);
+    z-index:3;
+  }
+  html.dispatch-portrait-deck .game-card::after{background:none}
+  html.dispatch-portrait-deck .game-card .dispatch-forecast{
+    left:11px;top:14px;bottom:auto;right:auto;
+    z-index:5;min-height:34px;max-width:48%;
+    box-shadow:none;background:rgba(14,39,43,.93);border-color:#8daaa1;
+  }
+  html.dispatch-portrait-deck .game-card .dispatch-receipt{
+    top:7px;right:9px;bottom:auto;z-index:5;
+    min-width:0;max-width:47%;padding:7px 8px;gap:2px;
+    background:rgba(14,39,43,.93);box-shadow:none;
+  }
+  html.dispatch-portrait-deck .game-card .dispatch-receipt b,
+  html.dispatch-portrait-deck .game-card .dispatch-receipt strong{font-size:10px;line-height:1.14}
+  html.dispatch-portrait-deck .game-card .phase-indicator{
+    right:10px;bottom:11px;top:auto;z-index:5;
+    min-height:31px;max-width:54%;padding:5px 8px;
+    box-shadow:none;border:1px solid #66827d;background:#123138;
+    white-space:nowrap;
+  }
+  html.dispatch-portrait-deck .game-card .dispatch-console-stamp{
+    display:flex;align-items:center;gap:5px;
+    position:absolute;bottom:19px;left:13px;z-index:5;
+    color:#e6c588;font:900 11px/1.1 ui-monospace,SFMono-Regular,Consolas,monospace;
+    letter-spacing:.065em;pointer-events:none;
+  }
+  html.dispatch-portrait-deck .dispatch-console-stamp b{font-size:10px;color:#b9cfc1}
+  html.dispatch-portrait-deck .dispatch-console-stamp i{display:block;width:28px;height:1px;background:#6f9286}
+  html.dispatch-portrait-deck .game-card .toast{top:75px;max-width:85%;z-index:6}
+  html.dispatch-portrait-deck .game-card .tap-hint{z-index:5}
+}
