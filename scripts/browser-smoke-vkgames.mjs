@@ -449,7 +449,7 @@ try{
         {timeout:5000},level);
       const actualFocus=await winPage.evaluate(()=>window.__tpQA.focus());
       assert.equal(actualFocus,shouldFocus,'M228 original Atlas isolation on level '+level);
-      await winPage.waitForTimeout(180);
+      await new Promise(resolve=>setTimeout(resolve,180));
       await winPage.screenshot({path:resolve(root,'artifacts/browser-smoke','m228-level-'+level+'-'+name+'.png')});
       console.log('PASS M228 district visual identity',level,name,'atlas:',actualFocus);
     }
