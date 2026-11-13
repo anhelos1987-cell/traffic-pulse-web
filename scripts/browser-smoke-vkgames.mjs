@@ -78,6 +78,64 @@ async function checkInteractiveTraining(browser,address){
     assert.deepEqual(after.starsByLevel,before.starsByLevel);
     await page.click('#training-play-btn');
     await page.waitForSelector('#training-panel',{hidden:true,timeout:5000});
+    await page.waitForSelector('#dispatch-forecast:not(.ui-hidden)',{visible:true,timeout:5000});
+    const firstForecast=await page.$eval('#dispatch-forecast-text',el=>el.textContent.trim());
+    assert.match(firstForecast,/^(СЛЕДОМ|NEXT)\s+[↔↕]\s+×[1-4]$/,'player sees upcoming scripted traffic after training');
+    // M227: world stays square and fully visible; only the surrounding console
+    // grows into previously unused tall-phone space. No geometric stretching.
+    const portraitDeck=await page.evaluate(()=>{
+      const r=selector=>document.querySelector(selector).getBoundingClientRect();
+      const card=r('.game-card'),canvas=r('#game'),head=r('.level-head'),controls=r('.controls');
+      return {
+        active:document.documentElement.classList.contains('dispatch-portrait-deck'),
+        cardHeight:card.height,canvasWidth:canvas.width,canvasHeight:canvas.height,
+        topRail:canvas.top-card.top,bottomRail:card.bottom-canvas.bottom,
+        headGap:card.top-head.bottom,controlsGap:controls.top-card.bottom,
+        overflow:document.documentElement.scrollWidth-innerWidth,
+        cardBottom:card.bottom
+      };
+    });
+    assert.equal(portraitDeck.active,true,'first campaign level activates portrait console');
+    assert.ok(portraitDeck.canvasWidth>=340&&Math.abs(portraitDeck.canvasWidth-portraitDeck.canvasHeight)<=4,
+      'map keeps square aspect and near-full phone width: '+JSON.stringify(portraitDeck));
+    assert.ok(portraitDeck.topRail>=60&&portraitDeck.bottomRail>=50,
+      'forecast and signal rails occupy otherwise unused portrait height: '+JSON.stringify(portraitDeck));
+    assert.ok(portraitDeck.headGap>=0&&portraitDeck.controlsGap>=0&&portraitDeck.overflow<=2,
+      'deck must not overlap game controls or escape viewport: '+JSON.stringify(portraitDeck));
+    await page.screenshot({path:resolve(root,'artifacts/browser-smoke/m227-portrait-console.png')});
+
+    // M226: one actual button press must cause an observable receipt of crossing
+    // a junction, rather than merely showing a generic "button pressed" badge.
+    await page.waitForFunction(()=>!document.querySelector('#signal-btn')?.disabled,{timeout:5000});
+    await page.click('#signal-btn');
+    await page.waitForSelector('#dispatch-receipt:not(.ui-hidden)',{visible:true,timeout:3000});
+    assert.match(await page.$eval('#dispatch-receipt-title',el=>el.textContent),/ПЕРЕКЛЮЧЕНИЕ|SWITCHING/);
+    await page.waitForFunction(()=>{
+      const el=document.querySelector('#dispatch-receipt');
+      return el?.dataset.stage==='passed'&&/×[1-9]/.test(document.querySelector('#dispatch-receipt-detail')?.textContent||'');
+    },{timeout:16000});
+    const dispatchAfterPass=await page.$eval('#dispatch-receipt-detail',el=>el.textContent);
+    assert.match(dispatchAfterPass,/×[1-9]/,'visible result counts a real car crossing');
+    const portraitBands=await page.evaluate(()=>{
+      const r=selector=>document.querySelector(selector).getBoundingClientRect();
+      const card=r('.game-card'),canvas=r('#game'),forecast=r('#dispatch-forecast'),receipt=r('#dispatch-receipt'),phase=r('#phase-indicator');
+      const overlap=(a,b)=>a.left<b.right&&b.left<a.right&&a.top<b.bottom&&b.top<a.bottom;
+      return {
+        forecastOnRail:forecast.bottom<canvas.top,
+        receiptOnRail:receipt.bottom<canvas.top,
+        phaseOnRail:phase.top>canvas.bottom,
+        receiptOverForecast:overlap(receipt,forecast),
+        controlsOverlap:card.bottom>r('.controls').top
+      };
+    });
+    assert.ok(portraitBands.forecastOnRail&&portraitBands.receiptOnRail&&portraitBands.phaseOnRail,
+      'action cues must be outside traffic sightlines: '+JSON.stringify(portraitBands));
+    assert.ok(!portraitBands.receiptOverForecast&&!portraitBands.controlsOverlap,
+      'dispatch signals must never cover each other or controls: '+JSON.stringify(portraitBands));
+    assert.equal(await page.$eval('#tap-hint',el=>getComputedStyle(el).display),'none',
+      'repeated clearance instruction must not cover the first real junction result');
+    await page.screenshot({path:resolve(root,'artifacts/browser-smoke/m227-first-car-crossed.png')});
+
     assert.equal(await page.$eval('#training-panel',el=>getComputedStyle(el).display),'none');
     await page.reload({waitUntil:'networkidle2',timeout:20000});
     await page.waitForSelector('#signal-btn',{visible:true,timeout:15000});
@@ -137,6 +195,33 @@ try{
       assert.equal(initial.loaded,true,'M207 guidance module must load');
       assert.ok(initial.width>100&&initial.height>100,'Canvas should render a usable board');
       assert.ok(initial.overflow<=2,'shell must fit viewport');
+      if(viewport.width===844&&viewport.height===390){
+        const heading=await page.$eval('#goal-text',el=>({
+          value:el.textContent.trim(),accessible:el.getAttribute('aria-label'),overflow:el.scrollWidth-el.clientWidth
+        }));
+        assert.equal(heading.value,'Открой ↕','short readable copy is intentionally localized on short landscape');
+        assert.ok(heading.accessible?.includes('вертикальный'),
+          'assistive technology still receives the complete localized objective');
+        assert.ok(heading.overflow<=2,'compact first-session goal must fit without truncation');
+      }
+      const receiptLayout=await page.evaluate(()=>{
+        const el=document.querySelector('#dispatch-receipt'),phase=document.querySelector('#phase-indicator');
+        if(!el||!phase)return {missing:true};
+        const a=el.getBoundingClientRect(),b=phase.getBoundingClientRect();
+        return {missing:false,overlap:getComputedStyle(el).display!=='none'&&a.right>b.left&&b.right>a.left&&a.bottom>b.top&&b.bottom>a.top};
+      });
+      assert.ok(!receiptLayout.missing&&!receiptLayout.overlap,
+        'action receipt cannot cover the active-phase indicator: '+JSON.stringify(receiptLayout));
+      const dispatchLayout=await page.evaluate(()=>{
+        const a=document.querySelector('#dispatch-forecast'),b=document.querySelector('#phase-indicator');
+        if(!a||!b)return {missing:true};
+        const visible=getComputedStyle(a).display!=='none';
+        const r=a.getBoundingClientRect(),s=b.getBoundingClientRect();
+        const overlap=visible&&r.right>s.left&&s.right>r.left&&r.bottom>s.top&&s.bottom>r.top;
+        return {visible,overlap,a:{left:r.left,right:r.right,top:r.top,bottom:r.bottom},b:{left:s.left,right:s.right,top:s.top,bottom:s.bottom}};
+      });
+      assert.ok(!dispatchLayout.missing&&!dispatchLayout.overlap,
+        'next-traffic forecast must not cover active signal: '+JSON.stringify(dispatchLayout));
       // M215: compare actual computed HUD typography, not just source CSS.
       // Both desktop aspect ratios must be readable without stealing space
       // from the square game board or truncating the main signal action.
@@ -306,7 +391,7 @@ try{
         const anchor='  function startApp(){';
         assert.equal(original.split(anchor).length-1,1);
         const instrumented=original.replace(anchor,
-          '  window.__tpQA={win:()=>Game.win(),game:Game,perf:PerfProbe};\n'+anchor);
+          '  window.__tpQA={win:()=>Game.win(),game:Game,perf:PerfProbe,focus:()=>dispatchFocusWorld(Game)};\n'+anchor);
         await request.respond({status:200,contentType:'application/javascript',body:instrumented});
       }catch(error){console.error(error);await request.abort();}
     }else await request.continue();
@@ -355,6 +440,19 @@ try{
     const expanded=await winPage.$eval('.win-breakdown',el=>el.open);
     assert.equal(expanded,true,'reward details expand with a native accessible control');
     console.log('PASS M216 real campaign win dialog',result);
+    // M228: screenshot real shipping worlds in 3 consecutive districts.
+    // Never call any free-win hook for these; game starts normally in a fresh
+    // campaign level. The QA-only focus query is request-injected, not shipped.
+    for(const [level,shouldFocus,name] of [[11,true,'coast'],[21,true,'downtown'],[31,false,'legacy-city']]){
+      await winPage.evaluate(n=>window.__tpQA.game.startLevel(n,false,'campaign'),level);
+      await winPage.waitForFunction(n=>window.__tpQA.game.level===n&&window.__tpQA.game.state==='playing',
+        {timeout:5000},level);
+      const actualFocus=await winPage.evaluate(()=>window.__tpQA.focus());
+      assert.equal(actualFocus,shouldFocus,'M228 original Atlas isolation on level '+level);
+      await new Promise(resolve=>setTimeout(resolve,180));
+      await winPage.screenshot({path:resolve(root,'artifacts/browser-smoke','m228-level-'+level+'-'+name+'.png')});
+      console.log('PASS M228 district visual identity',level,name,'atlas:',actualFocus);
+    }
     assert.deepEqual(winErrors,[],'real win page must have zero errors');
   }finally{await winPage.close();}
 }finally{

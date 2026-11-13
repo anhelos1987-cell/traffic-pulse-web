@@ -7,12 +7,12 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="format-detection" content="telephone=no">
-  <meta name="theme-color" content="#0b1324">
+  <meta name="theme-color" content="#10272d">
   <meta name="color-scheme" content="dark">
   <meta name="referrer" content="no-referrer">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self' data: blob:; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self' data: blob:; font-src 'self' data:; connect-src https://functions.yandexcloud.net/d4eo58crqj6cu6fk4hmg; object-src 'none'; base-uri 'none'; form-action 'none'">
   <title>Traffic Pulse</title>
-  <link rel="stylesheet" href="style.css?v=M223-VKGAMES-TRAINING">
+  <link rel="stylesheet" href="style.css?v=M228-DISPATCH-CONSOLE">
   <!-- VK Games / VK Mini Apps: VK Bridge storage and native ads. -->
 </head>
 <body>
@@ -42,6 +42,11 @@
           <strong id="event-badge" class="event-badge ui-hidden"></strong><strong id="weather-badge" class="weather-badge ui-hidden"></strong><strong id="mission-badge" class="mission-badge ui-hidden"></strong><strong id="priority-badge" class="priority-badge ui-hidden" aria-live="polite" aria-atomic="true"></strong><button id="record-badge" class="record-badge ui-hidden" type="button" aria-label="Personal best comparison"></button><strong id="flow-badge" class="flow-badge">FLOW</strong>
         </div>
         <div class="progress" role="progressbar" aria-label="Level progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span id="progress-bar"></span></div>
+        <div id="pulse-contract" class="pulse-contract ui-hidden" role="status" aria-live="polite" aria-atomic="true">
+          <span class="pulse-contract-icon" aria-hidden="true">▰</span>
+          <span id="pulse-contract-label">Чистая волна</span>
+          <strong id="pulse-contract-count">0/3</strong>
+        </div>
       </div>
     </section>
 
@@ -56,9 +61,17 @@
       <div id="tap-hint" class="tap-hint" role="status" aria-live="polite" aria-atomic="true" aria-hidden="true">
         <span>☝</span><b id="tap-hint-text">Нажми на светофор</b>
       </div>
+      <div id="dispatch-receipt" class="dispatch-receipt ui-hidden" role="status" aria-live="polite" aria-atomic="true">
+        <b id="dispatch-receipt-title">ПОТОК ОТКРЫТ ↕</b>
+        <strong id="dispatch-receipt-detail">ОЧЕРЕДЬ ×2</strong>
+      </div>
+      <div id="dispatch-forecast" class="dispatch-forecast ui-hidden" aria-label="Следующий поток">
+        <i aria-hidden="true"></i><b id="dispatch-forecast-text">СЛЕДОМ ↕ ×2</b>
+      </div>
       <div id="phase-indicator" class="phase-indicator" aria-live="polite">
         <i></i><b id="phase-label">Горизонталь</b>
       </div>
+      <div class="dispatch-console-stamp" aria-hidden="true"><span>TP</span><b> / ATLAS</b><i></i></div>
     </section>
 
     <section id="controls-panel" class="controls" aria-label="Game controls">
@@ -114,6 +127,8 @@
   <script src="vk-games.js?v=M209-VKGAMES-CLOUD-RC"></script>
   <script src="payments-config.js?v=M200"></script>
   <script src="vk-purchases.js?v=M200"></script>
-  <script src="app.js?v=M223-VKGAMES-INTERACTIVE-TRAINING"></script>
+  <script src="pulse-contract-core.js?v=M224"></script>
+  <script src="dispatch-receipt-core.js?v=M226"></script>
+  <script src="app.js?v=M228-VKGAMES-FIRST-TEN-AUDIT-ATLAS-CONTINUITY"></script>
 </body>
 </html>
