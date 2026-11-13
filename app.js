@@ -13,7 +13,7 @@
   }catch(_){}
 
   const BUILD_MODE = 'production';
-  const BUILD_VERSION = 'M227-VKGAMES-MOBILE-DISPATCH-CONSOLE';
+  const BUILD_VERSION = 'M228-VKGAMES-FIRST-TEN-AUDIT-ATLAS-CONTINUITY';
   const IS_DEVELOPMENT = BUILD_MODE === 'development';
   const PLATFORM_TARGET = 'vkgames'; // VK Games / VK Mini Apps, not VK Play
   const YANDEX_PUBLIC_LEADERBOARD_NAME = 'TrafficPulseStars';
@@ -3347,10 +3347,16 @@
   // A full generated city is visually busy at onboarding; this static miniature map
   // emphasizes vehicles, signals and the road geometry that actually matters.
   function dispatchFocusWorld(game){
-    return Boolean(game&&(game.mode==='training'||(game.mode==='campaign'&&game.level<=10)));
+    return Boolean(game&&(game.mode==='training'||(game.mode==='campaign'&&game.level<=30)));
   }
-  function drawDispatchAtlasQuarter(g,x,y,index){
-    const bg=['#c6d7b3','#c1d0a6','#d6ceb5','#b7c9b1'][index],roof=['#577879','#73877e','#69818b','#8b8272'][index];
+  const DISPATCH_ATLAS_PALETTES=Object.freeze({
+    park:{ground:'#a2bca4',blocks:['#c6d7b3','#c1d0a6','#d6ceb5','#b7c9b1'],roofs:['#577879','#73877e','#69818b','#8b8272'],accent:'#587d63'},
+    coast:{ground:'#b8ccbf',blocks:['#e2d7b2','#b8d9cf','#d8d0ae','#bfd9ca'],roofs:['#567f83','#688f88','#637d82','#7a8e86'],accent:'#428fa0'},
+    downtown:{ground:'#b2bcbc',blocks:['#d2d0bd','#c0cbd1','#c8d0c8','#c8c9bc'],roofs:['#586e78','#667d85','#607b7e','#71848c'],accent:'#647e91'}
+  });
+  function drawDispatchAtlasQuarter(g,x,y,index,themeId='park'){
+    const palette=DISPATCH_ATLAS_PALETTES[themeId]||DISPATCH_ATLAS_PALETTES.park;
+    const bg=palette.blocks[index],roof=palette.roofs[index];
     g.save();g.translate(x,y);
     g.fillStyle='#7c9c86';roundRect(g,-5,-5,287,287,12,true);
     g.fillStyle=bg;roundRect(g,0,0,277,277,10,true);
@@ -3385,13 +3391,27 @@
       g.strokeStyle='#e2d7ae';g.lineWidth=5;g.beginPath();g.arc(199,66,27,0,Math.PI*2);g.stroke();
       g.fillStyle='#47767b';g.beginPath();g.arc(199,66,13,0,Math.PI*2);g.fill();
     }
+    // Theme-specific signs unify new districts without procedural art clutter.
+    if(themeId==='coast'){
+      g.strokeStyle=palette.accent;g.lineWidth=4;
+      for(let k=0;k<3;k++){
+        g.beginPath();g.moveTo(24,167+k*12);
+        g.quadraticCurveTo(70,156+k*12,116,167+k*12);
+        g.quadraticCurveTo(151,176+k*12,189,167+k*12);g.stroke();
+      }
+      g.fillStyle='#e9e2ba';g.fillRect(145,158,27,6);
+    }else if(themeId==='downtown'){
+      g.fillStyle=palette.accent;
+      for(let i=0;i<5;i++){const h=17+(i%3)*12;g.fillRect(18+i*19,168-h,14,h);}
+      g.strokeStyle='#eee2bf';g.lineWidth=3;g.beginPath();g.moveTo(12,174);g.lineTo(121,174);g.stroke();
+    }
     g.fillStyle='#24464b';roundRect(g,15,231,84,30,4,true);
     g.fillStyle='#e7e5c9';g.font='900 16px system-ui';g.textAlign='center';g.textBaseline='middle';g.fillText(String(index+1).padStart(2,'0'),57,246);
     g.restore();
   }
-  function drawDispatchAtlasBase(g){
-    g.fillStyle='#a2bca4';g.fillRect(0,0,900,900);
-    for(const [i,x,y] of [[0,22,22],[1,601,22],[2,22,601],[3,601,601]])drawDispatchAtlasQuarter(g,x,y,i);
+  function drawDispatchAtlasBase(g,themeId='park'){
+    g.fillStyle=(DISPATCH_ATLAS_PALETTES[themeId]||DISPATCH_ATLAS_PALETTES.park).ground;g.fillRect(0,0,900,900);
+    for(const [i,x,y] of [[0,22,22],[1,601,22],[2,22,601],[3,601,601]])drawDispatchAtlasQuarter(g,x,y,i,themeId);
     g.save();g.strokeStyle='rgba(31,74,71,.17)';g.lineWidth=3;
     g.setLineDash([7,10]);g.strokeRect(9,9,882,882);g.setLineDash([]);
     g.restore();
@@ -3401,7 +3421,7 @@
     const cacheKey=`${theme.id}:${lanes}:${junctionType}:${dispatchFocus?'focus':'city'}`;let cached=worldCache.get(cacheKey);
     if(cached){worldCache.delete(cacheKey);worldCache.set(cacheKey,cached);return cached;}
     cached=document.createElement('canvas');cached.width=900;cached.height=900;const g=cached.getContext('2d',{alpha:false});
-    if(dispatchFocus){drawDispatchAtlasBase(g);}else{
+    if(dispatchFocus){drawDispatchAtlasBase(g,theme.id);}else{
       const grad=g.createLinearGradient(0,0,900,900);grad.addColorStop(0,themeColor(theme.id,0));grad.addColorStop(1,themeColor(theme.id,1));g.fillStyle=grad;g.fillRect(0,0,900,900);
       g.globalAlpha=.08;g.fillStyle='#ffffff';
       for(let i=0;i<18;i++){g.beginPath();g.arc(40+(i*53)%900,40+((i*79)%900),26+(i%4)*10,0,Math.PI*2);g.fill();}
