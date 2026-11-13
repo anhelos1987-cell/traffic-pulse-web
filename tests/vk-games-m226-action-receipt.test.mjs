@@ -64,10 +64,10 @@ test('M226: tutorial hand-off forces button enable-state refresh even if signal 
 
 test('M226: shipping UI and entrypoint include receipt core before app',()=>{
   const core=html.indexOf('dispatch-receipt-core.js?v=M226');
-  const game=html.indexOf('app.js?v=M226-VKGAMES-ACTION-RECEIPT');
+  const game=html.indexOf('app.js?v=M227-VKGAMES-MOBILE-DISPATCH-CONSOLE');
   assert.ok(core>=0&&game>core);
   for(const id of ['dispatch-receipt','dispatch-receipt-title','dispatch-receipt-detail']){
     assert.ok(html.includes('id="'+id+'"'),id);
   }
-  assert.match(app,/const BUILD_VERSION = 'M226-VKGAMES-ACTION-RECEIPT';/);
+  assert.match(app,/const BUILD_VERSION = 'M227-VKGAMES-MOBILE-DISPATCH-CONSOLE';/);
 });
