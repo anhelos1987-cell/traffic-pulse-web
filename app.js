@@ -13,7 +13,7 @@
   }catch(_){}
 
   const BUILD_MODE = 'production';
-  const BUILD_VERSION = 'M226-VKGAMES-ACTION-RECEIPT';
+  const BUILD_VERSION = 'M227-VKGAMES-MOBILE-DISPATCH-CONSOLE';
   const IS_DEVELOPMENT = BUILD_MODE === 'development';
   const PLATFORM_TARGET = 'vkgames'; // VK Games / VK Mini Apps, not VK Play
   const YANDEX_PUBLIC_LEADERBOARD_NAME = 'TrafficPulseStars';
@@ -3365,9 +3365,26 @@
       g.fillStyle='rgba(27,55,59,.30)';
       for(let j=0;j<Math.min(3,Math.floor((bw-12)/24));j++)g.fillRect(bx+12+j*24,by+27,12,9);
     }
-    g.fillStyle='#587d63';g.beginPath();g.arc(193,68,37,0,Math.PI*2);g.fill();
-    g.fillStyle='#7ba17e';g.beginPath();g.arc(181,60,20,0,Math.PI*2);g.fill();
-    g.strokeStyle='#e7d39b';g.lineWidth=7;g.beginPath();g.moveTo(162,93);g.lineTo(227,43);g.stroke();
+    // Four small atlas landmarks are authored in vector Canvas, not
+    // generated texture sheets. They create recognizable districts while
+    // keeping the traffic approaches free of gameplay-irrelevant clutter.
+    if(index===0){ // PARK: canopy + footpath
+      g.fillStyle='#4c785e';for(const [tx,ty,r] of [[177,52,22],[213,52,19],[195,86,18]]){g.beginPath();g.arc(tx,ty,r,0,Math.PI*2);g.fill();}
+      g.strokeStyle='#e8d5a4';g.lineWidth=7;g.beginPath();g.moveTo(162,109);g.lineTo(227,30);g.stroke();
+    }else if(index===1){ // TRANSIT: platform with parallel guide rails
+      g.fillStyle='#536e76';roundRect(g,160,35,84,64,6,true);
+      g.fillStyle='#e5d5aa';roundRect(g,172,47,60,13,3,true);
+      g.strokeStyle='#b6c8ba';g.lineWidth=5;
+      for(const dx of [178,191,204,217]){g.beginPath();g.moveTo(dx,70);g.lineTo(dx,94);g.stroke();}
+    }else if(index===2){ // WORKS: low industrial shed
+      g.fillStyle='#55747a';roundRect(g,154,36,91,67,5,true);
+      g.fillStyle='#d6c89c';for(let i=0;i<4;i++)g.fillRect(166+i*18,52,11,13);
+      g.fillStyle='#374f56';g.fillRect(228,23,8,23);
+    }else{ // PLAZA: symmetric circular civic landmark
+      g.fillStyle='#718c78';g.beginPath();g.arc(199,66,42,0,Math.PI*2);g.fill();
+      g.strokeStyle='#e2d7ae';g.lineWidth=5;g.beginPath();g.arc(199,66,27,0,Math.PI*2);g.stroke();
+      g.fillStyle='#47767b';g.beginPath();g.arc(199,66,13,0,Math.PI*2);g.fill();
+    }
     g.fillStyle='#24464b';roundRect(g,15,231,84,30,4,true);
     g.fillStyle='#e7e5c9';g.font='900 16px system-ui';g.textAlign='center';g.textBaseline='middle';g.fillText(String(index+1).padStart(2,'0'),57,246);
     g.restore();
@@ -5430,7 +5447,7 @@
     const shortGoal=compactLandscape&&Game.mode==='campaign'?compactDispatchGoal(Game.level,lang):'';
     setHudText('goal','goal-text',shortGoal||fullGoal);
     if(HUD_CACHE.fullGoal!==fullGoal){HUD_CACHE.fullGoal=fullGoal;const el=$('goal-text');el.title=fullGoal;el.setAttribute('aria-label',fullGoal);}
-    document.documentElement.dataset.weather=weatherForLevel(Game.level);document.documentElement.classList.toggle('first-session-focus',Boolean(Game.mode==='training'||Game.mode==='campaign'&&Game.level<=3&&save.level<=3));updateFirstSessionCoach();
+    document.documentElement.dataset.weather=weatherForLevel(Game.level);document.documentElement.classList.toggle('dispatch-portrait-deck',Game.mode==='campaign'&&Game.level>=1&&Game.level<=10);document.documentElement.classList.toggle('first-session-focus',Boolean(Game.mode==='training'||Game.mode==='campaign'&&Game.level<=3&&save.level<=3));updateFirstSessionCoach();
     $('daily-btn').classList.toggle('ui-hidden',save.level<4);$('daily-btn').classList.toggle('ready',save.level>=4&&(!save.dailyRewards[todayDailyKey()]||save.level>=21));
     const carGoal=nextCarGoal(),starsToBonus=15-(save.totalStars%15||0); 
     setHudText('insightCar','insight-car',carGoal?`${T.insightCar}: ${carGoal.name} · ${T.level} ${carGoal.level}`:T.allCars);
